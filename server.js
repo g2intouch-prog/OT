@@ -649,7 +649,7 @@ app.post('/api/entries/clear-all', checkAuth, async (req, res) => {
   }
 });
 
-// Vercel Blob backup/export endpoint
+// Vercel Blob backup/export endpoint (forces rebuild to load env vars)
 app.post('/api/backup/export', checkAuth, async (req, res) => {
   if (!process.env.BLOB_READ_WRITE_TOKEN) {
     return res.status(400).json({
