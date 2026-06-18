@@ -41,9 +41,9 @@ function generateHOTP(secretBuffer, counter) {
 
   const offset = digest[digest.length - 1] & 0xf;
   const binary = ((digest[offset] & 0x7f) << 24) |
-                 ((digest[offset + 1] & 0xff) << 16) |
-                 ((digest[offset + 2] & 0xff) << 8) |
-                 (digest[offset + 3] & 0xff);
+    ((digest[offset + 1] & 0xff) << 16) |
+    ((digest[offset + 2] & 0xff) << 8) |
+    (digest[offset + 3] & 0xff);
 
   const otp = binary % 1000000;
   return otp.toString().padStart(6, '0');
@@ -164,14 +164,14 @@ async function recalculateSerials() {
     if (!timeStr) return 9999;
     const match = timeStr.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM|am|pm)$/i);
     if (!match) return 9999;
-    
+
     let hours = parseInt(match[1]);
     const minutes = parseInt(match[2]);
     const ampm = match[3].toUpperCase();
-    
+
     if (ampm === 'PM' && hours < 12) hours += 12;
     if (ampm === 'AM' && hours === 12) hours = 0;
-    
+
     return hours * 60 + minutes;
   }
 
@@ -179,7 +179,7 @@ async function recalculateSerials() {
   parsedRecords.sort((a, b) => {
     const dateCompare = a.date.localeCompare(b.date);
     if (dateCompare !== 0) return dateCompare;
-    
+
     const timeA = parseTimeToMinutes(a.timeob);
     const timeB = parseTimeToMinutes(b.timeob);
     return timeA - timeB;
@@ -250,9 +250,9 @@ app.get('/api/settings/totp/setup', checkAuth, async (req, res) => {
     const secret = generateSecret();
     await db.query("INSERT INTO config (key, value) VALUES ('totp_temp_secret', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", [secret]);
     const otpauthUrl = `otpauth://totp/Cloud%20Data%20Entry%20Hub:admin?secret=${secret}&issuer=Cloud%20Data%20Entry%20Hub`;
-    res.json({ 
-      secret, 
-      qrUrl: `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(otpauthUrl)}` 
+    res.json({
+      secret,
+      qrUrl: `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(otpauthUrl)}`
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -329,14 +329,14 @@ app.post('/api/login', async (req, res) => {
   try {
     const { rows: userRows } = await db.query("SELECT value FROM config WHERE key = 'admin_user'");
     const { rows: passRows } = await db.query("SELECT value FROM config WHERE key = 'admin_pass'");
-    
+
     const dbUser = userRows.length > 0 ? userRows[0].value : 'admin';
     const dbPass = passRows.length > 0 ? passRows[0].value : 'password';
 
     if (username === dbUser && password === dbPass) {
       const { rows: totpRows } = await db.query("SELECT value FROM config WHERE key = 'totp_enabled'");
       const isTotpEnabled = totpRows.length > 0 ? totpRows[0].value === '1' : false;
-      
+
       if (isTotpEnabled) {
         if (code) {
           const { rows: secretRows } = await db.query("SELECT value FROM config WHERE key = 'totp_secret'");
@@ -408,7 +408,7 @@ app.post('/api/login/verify-otp', async (req, res) => {
 // Update credentials route
 app.post('/api/settings/credentials', checkAuth, async (req, res) => {
   const { currentPassword, newUsername, newPassword, code } = req.body;
-  
+
   if (!currentPassword || !newUsername || !newPassword) {
     return res.status(400).json({ error: 'Current password, new User ID, and new Password are required.' });
   }
@@ -440,7 +440,7 @@ app.post('/api/settings/credentials', checkAuth, async (req, res) => {
     if (currentPassword !== dbPass) {
       return res.status(400).json({ error: 'Incorrect current password.' });
     }
-    
+
     await db.query("BEGIN");
     await db.query("INSERT INTO config (key, value) VALUES ('admin_user', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", [newUsername.trim()]);
     await db.query("INSERT INTO config (key, value) VALUES ('admin_pass', $2) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", [newPassword]);
@@ -526,7 +526,7 @@ app.post('/api/entries/push', checkAuth, async (req, res) => {
 app.post('/api/entries/verify/:id', checkAuth, async (req, res) => {
   const id = req.params.id;
   const { verified } = req.body;
-  
+
   try {
     const result = await db.query("UPDATE records SET verified = $1 WHERE id = $2", [verified ? 1 : 0, id]);
     if (result.rowCount === 0) {
@@ -542,7 +542,7 @@ app.post('/api/entries/verify/:id', checkAuth, async (req, res) => {
 // Delete a record
 app.post('/api/entries/delete/:id', checkAuth, async (req, res) => {
   const id = req.params.id;
-  
+
   try {
     const result = await db.query("DELETE FROM records WHERE id = $1", [id]);
     if (result.rowCount === 0) {
@@ -652,13 +652,13 @@ app.post('/api/entries/clear-all', checkAuth, async (req, res) => {
 // Vercel Blob backup/export endpoint
 app.post('/api/backup/export', checkAuth, async (req, res) => {
   if (!process.env.BLOB_READ_WRITE_TOKEN) {
-    return res.status(400).json({ 
-      error: 'Vercel Blob token is missing. Please configure the BLOB_READ_WRITE_TOKEN environment variable in your Vercel Dashboard (or in a local .env file when testing locally).' 
+    return res.status(400).json({
+      error: 'Vercel Blob token is missing. Please configure the BLOB_READ_WRITE_TOKEN environment variable in your Vercel Dashboard (or in a local .env file when testing locally).'
     });
   }
   try {
     const { rows } = await db.query("SELECT * FROM records ORDER BY date DESC, id DESC");
-    
+
     // Parse records into simple JSON array or CSV
     const csvHeader = 'ID,Created At,Verified,Date,Data\n';
     const csvRows = rows.map(r => {
@@ -669,7 +669,7 @@ app.post('/api/backup/export', checkAuth, async (req, res) => {
     const csvContent = csvHeader + csvRows;
 
     const filename = `backup_${new Date().toISOString().split('T')[0]}_${Date.now()}.csv`;
-    
+
     const blob = await put(filename, csvContent, {
       access: 'public',
       contentType: 'text/csv',
