@@ -5702,12 +5702,12 @@ async function loadDashboardWidget(type) {
     container.innerHTML = `
       <div style="width: 100%; height: 100%; display: flex; flex-direction: column; gap: 8px;">
         <div style="display: flex; justify-content: space-between; align-items: center;">
-          <h4 style="margin: 0; color: #ff7b00; font-size: 0.95rem;">Live Market Overview</h4>
+          <h4 style="margin: 0; color: #ff7b00; font-size: 0.95rem;">NSE Nifty 50 Overview</h4>
           <span style="font-size: 0.75rem; color: var(--text-muted);">Real-time Index</span>
         </div>
         <div style="flex: 1; border-radius: 6px; overflow: hidden; border: 1px solid var(--panel-border); background: #161b22;">
           <iframe 
-            src="https://s.tradingview.com/widgetembed/?frameElementId=tradingview_1&symbol=SPX&interval=D&theme=dark&style=1&timezone=Etc%2FUTC&locale=en" 
+            src="https://s.tradingview.com/widgetembed/?frameElementId=tradingview_1&symbol=NSE%3ANIFTY&interval=D&theme=dark&style=1&timezone=Asia%2FKolkata&locale=en" 
             style="width:100%; height:100%; border:none; background:#0d1117;"
             scrolling="no" 
             allowtransparency="true">
@@ -5718,27 +5718,28 @@ async function loadDashboardWidget(type) {
   }
   else if (type === 'news') {
     try {
-      // Spaceflight News API (Public, keyless, copyright-safe)
-      const res = await fetch('https://api.spaceflightnewsapi.net/v4/articles/?limit=6');
+      // Indian News API (saurav.tech - keyless & public)
+      const res = await fetch('https://saurav.tech/NewsAPI/top-headlines/category/general/in.json');
       if (!res.ok) throw new Error("API error");
       const data = await res.json();
       
       let html = `
         <div style="display: flex; flex-direction: column; gap: 12px; padding-bottom: 20px;">
-          <h4 style="margin: 0 0 4px 0; color: #ff7b00; font-size: 0.95rem; border-bottom: 1px solid var(--panel-border); padding-bottom: 8px;">Space & Tech News Feed 📰</h4>
+          <h4 style="margin: 0 0 4px 0; color: #ff7b00; font-size: 0.95rem; border-bottom: 1px solid var(--panel-border); padding-bottom: 8px;">India National News 📰</h4>
       `;
       
-      data.results.forEach(item => {
-        const dateStr = new Date(item.published_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+      const articles = (data.articles || []).slice(0, 6);
+      articles.forEach(item => {
+        const dateStr = item.publishedAt ? new Date(item.publishedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'Today';
         html += `
           <div style="background: #161b22; border: 1px solid var(--panel-border); border-radius: 6px; padding: 10px; display: flex; gap: 10px; align-items: flex-start; transition: border-color 0.2s; cursor: pointer;" 
                onclick="window.open('${item.url}', '_blank')"
                onmouseover="this.style.borderColor='var(--accent-color)'"
                onmouseout="this.style.borderColor='var(--panel-border)'">
-            ${item.image_url ? '<img src="' + item.image_url + '" style="width: 50px; height: 50px; border-radius: 4px; object-fit: cover; flex-shrink: 0;" />' : ''}
+            ${item.urlToImage ? '<img src="' + item.urlToImage + '" style="width: 50px; height: 50px; border-radius: 4px; object-fit: cover; flex-shrink: 0;" />' : ''}
             <div style="flex: 1; min-width: 0;">
               <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted); margin-bottom: 2px;">
-                <span>${item.news_site || 'News'}</span>
+                <span>${(item.source && item.source.name) || 'News'}</span>
                 <span>${dateStr}</span>
               </div>
               <h5 style="margin: 0; font-size: 0.8rem; line-height: 1.3; color: #f0f6fc; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;">${item.title}</h5>
@@ -5759,7 +5760,7 @@ async function loadDashboardWidget(type) {
     }
   }
   else if (type === 'weather') {
-    renderWeatherWidget("New York");
+    renderWeatherWidget("Bhubaneswar");
   }
 }
 
