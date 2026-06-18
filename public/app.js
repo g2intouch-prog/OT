@@ -4098,7 +4098,9 @@ let gameScore = 0;
 let gameHighScores = {
   'bubble-popper': 0,
   'memory-match': 0,
-  'snake': 0
+  'snake': 0,
+  'gomoku': 0,
+  'hilo': 0
 };
 let isGameRunning = false;
 let animationFrameId = null;
@@ -4152,6 +4154,16 @@ const gameMetadata = {
     title: 'Retro Snake 🐍',
     desc: 'Classic keyboard arcade game. Collect apples and avoid walls or self-intersection.',
     controls: 'Controls: Use Arrow Keys or W/A/S/D to move the snake.'
+  },
+  'gomoku': {
+    title: 'Zen Gomoku ⚪⚫',
+    desc: 'Calming strategy. Place black stones on a beautiful wooden board. Align 5 stones in a row to win against a relaxing AI.',
+    controls: 'Controls: Click board intersections to place stones.'
+  },
+  'hilo': {
+    title: 'Zen Card Hi-Lo 🎴',
+    desc: 'Relaxing card guess. Guess if the next card will be Higher or Lower than the current card. Get streaks!',
+    controls: 'Controls: Click Higher or Lower buttons.'
   }
 };
 
@@ -4325,6 +4337,10 @@ function startBreakGame() {
     startWhackMole();
   } else if (activeGame === 'snake') {
     startSnakeArcade();
+  } else if (activeGame === 'gomoku') {
+    startGomoku();
+  } else if (activeGame === 'hilo') {
+    startHiLo();
   }
 }
 
@@ -4676,17 +4692,133 @@ function startSnakeArcade() {
       snakeState.cells.pop();
     }
     
-    ctx.fillStyle = '#da3637';
-    ctx.fillRect(snakeState.apple.x, snakeState.apple.y, grid-1, grid-1);
+    // Apple center x, y
+    const ax = snakeState.apple.x + grid / 2;
+    const ay = snakeState.apple.y + grid / 2;
+    const applePulse = Math.sin(Date.now() * 0.01) * 1.5;
     
-    ctx.fillStyle = '#2ea44f';
+    // Draw glowing shadow for apple
+    ctx.shadowColor = '#da3637';
+    ctx.shadowBlur = 8;
+    
+    // Draw Apple Body
+    ctx.beginPath();
+    ctx.arc(ax, ay, (grid / 2 - 1.5) + applePulse, 0, Math.PI * 2);
+    ctx.fillStyle = '#ff3838';
+    ctx.fill();
+    
+    ctx.shadowBlur = 0; // reset shadow
+    
+    // Draw Leaf
+    ctx.beginPath();
+    ctx.ellipse(ax + 2, ay - 6, 2, 4, Math.PI / 4, 0, Math.PI * 2);
+    ctx.fillStyle = '#3fb950';
+    ctx.fill();
+    
+    // Draw Stem
+    ctx.beginPath();
+    ctx.moveTo(ax, ay - 4);
+    ctx.quadraticCurveTo(ax + 2, ay - 7, ax + 3, ay - 9);
+    ctx.strokeStyle = '#8b5a2b';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    
     snakeState.cells.forEach(function(cell, index) {
+      const cx = cell.x + grid / 2;
+      const cy = cell.y + grid / 2;
+      const r = grid / 2;
+      
       if (index === 0) {
-        ctx.fillStyle = '#3fb950';
+        // Draw Head with Eyes and Tongue
+        ctx.beginPath();
+        ctx.arc(cx, cy, r + 1, 0, Math.PI * 2);
+        ctx.fillStyle = '#56d364'; // Head color
+        ctx.fill();
+        
+        // Draw eyes
+        ctx.fillStyle = '#ffffff';
+        let eye1X, eye1Y, eye2X, eye2Y, pupilX, pupilY;
+        
+        // eye offsets based on movement direction
+        if (snakeState.dx > 0) { // Right
+          eye1X = cx + 2; eye1Y = cy - 3;
+          eye2X = cx + 2; eye2Y = cy + 3;
+          pupilX = 1; pupilY = 0;
+        } else if (snakeState.dx < 0) { // Left
+          eye1X = cx - 2; eye1Y = cy - 3;
+          eye2X = cx - 2; eye2Y = cy + 3;
+          pupilX = -1; pupilY = 0;
+        } else if (snakeState.dy > 0) { // Down
+          eye1X = cx - 3; eye1Y = cy + 2;
+          eye2X = cx + 3; eye2Y = cy + 2;
+          pupilX = 0; pupilY = 1;
+        } else { // Up
+          eye1X = cx - 3; eye1Y = cy - 2;
+          eye2X = cx + 3; eye2Y = cy - 2;
+          pupilX = 0; pupilY = -1;
+        }
+        
+        // Draw eye whites
+        ctx.beginPath();
+        ctx.arc(eye1X, eye1Y, 3, 0, Math.PI * 2);
+        ctx.arc(eye2X, eye2Y, 3, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Draw pupils
+        ctx.fillStyle = '#000000';
+        ctx.beginPath();
+        ctx.arc(eye1X + pupilX, eye1Y + pupilY, 1.3, 0, Math.PI * 2);
+        ctx.arc(eye2X + pupilX, eye2Y + pupilY, 1.3, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Little darting tongue (micro-animation)
+        if (Math.floor(Date.now() / 200) % 4 === 0) {
+          ctx.strokeStyle = '#ff7b72';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          if (snakeState.dx > 0) {
+            ctx.moveTo(cx + r, cy);
+            ctx.lineTo(cx + r + 5, cy);
+            ctx.lineTo(cx + r + 7, cy - 2);
+            ctx.moveTo(cx + r + 5, cy);
+            ctx.lineTo(cx + r + 7, cy + 2);
+          } else if (snakeState.dx < 0) {
+            ctx.moveTo(cx - r, cy);
+            ctx.lineTo(cx - r - 5, cy);
+            ctx.lineTo(cx - r - 7, cy - 2);
+            ctx.moveTo(cx - r - 5, cy);
+            ctx.lineTo(cx - r - 7, cy + 2);
+          } else if (snakeState.dy > 0) {
+            ctx.moveTo(cx, cy + r);
+            ctx.lineTo(cx, cy + r + 5);
+            ctx.lineTo(cx - 2, cy + r + 7);
+            ctx.moveTo(cx, cy + r + 5);
+            ctx.lineTo(cx + 2, cy + r + 7);
+          } else {
+            ctx.moveTo(cx, cy - r);
+            ctx.lineTo(cx, cy - r - 5);
+            ctx.lineTo(cx - 2, cy - r - 7);
+            ctx.moveTo(cx, cy - r - 5);
+            ctx.lineTo(cx + 2, cy - r - 7);
+          }
+          ctx.stroke();
+        }
       } else {
-        ctx.fillStyle = '#2ea44f';
-      }
-      ctx.fillRect(cell.x, cell.y, grid-1, grid-1);  
+        // Draw Body Segments with smooth colors
+        ctx.beginPath();
+        const progress = index / snakeState.cells.length;
+        const segmentRadius = r * (1 - progress * 0.3);
+        ctx.arc(cx, cy, segmentRadius, 0, Math.PI * 2);
+        
+        ctx.fillStyle = index % 2 === 0 ? '#2ea44f' : '#238636';
+        ctx.fill();
+        
+        // Highlight
+        ctx.beginPath();
+        ctx.arc(cx - segmentRadius*0.2, cy - segmentRadius*0.2, segmentRadius*0.3, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+        ctx.fill();
+      }  
       
       if (cell.x === snakeState.apple.x && cell.y === snakeState.apple.y) {
         snakeState.maxCells++;
@@ -5005,6 +5137,429 @@ function startWhackMole() {
       ctx.fill();
     }
     ctx.globalAlpha = 1.0;
+  }
+  
+  loop();
+}
+
+// -------------------------------------------------------------
+// GAME 6: ZEN GOMOKU (Calming 9x9 Board Game, Black/White Stones)
+// -------------------------------------------------------------
+
+function startGomoku() {
+  const canvas = document.getElementById('game-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  
+  const gridSize = 9;
+  const boardMargin = 40;
+  const cellSize = (canvas.width - boardMargin * 2) / (gridSize - 1); // (320-80)/8 = 30px
+  
+  // Board state: 0 = empty, 1 = Black (Player), 2 = White (AI)
+  let board = Array(gridSize).fill(null).map(() => Array(gridSize).fill(0));
+  let gameOver = false;
+  let statusMessage = "Your Turn (Black)";
+  
+  function drawBoard() {
+    // Draw wood-style background
+    ctx.fillStyle = '#dfb07a';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Draw subtle border
+    ctx.strokeStyle = '#85592e';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(4, 4, canvas.width - 8, canvas.height - 8);
+    
+    // Draw grid lines
+    ctx.strokeStyle = '#5c3e21';
+    ctx.lineWidth = 1.5;
+    for (let i = 0; i < gridSize; i++) {
+      // Horizontal
+      ctx.beginPath();
+      ctx.moveTo(boardMargin, boardMargin + i * cellSize);
+      ctx.lineTo(canvas.width - boardMargin, boardMargin + i * cellSize);
+      ctx.stroke();
+      
+      // Vertical
+      ctx.beginPath();
+      ctx.moveTo(boardMargin + i * cellSize, boardMargin);
+      ctx.lineTo(boardMargin + i * cellSize, canvas.height - boardMargin);
+      ctx.stroke();
+    }
+    
+    // Draw star points (standard Go spots)
+    const starSpots = [2, 4, 6];
+    ctx.fillStyle = '#5c3e21';
+    starSpots.forEach(r => {
+      starSpots.forEach(c => {
+        if ((r === 4 && c === 4) || (r !== 4 && c !== 4)) {
+          ctx.beginPath();
+          ctx.arc(boardMargin + r * cellSize, boardMargin + c * cellSize, 3, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      });
+    });
+    
+    // Draw stones
+    for (let r = 0; r < gridSize; r++) {
+      for (let c = 0; c < gridSize; c++) {
+        const val = board[r][c];
+        if (val !== 0) {
+          const sx = boardMargin + c * cellSize;
+          const sy = boardMargin + r * cellSize;
+          
+          ctx.beginPath();
+          ctx.arc(sx, sy, cellSize * 0.42, 0, Math.PI * 2);
+          
+          if (val === 1) {
+            // Black stone gradient
+            const grad = ctx.createRadialGradient(sx - 3, sy - 3, 1, sx, sy, cellSize * 0.42);
+            grad.addColorStop(0, '#555555');
+            grad.addColorStop(0.2, '#222222');
+            grad.addColorStop(1, '#050505');
+            ctx.fillStyle = grad;
+          } else {
+            // White stone gradient
+            const grad = ctx.createRadialGradient(sx - 3, sy - 3, 1, sx, sy, cellSize * 0.42);
+            grad.addColorStop(0, '#ffffff');
+            grad.addColorStop(0.3, '#f0f0f0');
+            grad.addColorStop(1, '#d0d0d0');
+            ctx.fillStyle = grad;
+            ctx.strokeStyle = '#bbbbbb';
+            ctx.lineWidth = 0.5;
+            ctx.stroke();
+          }
+          ctx.fill();
+        }
+      }
+    }
+    
+    // Status text
+    ctx.fillStyle = '#2c1e10';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(statusMessage, canvas.width / 2, canvas.height - 15);
+  }
+  
+  function checkWin(r, c, p) {
+    const directions = [
+      [0, 1],   // Horizontal
+      [1, 0],   // Vertical
+      [1, 1],   // Diagonal Down-Right
+      [1, -1]   // Diagonal Down-Left
+    ];
+    
+    for (let [dr, dc] of directions) {
+      let count = 1;
+      
+      // Check positive direction
+      let nr = r + dr, nc = c + dc;
+      while (nr >= 0 && nr < gridSize && nc >= 0 && nc < gridSize && board[nr][nc] === p) {
+        count++;
+        nr += dr;
+        nc += dc;
+      }
+      
+      // Check negative direction
+      nr = r - dr; nc = c - dc;
+      while (nr >= 0 && nr < gridSize && nc >= 0 && nc < gridSize && board[nr][nc] === p) {
+        count++;
+        nr -= dr;
+        nc -= dc;
+      }
+      
+      if (count >= 5) return true;
+    }
+    return false;
+  }
+  
+  function makeAIMove() {
+    if (gameOver || !isGameRunning) return;
+    
+    statusMessage = "AI thinking...";
+    drawBoard();
+    
+    setTimeout(() => {
+      if (gameOver || !isGameRunning) return;
+      
+      // Basic AI logic: Look for win, block player, or play near stones
+      let bestMove = null;
+      let highestScore = -1;
+      
+      for (let r = 0; r < gridSize; r++) {
+        for (let c = 0; c < gridSize; c++) {
+          if (board[r][c] === 0) {
+            let score = 0;
+            
+            // Check if AI wins here
+            board[r][c] = 2;
+            if (checkWin(r, c, 2)) score += 10000;
+            
+            // Check if player wins here (block)
+            board[r][c] = 1;
+            if (checkWin(r, c, 1)) score += 5000;
+            board[r][c] = 0;
+            
+            // Prefer moves next to existing stones
+            for (let dr = -1; dr <= 1; dr++) {
+              for (let dc = -1; dc <= 1; dc++) {
+                const nr = r + dr, nc = c + dc;
+                if (nr >= 0 && nr < gridSize && nc >= 0 && nc < gridSize && board[nr][nc] !== 0) {
+                  score += board[nr][nc] === 2 ? 10 : 5; // AI stones weighted slightly higher
+                }
+              }
+            }
+            
+            // Center is good at start
+            const centerDist = Math.abs(r - 4) + Math.abs(c - 4);
+            score += (10 - centerDist);
+            
+            if (score > highestScore) {
+              highestScore = score;
+              bestMove = { r, c };
+            }
+          }
+        }
+      }
+      
+      if (bestMove) {
+        const { r, c } = bestMove;
+        board[r][c] = 2;
+        
+        if (checkWin(r, c, 2)) {
+          gameOver = true;
+          statusMessage = "AI Wins! Try again.";
+          drawBoard();
+          setTimeout(() => {
+            const overlay = document.getElementById('game-overlay');
+            const title = document.getElementById('game-overlay-title');
+            if (overlay && title) {
+              title.textContent = "AI Wins!";
+              title.style.color = 'var(--danger)';
+              overlay.style.display = 'flex';
+            }
+          }, 600);
+        } else {
+          statusMessage = "Your Turn (Black)";
+          drawBoard();
+        }
+      }
+    }, 600);
+  }
+  
+  canvas.addEventListener('click', (e) => {
+    if (gameOver || !isGameRunning || activeGame !== 'gomoku' || statusMessage === "AI thinking...") return;
+    
+    const rect = canvas.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const clickY = e.clientY - rect.top;
+    
+    // Find closest intersection
+    let closestGrid = null;
+    let minDist = 20;
+    
+    for (let r = 0; r < gridSize; r++) {
+      for (let c = 0; c < gridSize; c++) {
+        const sx = boardMargin + c * cellSize;
+        const sy = boardMargin + r * cellSize;
+        const dist = Math.hypot(clickX - sx, clickY - sy);
+        if (dist < minDist) {
+          minDist = dist;
+          closestGrid = { r, c };
+        }
+      }
+    }
+    
+    if (closestGrid) {
+      const { r, c } = closestGrid;
+      if (board[r][c] === 0) {
+        board[r][c] = 1;
+        gameScore += 10;
+        updateGameScore();
+        
+        if (checkWin(r, c, 1)) {
+          gameOver = true;
+          statusMessage = "You Won!";
+          gameScore += 100;
+          updateGameScore();
+          drawBoard();
+          setTimeout(() => {
+            const overlay = document.getElementById('game-overlay');
+            const title = document.getElementById('game-overlay-title');
+            if (overlay && title) {
+              title.textContent = "You Win! 🎉";
+              title.style.color = 'var(--success)';
+              overlay.style.display = 'flex';
+            }
+          }, 600);
+        } else {
+          makeAIMove();
+        }
+      }
+    }
+  });
+  
+  drawBoard();
+}
+
+// -------------------------------------------------------------
+// GAME 7: ZEN CARD HI-LO (Calming guess card game with animations)
+// -------------------------------------------------------------
+
+function startHiLo() {
+  const canvas = document.getElementById('game-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  
+  const suits = ['♥', '♦', '♣', '♠'];
+  const values = [
+    { label: '2', val: 2 }, { label: '3', val: 3 }, { label: '4', val: 4 },
+    { label: '5', val: 5 }, { label: '6', val: 6 }, { label: '7', val: 7 },
+    { label: '8', val: 8 }, { label: '9', val: 9 }, { label: '10', val: 10 },
+    { label: 'J', val: 11 }, { label: 'Q', val: 12 }, { label: 'K', val: 13 },
+    { label: 'A', val: 14 }
+  ];
+  
+  let currentCard = getRandomCard();
+  let nextCard = getRandomCard();
+  let feedbackText = "";
+  let feedbackColor = "";
+  let feedbackTimer = 0;
+  let streak = 0;
+  
+  // Button definitions (drawn on canvas)
+  const hiBtn = { x: 40, y: 240, w: 100, h: 40, label: "Higher ▲" };
+  const loBtn = { x: 180, y: 240, w: 100, h: 40, label: "Lower ▼" };
+  
+  function getRandomCard() {
+    const suit = suits[Math.floor(Math.random() * suits.length)];
+    const valObj = values[Math.floor(Math.random() * values.length)];
+    return {
+      suit,
+      label: valObj.label,
+      val: valObj.val,
+      color: (suit === '♥' || suit === '♦') ? '#ff3b30' : '#ffffff'
+    };
+  }
+  
+  function drawCard(card, x, y, w, h) {
+    // Card background
+    ctx.fillStyle = '#21262d';
+    ctx.strokeStyle = '#30363d';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.roundRect(x, y, w, h, 8);
+    ctx.fill();
+    ctx.stroke();
+    
+    // Card face style
+    ctx.fillStyle = card.color;
+    ctx.font = 'bold 24px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    ctx.fillText(card.label, x + 10, y + 10);
+    ctx.fillText(card.suit, x + 10, y + 36);
+    
+    // Large Center Emoji
+    ctx.font = '64px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(card.suit, x + w/2, y + h/2 + 10);
+  }
+  
+  function drawButton(btn, isPressed) {
+    ctx.fillStyle = btn.label.includes('Higher') ? '#2ea44f' : '#238636';
+    ctx.beginPath();
+    ctx.roundRect(btn.x, btn.y, btn.w, btn.h, 6);
+    ctx.fill();
+    
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 14px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(btn.label, btn.x + btn.w/2, btn.y + btn.h/2);
+  }
+  
+  function draw() {
+    if (!isGameRunning || activeGame !== 'hilo') return;
+    
+    // Background
+    ctx.fillStyle = '#0d1117';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Draw current card
+    drawCard(currentCard, canvas.width/2 - 60, 40, 120, 170);
+    
+    // Draw action buttons
+    drawButton(hiBtn);
+    drawButton(loBtn);
+    
+    // Draw Streak text
+    ctx.fillStyle = '#ff7b00';
+    ctx.font = '14px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(`Streak: ${streak}`, canvas.width / 2, 25);
+    
+    // Draw Feedback
+    if (feedbackTimer > 0) {
+      feedbackTimer--;
+      ctx.fillStyle = feedbackColor;
+      ctx.font = 'bold 16px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(feedbackText, canvas.width / 2, 225);
+    }
+  }
+  
+  function makeGuess(guess) {
+    // Generate next card that is different
+    while (nextCard.val === currentCard.val) {
+      nextCard = getRandomCard();
+    }
+    
+    const correct = (guess === 'high' && nextCard.val > currentCard.val) ||
+                    (guess === 'low' && nextCard.val < currentCard.val);
+                    
+    currentCard = nextCard;
+    nextCard = getRandomCard();
+    
+    if (correct) {
+      streak++;
+      gameScore += 10 + streak * 2; // Streak bonus
+      updateGameScore();
+      feedbackText = `Correct! Next card: ${currentCard.label}${currentCard.suit}`;
+      feedbackColor = '#3fb950';
+    } else {
+      streak = 0;
+      feedbackText = `Wrong! Next card: ${currentCard.label}${currentCard.suit}`;
+      feedbackColor = '#f85149';
+    }
+    feedbackTimer = 50;
+  }
+  
+  canvas.addEventListener('click', (e) => {
+    if (!isGameRunning || activeGame !== 'hilo') return;
+    
+    const rect = canvas.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const clickY = e.clientY - rect.top;
+    
+    // Check Higher Button click
+    if (clickX >= hiBtn.x && clickX <= hiBtn.x + hiBtn.w &&
+        clickY >= hiBtn.y && clickY <= hiBtn.y + hiBtn.h) {
+      makeGuess('high');
+    }
+    
+    // Check Lower Button click
+    if (clickX >= loBtn.x && clickX <= loBtn.x + loBtn.w &&
+        clickY >= loBtn.y && clickY <= loBtn.y + loBtn.h) {
+      makeGuess('low');
+    }
+  });
+  
+  function loop() {
+    if (!isGameRunning || activeGame !== 'hilo') return;
+    animationFrameId = requestAnimationFrame(loop);
+    draw();
   }
   
   loop();
