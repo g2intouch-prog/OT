@@ -4289,7 +4289,6 @@ function startBreakGame() {
   // Lock game configuration while running
   const gameSelect = document.getElementById('game-select');
   const timerSelect = document.getElementById('game-timer-select');
-  if (gameSelect) gameSelect.disabled = true;
   if (timerSelect) timerSelect.disabled = true;
 
   // Retrieve selected timer value
