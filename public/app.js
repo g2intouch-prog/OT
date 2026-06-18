@@ -1719,64 +1719,6 @@ async function handleClearDatabase() {
     return;
   }
 
-  try {
-    const response = await fetch('/api/entries/clear-all', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${state.authToken}`
-      },
-      body: JSON.stringify({ code })
-    });
-
-    if (response.ok) {
-      alert('Database cleared successfully.');
-      fetchDatabaseRecords();
-    } else {
-      const err = await response.json();
-      alert('Error: ' + (err.error || 'Failed to clear database'));
-    }
-  } catch (err) {
-    alert('Connection failed');
-  }
-}
-
-async function handleCloudBackup() {
-  if (!state.isOnline || !state.isAuthenticated) return;
-
-  try {
-    DOM.cloudBackupBtn.disabled = true;
-    DOM.cloudBackupBtn.querySelector('span').textContent = 'Generating Backup...';
-    DOM.cloudBackupDownloadLink.classList.add('hidden');
-
-    const response = await fetch('/api/backup/export', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${state.authToken}`
-      }
-    });
-
-    if (response.ok) {
-      const data = await response.json();
-      if (data.success && data.url) {
-        DOM.cloudBackupDownloadLink.href = data.url;
-        DOM.cloudBackupDownloadLink.classList.remove('hidden');
-        alert('Cloud backup generated successfully!');
-      } else {
-        alert('Backup failed: ' + (data.error || 'Unknown response'));
-      }
-    } else {
-      const err = await response.json();
-      alert('Backup failed: ' + (err.error || 'Server error'));
-    }
-  } catch (err) {
-    alert('Connection failed while generating cloud backup.');
-  } finally {
-    DOM.cloudBackupBtn.disabled = false;
-    DOM.cloudBackupBtn.querySelector('span').textContent = 'Generate Cloud Backup';
-  }
-}
-
   // Check 2FA
   let code = '';
   try {
@@ -1832,6 +1774,42 @@ async function handleCloudBackup() {
     DOM.clearDatabaseBtn.disabled = false;
     DOM.clearDatabaseBtn.textContent = 'Clear SQLite Database';
     updateAuthUI(); // Keep synced with auth state
+  }
+}
+
+async function handleCloudBackup() {
+  if (!state.isOnline || !state.isAuthenticated) return;
+
+  try {
+    DOM.cloudBackupBtn.disabled = true;
+    DOM.cloudBackupBtn.querySelector('span').textContent = 'Generating Backup...';
+    DOM.cloudBackupDownloadLink.classList.add('hidden');
+
+    const response = await fetch('/api/backup/export', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${state.authToken}`
+      }
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      if (data.success && data.url) {
+        DOM.cloudBackupDownloadLink.href = data.url;
+        DOM.cloudBackupDownloadLink.classList.remove('hidden');
+        alert('Cloud backup generated successfully!');
+      } else {
+        alert('Backup failed: ' + (data.error || 'Unknown response'));
+      }
+    } else {
+      const err = await response.json();
+      alert('Backup failed: ' + (err.error || 'Server error'));
+    }
+  } catch (err) {
+    alert('Connection failed while generating cloud backup.');
+  } finally {
+    DOM.cloudBackupBtn.disabled = false;
+    DOM.cloudBackupBtn.querySelector('span').textContent = 'Generate Cloud Backup';
   }
 }
 
