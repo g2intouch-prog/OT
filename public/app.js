@@ -84,7 +84,9 @@ const DOM = {
   loginOtp: document.getElementById('login-otp'),
   totpStatusBadge: document.getElementById('totp-status-badge'),
   totpActions: document.getElementById('totp-actions'),
-  totpSetupSection: document.getElementById('totp-setup-section'),
+  totpToggleBtn: document.getElementById('totp-toggle-btn'),
+  totpSetupModal: document.getElementById('totp-setup-modal'),
+  closeTotpSetupBtn: document.getElementById('close-totp-setup-btn'),
   totpQrImg: document.getElementById('totp-qr-img'),
   totpManualSecret: document.getElementById('totp-manual-secret'),
   totpSetupCode: document.getElementById('totp-setup-code'),
@@ -2054,9 +2056,22 @@ function setupEventListeners() {
   });
   safeAddListener(DOM.headersExcelFile, 'change', handleLoadHeadersFromExcel);
 
-  // 2FA Actions
+  // TOTP Actions
+  safeAddListener(DOM.totpToggleBtn, 'click', () => {
+    if (state.totpEnabled) {
+      disableTotp();
+    } else {
+      initTotpSetup();
+    }
+  });
+  safeAddListener(DOM.closeTotpSetupBtn, 'click', cancelTotpSetup);
   safeAddListener(DOM.confirmTotpBtn, 'click', confirmTotpSetup);
   safeAddListener(DOM.cancelTotpSetupBtn, 'click', cancelTotpSetup);
+  if (DOM.totpSetupModal) {
+    DOM.totpSetupModal.addEventListener('click', (e) => {
+      if (e.target === DOM.totpSetupModal) cancelTotpSetup();
+    });
+  }
 
   // Danger Zone Actions
   safeAddListener(DOM.clearDraftsBtn, 'click', handleClearDrafts);
@@ -3546,27 +3561,24 @@ async function fetchTotpStatus() {
 }
 
 function renderTotpStatus(enabled) {
-  if (!DOM.totpStatusBadge || !DOM.totpActions) return;
+  if (!DOM.totpStatusBadge || !DOM.totpToggleBtn) return;
+
+  state.totpEnabled = enabled;
 
   if (enabled) {
     DOM.totpStatusBadge.className = 'text-success';
     DOM.totpStatusBadge.textContent = 'Enabled';
-    DOM.totpActions.innerHTML = `<button type="button" id="disable-totp-btn" class="btn btn-secondary" style="border-color: var(--danger); color: var(--danger);">Disable 2FA</button>`;
-    
-    const disableBtn = document.getElementById('disable-totp-btn');
-    if (disableBtn) {
-      disableBtn.addEventListener('click', disableTotp);
-    }
-    if (DOM.totpSetupSection) DOM.totpSetupSection.classList.add('hidden');
+    DOM.totpToggleBtn.className = 'btn btn-secondary';
+    DOM.totpToggleBtn.style.borderColor = 'var(--danger)';
+    DOM.totpToggleBtn.style.color = 'var(--danger)';
+    DOM.totpToggleBtn.textContent = 'Disable TOTP';
   } else {
     DOM.totpStatusBadge.className = 'text-warning';
     DOM.totpStatusBadge.textContent = 'Disabled';
-    DOM.totpActions.innerHTML = `<button type="button" id="enable-totp-btn" class="btn btn-primary">Enable 2FA</button>`;
-    
-    const enableBtn = document.getElementById('enable-totp-btn');
-    if (enableBtn) {
-      enableBtn.addEventListener('click', initTotpSetup);
-    }
+    DOM.totpToggleBtn.className = 'btn btn-primary';
+    DOM.totpToggleBtn.style.borderColor = '';
+    DOM.totpToggleBtn.style.color = '';
+    DOM.totpToggleBtn.textContent = 'Enable TOTP';
   }
 }
 
@@ -3575,8 +3587,12 @@ function resetTotpUI() {
     DOM.totpStatusBadge.className = 'text-warning';
     DOM.totpStatusBadge.textContent = 'Disabled';
   }
-  if (DOM.totpActions) DOM.totpActions.innerHTML = '';
-  if (DOM.totpSetupSection) DOM.totpSetupSection.classList.add('hidden');
+  if (DOM.totpToggleBtn) {
+    DOM.totpToggleBtn.className = 'btn btn-primary';
+    DOM.totpToggleBtn.style.borderColor = '';
+    DOM.totpToggleBtn.style.color = '';
+    DOM.totpToggleBtn.textContent = 'Enable TOTP';
+  }
   if (DOM.totpSetupCode) DOM.totpSetupCode.value = '';
 }
 
@@ -3590,21 +3606,21 @@ async function initTotpSetup() {
       const data = await response.json();
       if (DOM.totpQrImg) DOM.totpQrImg.src = data.qrUrl;
       if (DOM.totpManualSecret) DOM.totpManualSecret.textContent = data.secret;
-      if (DOM.totpSetupSection) DOM.totpSetupSection.classList.remove('hidden');
+      if (DOM.totpSetupModal) DOM.totpSetupModal.classList.add('active');
       if (DOM.totpSetupCode) {
         DOM.totpSetupCode.value = '';
         DOM.totpSetupCode.focus();
       }
     } else {
-      alert('Failed to initiate 2FA setup.');
+      alert('Failed to initiate TOTP setup.');
     }
   } catch (err) {
-    alert('Network error initiating 2FA setup.');
+    alert('Network error initiating TOTP setup.');
   }
 }
 
 function cancelTotpSetup() {
-  if (DOM.totpSetupSection) DOM.totpSetupSection.classList.add('hidden');
+  if (DOM.totpSetupModal) DOM.totpSetupModal.classList.remove('active');
   if (DOM.totpSetupCode) DOM.totpSetupCode.value = '';
 }
 
@@ -3624,22 +3640,23 @@ async function confirmTotpSetup() {
       body: JSON.stringify({ code })
     });
     if (response.ok) {
-      alert('Two-Factor Authentication enabled successfully!');
+      alert('TOTP Authentication enabled successfully!');
+      cancelTotpSetup();
       fetchTotpStatus();
     } else {
       const err = await response.json();
       alert('Verification failed: ' + (err.error || 'Invalid code'));
     }
   } catch (err) {
-    alert('Network error enabling 2FA.');
+    alert('Network error enabling TOTP.');
   }
 }
 
 async function disableTotp() {
-  const currentPassword = prompt('Enter your admin password to confirm disabling Two-Factor Authentication:');
-  if (currentPassword === null) return;
-  if (!currentPassword.trim()) {
-    alert('Password confirmation is required.');
+  const code = prompt('Enter 6-digit TOTP to confirm disabling:');
+  if (code === null) return;
+  if (!code.trim() || code.trim().length !== 6) {
+    alert('A 6-digit TOTP is required.');
     return;
   }
   try {
@@ -3649,16 +3666,16 @@ async function disableTotp() {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${state.authToken}`
       },
-      body: JSON.stringify({ currentPassword })
+      body: JSON.stringify({ code: code.trim() })
     });
     if (response.ok) {
-      alert('Two-Factor Authentication has been disabled.');
+      alert('TOTP Authentication has been disabled.');
       fetchTotpStatus();
     } else {
       const err = await response.json();
-      alert('Failed to disable 2FA: ' + (err.error || 'Incorrect password'));
+      alert('Failed to disable TOTP: ' + (err.error || 'Incorrect code'));
     }
   } catch (err) {
-    alert('Network error disabling 2FA.');
+    alert('Network error disabling TOTP.');
   }
 }

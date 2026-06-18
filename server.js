@@ -288,15 +288,17 @@ app.post('/api/settings/totp/enable', checkAuth, async (req, res) => {
 
 // Disable TOTP
 app.post('/api/settings/totp/disable', checkAuth, async (req, res) => {
-  const { currentPassword } = req.body;
-  if (!currentPassword) return res.status(400).json({ error: 'Password confirmation is required.' });
+  const { code } = req.body;
+  if (!code) return res.status(400).json({ error: 'TOTP code is required.' });
 
   try {
-    const { rows: passRows } = await db.query("SELECT value FROM config WHERE key = 'admin_pass'");
-    const dbPass = passRows.length > 0 ? passRows[0].value : 'password';
-
-    if (currentPassword !== dbPass) {
-      return res.status(400).json({ error: 'Incorrect password.' });
+    const { rows: secretRows } = await db.query("SELECT value FROM config WHERE key = 'totp_secret'");
+    if (secretRows.length > 0) {
+      const secret = secretRows[0].value;
+      const isValid = verifyTOTP(secret, code);
+      if (!isValid) {
+        return res.status(400).json({ error: 'Invalid TOTP code.' });
+      }
     }
 
     await db.query("BEGIN");
