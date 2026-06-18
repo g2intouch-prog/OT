@@ -4117,6 +4117,16 @@ let memoryMatchState = {
   lockGrid: false
 };
 
+let snakeState = {
+  x: 160,
+  y: 160,
+  dx: 16,
+  dy: 0,
+  cells: [],
+  maxCells: 4,
+  apple: { x: 96, y: 96 }
+};
+
 const gameMetadata = {
   'bubble-popper': {
     title: 'Zen Bubble Popper 🫧',
@@ -4127,6 +4137,16 @@ const gameMetadata = {
     title: 'Memory Match 🃏',
     desc: 'Classic card match. Flip cards to find matching emoji pairs. Zero stress, low attention.',
     controls: 'Controls: Click cards to flip them.'
+  },
+  'gem-clicker': {
+    title: 'Zen Gem Clicker 💎',
+    desc: 'Relaxing clicker. Click the giant gemstone to earn points, release colorful glitter, and watch your gem grow!',
+    controls: 'Controls: Click/Tap the gem in the center.'
+  },
+  'whack-mole': {
+    title: 'Zen Whack-A-Mole 🔨',
+    desc: 'Satisfying whack. Tap the stars as they pop out of the sky. Needs low attention, very casual.',
+    controls: 'Controls: Click/Tap the popping stars.'
   },
   'snake': {
     title: 'Retro Snake 🐍',
@@ -4300,6 +4320,10 @@ function startBreakGame() {
     startBubblePopper();
   } else if (activeGame === 'memory-match') {
     startMemoryMatch();
+  } else if (activeGame === 'gem-clicker') {
+    startGemClicker();
+  } else if (activeGame === 'whack-mole') {
+    startWhackMole();
   } else if (activeGame === 'snake') {
     startSnakeArcade();
   }
@@ -4620,7 +4644,7 @@ function startSnakeArcade() {
     if (!isGameRunning || activeGame !== 'snake') return;
     animationFrameId = requestAnimationFrame(loop);
     
-    if (++count < 6) {
+    if (++count < 10) {
       return;
     }
     count = 0;
@@ -4698,4 +4722,287 @@ function updateGameScore() {
     const hsDisplay = document.getElementById('game-highscore');
     if (hsDisplay) hsDisplay.textContent = gameScore;
   }
+}
+
+// -------------------------------------------------------------
+// GAME 4: ZEN GEM CLICKER (Glitter, Grow, low attention clicker)
+// -------------------------------------------------------------
+
+function startGemClicker() {
+  const canvas = document.getElementById('game-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  
+  let gemRadius = 55;
+  let targetRadius = 55;
+  let particles = [];
+  let floatTexts = [];
+  
+  canvas.addEventListener('click', (e) => {
+    if (!isGameRunning || activeGame !== 'gem-clicker') return;
+    const rect = canvas.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const clickY = e.clientY - rect.top;
+    
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    const dist = Math.hypot(clickX - centerX, clickY - centerY);
+    
+    if (dist <= gemRadius) {
+      targetRadius = 70;
+      gameScore += 1;
+      updateGameScore();
+      
+      floatTexts.push({
+        x: clickX,
+        y: clickY - 10,
+        text: '+1',
+        alpha: 1,
+        speed: 1.5
+      });
+      
+      const colors = ['#00d2ff', '#00f6ff', '#ff00f0', '#ffea00', '#ffffff'];
+      for (let i = 0; i < 12; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = Math.random() * 4 + 2;
+        particles.push({
+          x: centerX,
+          y: centerY,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          radius: Math.random() * 3 + 2,
+          color: colors[Math.floor(Math.random() * colors.length)],
+          alpha: 1
+        });
+      }
+    }
+  });
+  
+  function loop() {
+    if (!isGameRunning || activeGame !== 'gem-clicker') return;
+    animationFrameId = requestAnimationFrame(loop);
+    
+    gemRadius += (targetRadius - gemRadius) * 0.18;
+    if (targetRadius > 55) targetRadius -= 1.5;
+    if (targetRadius < 55) targetRadius = 55;
+    
+    ctx.fillStyle = '#0d1117';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    const cx = canvas.width / 2;
+    const cy = canvas.height / 2;
+    const gradient = ctx.createRadialGradient(cx, cy, 10, cx, cy, gemRadius * 1.8);
+    gradient.addColorStop(0, 'rgba(0, 210, 255, 0.25)');
+    gradient.addColorStop(1, 'rgba(13, 17, 23, 0)');
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.arc(cx, cy, gemRadius * 1.8, 0, Math.PI * 2);
+    ctx.fill();
+    
+    ctx.strokeStyle = '#00d2ff';
+    ctx.lineWidth = 3;
+    ctx.fillStyle = '#161b22';
+    
+    const drawOctagon = (r) => {
+      ctx.beginPath();
+      for (let i = 0; i < 8; i++) {
+        const angle = (i * Math.PI) / 4 - Math.PI / 8;
+        const px = cx + Math.cos(angle) * r;
+        const py = cy + Math.sin(angle) * r;
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+    };
+    
+    drawOctagon(gemRadius);
+    ctx.fill();
+    ctx.stroke();
+    
+    ctx.fillStyle = '#21262d';
+    drawOctagon(gemRadius * 0.55);
+    ctx.fill();
+    ctx.stroke();
+    
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    for (let i = 0; i < 8; i++) {
+      const angle = (i * Math.PI) / 4 - Math.PI / 8;
+      ctx.moveTo(cx + Math.cos(angle) * gemRadius, cy + Math.sin(angle) * gemRadius);
+      ctx.lineTo(cx + Math.cos(angle) * gemRadius * 0.55, cy + Math.sin(angle) * gemRadius * 0.55);
+    }
+    ctx.stroke();
+    
+    const time = Date.now() * 0.003;
+    const sweepAngle = Math.sin(time) * (gemRadius * 0.8);
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(cx - gemRadius + sweepAngle, cy - gemRadius);
+    ctx.lineTo(cx + sweepAngle, cy + gemRadius);
+    ctx.stroke();
+    
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.x += p.vx;
+      p.y += p.vy;
+      p.alpha -= 0.025;
+      if (p.alpha <= 0) {
+        particles.splice(i, 1);
+        continue;
+      }
+      ctx.fillStyle = p.color;
+      ctx.globalAlpha = p.alpha;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1.0;
+    
+    for (let i = floatTexts.length - 1; i >= 0; i--) {
+      const t = floatTexts[i];
+      t.y -= t.speed;
+      t.alpha -= 0.02;
+      if (t.alpha <= 0) {
+        floatTexts.splice(i, 1);
+        continue;
+      }
+      ctx.fillStyle = `rgba(255, 123, 0, ${t.alpha})`;
+      ctx.font = 'bold 16px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(t.text, t.x, t.y);
+    }
+  }
+  
+  loop();
+}
+
+// -------------------------------------------------------------
+// GAME 5: ZEN WHACK-A-MOLE (Popping sky stars, low attention)
+// -------------------------------------------------------------
+
+function startWhackMole() {
+  const canvas = document.getElementById('game-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  
+  const spots = [
+    { x: 80, y: 80, active: false, timer: 0 },
+    { x: 240, y: 80, active: false, timer: 0 },
+    { x: 80, y: 240, active: false, timer: 0 },
+    { x: 240, y: 240, active: false, timer: 0 },
+    { x: 160, y: 160, active: false, timer: 0 }
+  ];
+  
+  let activeSpotIdx = -1;
+  let spawnTimer = 0;
+  let particles = [];
+  
+  canvas.addEventListener('click', (e) => {
+    if (!isGameRunning || activeGame !== 'whack-mole') return;
+    const rect = canvas.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const clickY = e.clientY - rect.top;
+    
+    spots.forEach((spot) => {
+      if (spot.active) {
+        const dist = Math.hypot(clickX - spot.x, clickY - spot.y);
+        if (dist <= 30) {
+          spot.active = false;
+          activeSpotIdx = -1;
+          gameScore += 15;
+          updateGameScore();
+          
+          for (let i = 0; i < 10; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = Math.random() * 3 + 1.5;
+            particles.push({
+              x: spot.x,
+              y: spot.y,
+              vx: Math.cos(angle) * speed,
+              vy: Math.sin(angle) * speed,
+              radius: Math.random() * 3 + 1,
+              color: '#ffea00',
+              alpha: 1
+            });
+          }
+        }
+      }
+    });
+  });
+  
+  function loop() {
+    if (!isGameRunning || activeGame !== 'whack-mole') return;
+    animationFrameId = requestAnimationFrame(loop);
+    
+    ctx.fillStyle = '#0d1117';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    spawnTimer++;
+    if (spawnTimer > 45) {
+      spawnTimer = 0;
+      if (activeSpotIdx !== -1) {
+        spots[activeSpotIdx].active = false;
+      }
+      activeSpotIdx = Math.floor(Math.random() * spots.length);
+      spots[activeSpotIdx].active = true;
+      spots[activeSpotIdx].timer = 40;
+    }
+    
+    spots.forEach(spot => {
+      if (spot.active) {
+        spot.timer--;
+        if (spot.timer <= 0) {
+          spot.active = false;
+          activeSpotIdx = -1;
+        }
+      }
+    });
+    
+    spots.forEach(spot => {
+      ctx.strokeStyle = 'rgba(48, 54, 61, 0.4)';
+      ctx.lineWidth = 2;
+      ctx.fillStyle = '#161b22';
+      ctx.beginPath();
+      ctx.arc(spot.x, spot.y, 25, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      
+      if (spot.active) {
+        const pulse = Math.sin(Date.now() * 0.015) * 4;
+        const grad = ctx.createRadialGradient(spot.x, spot.y, 5, spot.x, spot.y, 25 + pulse);
+        grad.addColorStop(0, '#ffea00');
+        grad.addColorStop(0.6, 'rgba(255, 234, 0, 0.4)');
+        grad.addColorStop(1, 'rgba(255, 234, 0, 0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(spot.x, spot.y, 25 + pulse, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.font = '22px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('⭐', spot.x, spot.y);
+      }
+    });
+    
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.x += p.vx;
+      p.y += p.vy;
+      p.alpha -= 0.04;
+      if (p.alpha <= 0) {
+        particles.splice(i, 1);
+        continue;
+      }
+      ctx.fillStyle = p.color;
+      ctx.globalAlpha = p.alpha;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1.0;
+  }
+  
+  loop();
 }
