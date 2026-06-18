@@ -4200,6 +4200,90 @@ function initBreakGame() {
     startBtn.onclick = startBreakGame;
   }
 
+  // Game rules modal wiring
+  const gameHelpBtn = document.getElementById('game-help-btn');
+  const rulesModal = document.getElementById('game-rules-modal');
+  const closeRulesModalBtn = document.getElementById('close-rules-modal-btn');
+  const closeRulesBtn = document.getElementById('close-rules-btn');
+  const rulesTitle = document.getElementById('rules-modal-title');
+  const rulesContent = document.getElementById('rules-modal-content');
+
+  const gameRules = {
+    'bubble-popper': `
+      <p>Pop colorful bubbles before they float away! Soft colors, relaxing movement, and no pressure.</p>
+      <ul>
+        <li>Click/tap bubbles to pop them.</li>
+        <li><strong>+10 points</strong> per pop.</li>
+        <li>No penalty for missed bubbles.</li>
+      </ul>
+    `,
+    'memory-match': `
+      <p>Classic emoji card pairing game to test your memory at your own pace.</p>
+      <ul>
+        <li>Click cards to flip them.</li>
+        <li>Match matching emojis for <strong>+25 points</strong>.</li>
+        <li>Pairs stay face-up, mismatched cards flip back.</li>
+      </ul>
+    `,
+    'gem-clicker': `
+      <p>Satisfying clicker with beautiful particle physics. Watch the gemstone grow and glow.</p>
+      <ul>
+        <li>Click/tap the diamond gemstone.</li>
+        <li>Releases colorful sparkling glitter.</li>
+        <li><strong>+1 point</strong> per click.</li>
+      </ul>
+    `,
+    'whack-mole': `
+      <p>Tapping stars popping in a night sky constellation. Casual target-tapping.</p>
+      <ul>
+        <li>Click/tap glowing stars before they disappear.</li>
+        <li><strong>+15 points</strong> per star.</li>
+        <li>Zero speed pressure.</li>
+      </ul>
+    `,
+    'snake': `
+      <p>Retro steered keyboard arcade game, optimized for relaxation.</p>
+      <ul>
+        <li>Steer with <strong>Arrow keys</strong> or <strong>W/A/S/D</strong>.</li>
+        <li>Eat red apples to grow and score <strong>+10 points</strong>.</li>
+        <li><strong>Calm Progression</strong>: Starts very slow and gains speed gently.</li>
+        <li>Avoid hitting walls or your own tail!</li>
+      </ul>
+    `,
+    'gomoku': `
+      <p>Gomoku (Five in a Row) on a beautiful wooden board against a relaxing AI.</p>
+      <ul>
+        <li>You play <strong>Black stones</strong> (click intersections). AI plays <strong>White</strong>.</li>
+        <li>Align <strong>5 stones</strong> horizontally, vertically, or diagonally to win.</li>
+        <li>Win awards <strong>+100 bonus points</strong>!</li>
+      </ul>
+    `,
+    'hilo': `
+      <p>Relaxing probability guess card game. Ace is high (14), 2 is low (2).</p>
+      <ul>
+        <li>Guess if the next card will be Higher or Lower.</li>
+        <li>Correct guess gives <strong>+10 points</strong>.</li>
+        <li>Build streaks for multiplier bonus points!</li>
+      </ul>
+    `
+  };
+
+  if (gameHelpBtn && rulesModal && rulesContent && rulesTitle) {
+    gameHelpBtn.onclick = () => {
+      const meta = gameMetadata[activeGame] || { title: 'Rules' };
+      rulesTitle.textContent = `${meta.title} - Rules 📜`;
+      rulesContent.innerHTML = gameRules[activeGame] || '<p>No rules available.</p>';
+      rulesModal.classList.add('active');
+    };
+  }
+
+  const hideRules = () => {
+    if (rulesModal) rulesModal.classList.remove('active');
+  };
+
+  if (closeRulesModalBtn) closeRulesModalBtn.onclick = hideRules;
+  if (closeRulesBtn) closeRulesBtn.onclick = hideRules;
+
   // Draw initial screen on canvas
   drawInitialCanvasScreen();
 }

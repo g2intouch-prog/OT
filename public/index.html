@@ -629,7 +629,10 @@
           
           <div style="display: flex; gap: 12px; justify-content: center; align-items: center; margin-bottom: 20px; flex-wrap: wrap;">
             <div class="form-group" style="text-align: left; min-width: 140px;">
-              <label for="game-select" style="font-size: 0.75rem; font-weight: 600;">Choose Game</label>
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+                <label for="game-select" style="font-size: 0.75rem; font-weight: 600; margin-bottom: 0;">Choose Game</label>
+                <button type="button" id="game-help-btn" style="background: none; border: none; padding: 0 4px; font-size: 0.85rem; cursor: pointer; color: var(--accent-color); outline: none;" title="Show Rules">❓</button>
+              </div>
               <select id="game-select" class="form-select" style="padding: 6px 10px; font-size: 0.85rem;">
                 <option value="bubble-popper" selected>Zen Bubble Popper 🫧</option>
                 <option value="memory-match">Memory Match 🃏</option>
@@ -830,7 +833,23 @@
     </div>
   </div>
 
-
+  <!-- Game Rules Modal -->
+  <div id="game-rules-modal" class="modal-overlay">
+    <div class="modal-card" style="max-width: 450px; width: 95%;">
+      <div class="modal-header">
+        <h2 id="rules-modal-title">Game Rules</h2>
+        <button type="button" id="close-rules-modal-btn" class="modal-close-x">&times;</button>
+      </div>
+      <div class="modal-body" style="text-align: left; font-size: 0.9rem; line-height: 1.5;">
+        <div id="rules-modal-content">
+          <!-- Populated dynamically by JavaScript -->
+        </div>
+      </div>
+      <div class="modal-actions" style="padding: 16px 24px; margin-top: 0; background-color: #161b22; border-top: 1px solid var(--panel-border);">
+        <button type="button" id="close-rules-btn" class="btn btn-secondary">Got it</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Floating Action Button for Live Debug Logs (Trial Phase) -->
   <div id="debug-toggle-btn" style="position: fixed; bottom: 16px; right: 16px; width: 44px; height: 44px; border-radius: 50%; background-color: var(--accent-color); display: none; align-items: center; justify-content: center; cursor: pointer; z-index: 99999; box-shadow: 0 4px 12px rgba(0,0,0,0.5); font-size: 18px; transition: transform 0.2s;" onclick="const p = document.getElementById('debug-overlay-panel'); const isHidden = p.style.display === 'none'; p.style.display = isHidden ? 'flex' : 'none'; if (isHidden) document.getElementById('debug-badge').style.display = 'none';" onmouseover="this.style.transform='scale(1.08)'" onmouseout="this.style.transform='scale(1)'">
