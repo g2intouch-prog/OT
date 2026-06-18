@@ -4100,7 +4100,10 @@ let gameHighScores = {
   'memory-match': 0,
   'snake': 0,
   'gomoku': 0,
-  'hilo': 0
+  'hilo': 0,
+  'weather': 0,
+  'news': 0,
+  'stocks': 0
 };
 let isGameRunning = false;
 let animationFrameId = null;
@@ -4164,6 +4167,21 @@ const gameMetadata = {
     title: 'Zen Card Hi-Lo 🎴',
     desc: 'Relaxing card guess. Guess if the next card will be Higher or Lower than the current card. Get streaks!',
     controls: 'Controls: Click Higher or Lower buttons.'
+  },
+  'weather': {
+    title: 'Weather Forecast 🌤️',
+    desc: 'Real-time weather forecast powered by Open-Meteo. Totally open and public API.',
+    controls: 'Displays current temperature and 3-day forecast.'
+  },
+  'news': {
+    title: 'News Headlines 📰',
+    desc: 'Public and copyright-free spaceflight news articles. Updated daily.',
+    controls: 'Click on headlines to read full articles.'
+  },
+  'stocks': {
+    title: 'Stock Market 📈',
+    desc: 'Live financial indices powered by official public TradingView widget.',
+    controls: 'Interactive real-time S&P 500 chart.'
   }
 };
 
@@ -4310,18 +4328,33 @@ function updateGameOverlayUI() {
   }
   if (desc) desc.textContent = meta.desc;
   if (help) help.textContent = meta.controls;
-  if (overlay) overlay.style.display = 'flex';
   
-  // Toggle visibility of canvas vs card grid container
+  // Toggle visibility of canvas vs card grid vs extra container
   const canvas = document.getElementById('game-canvas');
   const mmGrid = document.getElementById('memory-match-grid');
+  const extraContainer = document.getElementById('extra-info-container');
   
-  if (activeGame === 'memory-match') {
+  const isDashboard = ['weather', 'news', 'stocks'].includes(activeGame);
+  
+  if (isDashboard) {
+    if (overlay) overlay.style.display = 'none';
     if (canvas) canvas.style.display = 'none';
-    if (mmGrid) mmGrid.style.display = 'grid';
-  } else {
-    if (canvas) canvas.style.display = 'block';
     if (mmGrid) mmGrid.style.display = 'none';
+    if (extraContainer) {
+      extraContainer.style.display = 'block';
+      loadDashboardWidget(activeGame);
+    }
+  } else {
+    if (overlay) overlay.style.display = 'flex';
+    if (extraContainer) extraContainer.style.display = 'none';
+    
+    if (activeGame === 'memory-match') {
+      if (canvas) canvas.style.display = 'none';
+      if (mmGrid) mmGrid.style.display = 'grid';
+    } else {
+      if (canvas) canvas.style.display = 'block';
+      if (mmGrid) mmGrid.style.display = 'none';
+    }
   }
 
   // Sync scores display
@@ -4708,8 +4741,8 @@ function startSnakeArcade() {
   }
   
   function resetApple() {
-    snakeState.apple.x = getRandomInt(0, 20) * grid;
-    snakeState.apple.y = getRandomInt(0, 20) * grid;
+    snakeState.apple.x = getRandomInt(0, 25) * grid;
+    snakeState.apple.y = getRandomInt(0, 25) * grid;
   }
   
   const handleKeys = (e) => {
@@ -5236,8 +5269,8 @@ function startGomoku() {
   const ctx = canvas.getContext('2d');
   
   const gridSize = 9;
-  const boardMargin = 40;
-  const cellSize = (canvas.width - boardMargin * 2) / (gridSize - 1); // (320-80)/8 = 30px
+  const boardMargin = 45;
+  const cellSize = (canvas.width - boardMargin * 2) / (gridSize - 1); // (450-90)/8 = 45px
   
   // Board state: 0 = empty, 1 = Black (Player), 2 = White (AI)
   let board = Array(gridSize).fill(null).map(() => Array(gridSize).fill(0));
@@ -5647,4 +5680,243 @@ function startHiLo() {
   }
   
   loop();
+}
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.x += p.vx;
+      p.y += p.vy;
+      p.alpha -= 0.04;
+      if (p.alpha <= 0) {
+        particles.splice(i, 1);
+        continue;
+      }
+      ctx.fillStyle = p.color;
+      ctx.globalAlpha = p.alpha;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1.0;
+  }
+  
+  loop();
+}
+
+// -------------------------------------------------------------
+// DASHBOARD WIDGETS LOADER (News, Stocks, Weather)
+// -------------------------------------------------------------
+
+async function loadDashboardWidget(type) {
+  const container = document.getElementById('extra-info-container');
+  if (!container) return;
+  
+  // Clear previous content
+  container.innerHTML = '<div style="display:flex; align-items:center; justify-content:center; height:100%; color:var(--text-muted);">Loading dashboard data...</div>';
+  
+  if (type === 'stocks') {
+    container.innerHTML = `
+      <div style="width: 100%; height: 100%; display: flex; flex-direction: column; gap: 8px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <h4 style="margin: 0; color: #ff7b00; font-size: 0.95rem;">Live Market Overview</h4>
+          <span style="font-size: 0.75rem; color: var(--text-muted);">Real-time Index</span>
+        </div>
+        <div style="flex: 1; border-radius: 6px; overflow: hidden; border: 1px solid var(--panel-border); background: #161b22;">
+          <iframe 
+            src="https://s.tradingview.com/widgetembed/?frameElementId=tradingview_1&symbol=SPX&interval=D&theme=dark&style=1&timezone=Etc%2FUTC&locale=en" 
+            style="width:100%; height:100%; border:none; background:#0d1117;"
+            scrolling="no" 
+            allowtransparency="true">
+          </iframe>
+        </div>
+      </div>
+    `;
+  }
+  else if (type === 'news') {
+    try {
+      // Spaceflight News API (Public, keyless, copyright-safe)
+      const res = await fetch('https://api.spaceflightnewsapi.net/v4/articles/?limit=6');
+      if (!res.ok) throw new Error("API error");
+      const data = await res.json();
+      
+      let html = `
+        <div style="display: flex; flex-direction: column; gap: 12px; padding-bottom: 20px;">
+          <h4 style="margin: 0 0 4px 0; color: #ff7b00; font-size: 0.95rem; border-bottom: 1px solid var(--panel-border); padding-bottom: 8px;">Space & Tech News Feed 📰</h4>
+      `;
+      
+      data.results.forEach(item => {
+        const dateStr = new Date(item.published_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+        html += `
+          <div style="background: #161b22; border: 1px solid var(--panel-border); border-radius: 6px; padding: 10px; display: flex; gap: 10px; align-items: flex-start; transition: border-color 0.2s; cursor: pointer;" 
+               onclick="window.open('${item.url}', '_blank')"
+               onmouseover="this.style.borderColor='var(--accent-color)'"
+               onmouseout="this.style.borderColor='var(--panel-border)'">
+            ${item.image_url ? `<img src="${item.image_url}" style="width: 50px; height: 50px; border-radius: 4px; object-fit: cover; flex-shrink: 0;" />` : ''}
+            <div style="flex: 1; min-width: 0;">
+              <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted); margin-bottom: 2px;">
+                <span>${item.news_site || 'News'}</span>
+                <span>${dateStr}</span>
+              </div>
+              <h5 style="margin: 0; font-size: 0.8rem; line-height: 1.3; color: #f0f6fc; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;">${item.title}</h5>
+            </div>
+          </div>
+        `;
+      });
+      
+      html += `</div>`;
+      container.innerHTML = html;
+    } catch (err) {
+      container.innerHTML = `
+        <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; color:var(--danger); font-size:0.85rem; text-align:center; gap:8px;">
+          <span>⚠️ Failed to load news feed.</span>
+          <button class="btn btn-secondary py-1 px-3" onclick="loadDashboardWidget('news')">Retry</button>
+        </div>
+      `;
+    }
+  }
+  else if (type === 'weather') {
+    renderWeatherWidget("New York");
+  }
+}
+
+// Weather widget render utility helper
+async function renderWeatherWidget(city) {
+  const container = document.getElementById('extra-info-container');
+  if (!container) return;
+  
+  try {
+    // 1. Geocode City Name (using keyless Open-Meteo Geocoding)
+    const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=en&format=json`);
+    if (!geoRes.ok) throw new Error("Geocode failed");
+    const geoData = await geoRes.json();
+    
+    if (!geoData.results || geoData.results.length === 0) {
+      container.innerHTML = `
+        <div style="padding: 12px; display: flex; flex-direction: column; gap: 12px;">
+          <h4 style="margin:0; color:#ff7b00; font-size:0.95rem;">Weather Forecast 🌤️</h4>
+          <div style="display:flex; gap:8px;">
+            <input type="text" id="weather-search-input" class="form-control" style="font-size:0.85rem; padding: 6px 10px;" placeholder="Enter city name..." value="${city}">
+            <button class="btn btn-primary" onclick="renderWeatherWidget(document.getElementById('weather-search-input').value)">Search</button>
+          </div>
+          <p style="color:var(--danger); font-size:0.85rem; text-align:center; margin-top: 20px;">City "${city}" not found. Try another city name.</p>
+        </div>
+      `;
+      return;
+    }
+    
+    const location = geoData.results[0];
+    const { latitude, longitude, name, country } = location;
+    
+    // 2. Fetch Forecast from Open-Meteo
+    const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true&daily=temperature_2m_max,temperature_2m_min,weathercode&timezone=auto`);
+    if (!weatherRes.ok) throw new Error("Weather fetch failed");
+    const weatherData = await weatherRes.json();
+    
+    const curr = weatherData.current_weather;
+    const daily = weatherData.daily;
+    
+    // Map weather codes to emojis & descriptions
+    const weatherCodes = {
+      0: { desc: "Clear Sky", emoji: "☀️" },
+      1: { desc: "Mainly Clear", emoji: "🌤️" },
+      2: { desc: "Partly Cloudy", emoji: "⛅" },
+      3: { desc: "Overcast", emoji: "☁️" },
+      45: { desc: "Fog", emoji: "🌫️" },
+      48: { desc: "Depositing Rime Fog", emoji: "🌫️" },
+      51: { desc: "Light Drizzle", emoji: "🌧️" },
+      53: { desc: "Moderate Drizzle", emoji: "🌧️" },
+      55: { desc: "Dense Drizzle", emoji: "🌧️" },
+      61: { desc: "Slight Rain", emoji: "🌦️" },
+      63: { desc: "Moderate Rain", emoji: "🌧️" },
+      65: { desc: "Heavy Rain", emoji: "🌧️" },
+      71: { desc: "Slight Snow", emoji: "❄️" },
+      73: { desc: "Moderate Snow", emoji: "❄️" },
+      75: { desc: "Heavy Snow", emoji: "❄️" },
+      77: { desc: "Snow Grains", emoji: "❄️" },
+      80: { desc: "Slight Rain Showers", emoji: "🌦️" },
+      81: { desc: "Moderate Rain Showers", emoji: "🌧️" },
+      82: { desc: "Violent Rain Showers", emoji: "🌧️" },
+      85: { desc: "Slight Snow Showers", emoji: "🌨️" },
+      86: { desc: "Heavy Snow Showers", emoji: "🌨️" },
+      95: { desc: "Thunderstorm", emoji: "⛈️" }
+    };
+    
+    const weatherInfo = weatherCodes[curr.weathercode] || { desc: "Clear", emoji: "☀️" };
+    
+    let html = `
+      <div style="display: flex; flex-direction: column; gap: 14px; padding-bottom: 12px; height: 100%;">
+        <h4 style="margin: 0; color: #ff7b00; font-size: 0.95rem;">Weather Forecast 🌤️</h4>
+        
+        <div style="display: flex; gap: 8px;">
+          <input type="text" id="weather-search-input" class="form-control" style="font-size:0.85rem; padding: 6px 10px;" placeholder="Enter city name..." value="${name}">
+          <button class="btn btn-primary" style="padding: 6px 12px;" onclick="renderWeatherWidget(document.getElementById('weather-search-input').value)">Search</button>
+        </div>
+        
+        <!-- Current Weather Card -->
+        <div style="background: linear-gradient(135deg, #1f293d 0%, #161b22 100%); border: 1px solid var(--panel-border); border-radius: 8px; padding: 16px; display: flex; align-items: center; justify-content: space-between; box-shadow: var(--shadow);">
+          <div>
+            <h5 style="margin:0; font-size: 1.1rem; color:#f0f6fc;">${name}</h5>
+            <span style="font-size:0.75rem; color:var(--text-muted);">${country || ''}</span>
+            <div style="font-size: 2.1rem; font-weight: 700; color:#ff7b00; margin: 8px 0 2px 0;">${Math.round(curr.temperature)}°C</div>
+            <span style="font-size:0.8rem; color:#f0f6fc;">${weatherInfo.emoji} ${weatherInfo.desc}</span>
+          </div>
+          <div style="font-size: 4.5rem; line-height: 1; user-select: none;">
+            ${weatherInfo.emoji}
+          </div>
+        </div>
+        
+        <!-- Extra Stats -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          <div style="background: #161b22; border: 1px solid var(--panel-border); padding: 8px 12px; border-radius: 6px; font-size: 0.8rem;">
+            <div style="color:var(--text-muted); font-size: 0.7rem;">Windspeed</div>
+            <strong style="color:#f0f6fc;">💨 ${curr.windspeed} km/h</strong>
+          </div>
+          <div style="background: #161b22; border: 1px solid var(--panel-border); padding: 8px 12px; border-radius: 6px; font-size: 0.8rem;">
+            <div style="color:var(--text-muted); font-size: 0.7rem;">Coordinates</div>
+            <strong style="color:#f0f6fc;">📍 ${latitude.toFixed(2)}°, ${longitude.toFixed(2)}°</strong>
+          </div>
+        </div>
+
+        <!-- 3-Day Forecast -->
+        <div style="margin-top: 4px;">
+          <h5 style="margin: 0 0 8px 0; font-size: 0.8rem; color: var(--text-muted);">3-Day Daily Forecast</h5>
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+    `;
+    
+    for (let i = 1; i <= 3; i++) {
+      const forecastDate = new Date(daily.time[i]).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+      const forecastInfo = weatherCodes[daily.weathercode[i]] || { desc: "Clear", emoji: "☀️" };
+      html += `
+        <div style="background: #161b22; border: 1px solid var(--panel-border); border-radius: 6px; padding: 8px 12px; display: flex; align-items: center; justify-content: space-between; font-size: 0.8rem;">
+          <span style="color:#f0f6fc; font-weight: 500;">${forecastDate}</span>
+          <span style="color:var(--text-muted);">${forecastInfo.emoji} ${forecastInfo.desc}</span>
+          <strong style="color:#ff7b00;">${Math.round(daily.temperature_2m_max[i])}° / ${Math.round(daily.temperature_2m_min[i])}°C</strong>
+        </div>
+      `;
+    }
+    
+    html += `
+          </div>
+        </div>
+      </div>
+    `;
+    
+    container.innerHTML = html;
+    
+    // Wire search enter key
+    const input = document.getElementById('weather-search-input');
+    if (input) {
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          renderWeatherWidget(input.value);
+        }
+      });
+    }
+  } catch (err) {
+    container.innerHTML = `
+      <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; color:var(--danger); font-size:0.85rem; text-align:center; gap:8px; padding: 20px;">
+        <span>⚠️ Failed to load weather data.</span>
+        <button class="btn btn-secondary py-1 px-3" onclick="renderWeatherWidget('${city}')">Retry</button>
+      </div>
+    `;
+  }
 }

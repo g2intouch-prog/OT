@@ -623,11 +623,11 @@
       
       <!-- TAB 8: QUICK BREAK GAME -->
       <section id="tab-break-game" class="tab-panel">
-        <div class="panel-card" style="max-width: 680px; margin: 0 auto; padding: 20px;">
+        <div class="panel-card" style="max-width: 800px; margin: 0 auto; padding: 20px;">
           <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--panel-border); padding-bottom: 12px; margin-bottom: 16px;">
             <div style="text-align: left;">
               <h2 style="margin: 0; font-size: 1.4rem;">Quick Break Room 🎮</h2>
-              <p class="card-subtitle" style="margin: 4px 0 0 0; font-size: 0.8rem;">Take a quick break to recharge! Select a game and choose your break duration.</p>
+              <p class="card-subtitle" style="margin: 4px 0 0 0; font-size: 0.8rem;">Take a quick break to recharge! Select a game, check news/weather, or watch stock updates.</p>
             </div>
             <!-- Help Button -->
             <button type="button" id="game-help-btn" style="background: none; border: none; padding: 6px; font-size: 1.25rem; cursor: pointer; color: var(--accent-color); outline: none;" title="Show Rules">❓</button>
@@ -637,15 +637,22 @@
             <!-- Left side controls & stats -->
             <div style="flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 16px; text-align: left;">
               <div class="form-group" style="text-align: left;">
-                <label for="game-select" style="font-size: 0.75rem; font-weight: 600; margin-bottom: 6px;">Choose Game</label>
+                <label for="game-select" style="font-size: 0.75rem; font-weight: 600; margin-bottom: 6px;">Choose Activity</label>
                 <select id="game-select" class="form-select" style="padding: 8px 12px; font-size: 0.85rem; width: 100%;">
-                  <option value="bubble-popper" selected>Zen Bubble Popper 🫧</option>
-                  <option value="memory-match">Memory Match 🃏</option>
-                  <option value="gem-clicker">Zen Gem Clicker 💎</option>
-                  <option value="whack-mole">Zen Whack-A-Mole 🔨</option>
-                  <option value="snake">Retro Snake 🐍</option>
-                  <option value="gomoku">Zen Gomoku ⚪</option>
-                  <option value="hilo">Zen Card Hi-Lo 🎴</option>
+                  <optgroup label="Zen Games">
+                    <option value="bubble-popper" selected>Zen Bubble Popper 🫧</option>
+                    <option value="memory-match">Memory Match 🃏</option>
+                    <option value="gem-clicker">Zen Gem Clicker 💎</option>
+                    <option value="whack-mole">Zen Whack-A-Mole 🔨</option>
+                    <option value="snake">Retro Snake 🐍</option>
+                    <option value="gomoku">Zen Gomoku ⚪</option>
+                    <option value="hilo">Zen Card Hi-Lo 🎴</option>
+                  </optgroup>
+                  <optgroup label="Quick Dashboard">
+                    <option value="weather">Weather Forecast 🌤️</option>
+                    <option value="news">News Headlines 📰</option>
+                    <option value="stocks">Stock Indexes 📈</option>
+                  </optgroup>
                 </select>
               </div>
               
@@ -671,14 +678,19 @@
             </div>
             
             <!-- Right side game arena -->
-            <div style="background-color: #0d1117; border: 2px solid var(--panel-border); border-radius: 8px; overflow: hidden; position: relative; width: 360px; height: 360px; flex-shrink: 0; box-shadow: var(--shadow);">
+            <div style="background-color: #0d1117; border: 2px solid var(--panel-border); border-radius: 8px; overflow: hidden; position: relative; width: 450px; height: 450px; flex-shrink: 0; box-shadow: var(--shadow);">
               <!-- Game Container for Canvas-based games or Memory Match Grid -->
               <div id="game-arena" style="width: 100%; height: 100%; position: relative;">
-                <canvas id="game-canvas" width="360" height="360" style="display: block; background: #0d1117;"></canvas>
+                <canvas id="game-canvas" width="450" height="450" style="display: block; background: #0d1117;"></canvas>
                 
                 <!-- Memory Match Card Container -->
                 <div id="memory-match-grid" style="display: none; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 16px; width: 100%; height: 100%; background: #0d1117;">
                   <!-- Cards will be dynamically inserted here -->
+                </div>
+                
+                <!-- Dashboard Container for News, Stock, Weather -->
+                <div id="extra-info-container" style="display: none; width: 100%; height: 100%; overflow-y: auto; background: #0d1117; padding: 16px; box-sizing: border-box; text-align: left; scrollbar-width: thin;">
+                  <!-- Widgets dynamically loaded -->
                 </div>
               </div>
 
