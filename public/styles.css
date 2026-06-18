@@ -501,6 +501,10 @@ body {
   border-color: rgba(218, 54, 55, 0.2);
 }
 
+.hidden {
+  display: none !important;
+}
+
 .alert-box.hidden {
   display: none !important;
 }

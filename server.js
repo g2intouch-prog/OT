@@ -651,6 +651,11 @@ app.post('/api/entries/clear-all', checkAuth, async (req, res) => {
 
 // Vercel Blob backup/export endpoint
 app.post('/api/backup/export', checkAuth, async (req, res) => {
+  if (!process.env.BLOB_READ_WRITE_TOKEN) {
+    return res.status(400).json({ 
+      error: 'Vercel Blob token is missing. Please configure the BLOB_READ_WRITE_TOKEN environment variable in your Vercel Dashboard (or in a local .env file when testing locally).' 
+    });
+  }
   try {
     const { rows } = await db.query("SELECT * FROM records ORDER BY date DESC, id DESC");
     

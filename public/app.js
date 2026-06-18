@@ -3566,6 +3566,7 @@ function renderTotpStatus(enabled) {
 
   state.totpEnabled = enabled;
 
+  const credentialsTotpGroup = document.getElementById('change-admin-2fa-group');
   if (enabled) {
     DOM.totpStatusBadge.className = 'text-success';
     DOM.totpStatusBadge.textContent = 'Enabled';
@@ -3577,6 +3578,12 @@ function renderTotpStatus(enabled) {
       DOM.totpDisableInlineCode.classList.remove('hidden');
       DOM.totpDisableInlineCode.value = '';
     }
+    if (credentialsTotpGroup) {
+      credentialsTotpGroup.classList.remove('hidden');
+    }
+    if (DOM.changeAdmin2fa) {
+      DOM.changeAdmin2fa.setAttribute('required', 'true');
+    }
   } else {
     DOM.totpStatusBadge.className = 'text-warning';
     DOM.totpStatusBadge.textContent = 'Disabled';
@@ -3587,6 +3594,13 @@ function renderTotpStatus(enabled) {
     if (DOM.totpDisableInlineCode) {
       DOM.totpDisableInlineCode.classList.add('hidden');
       DOM.totpDisableInlineCode.value = '';
+    }
+    if (credentialsTotpGroup) {
+      credentialsTotpGroup.classList.add('hidden');
+    }
+    if (DOM.changeAdmin2fa) {
+      DOM.changeAdmin2fa.removeAttribute('required');
+      DOM.changeAdmin2fa.value = '';
     }
   }
 }
@@ -3606,6 +3620,14 @@ function resetTotpUI() {
   if (DOM.totpDisableInlineCode) {
     DOM.totpDisableInlineCode.classList.add('hidden');
     DOM.totpDisableInlineCode.value = '';
+  }
+  const credentialsTotpGroup = document.getElementById('change-admin-2fa-group');
+  if (credentialsTotpGroup) {
+    credentialsTotpGroup.classList.add('hidden');
+  }
+  if (DOM.changeAdmin2fa) {
+    DOM.changeAdmin2fa.removeAttribute('required');
+    DOM.changeAdmin2fa.value = '';
   }
 }
 
