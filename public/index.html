@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Data Entry Hub</title>
+  
+  <!-- SEO Meta Tags -->
+  <meta name="description" content="A cloud-based data logger web application. Work offline, store drafts locally, and verify/push to Postgres database.">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <meta name="theme-color" content="#0d1117">
+  
+  <!-- Google Fonts - Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- CSS Styles -->
+  <link rel="stylesheet" href="/styles.css">
+  <!-- SheetJS Spreadsheet Parser -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <!-- Chart.js for data visualization -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+  <!-- Top Banner -->
+  <header class="top-banner">
+    <div class="logo-area">
+      <img src="/favicon.svg" alt="Logo" class="banner-logo">
+      <h1>Data Entry Hub</h1>
+      <span id="connection-badge" class="badge offline">
+        <span class="pulse-dot"></span>
+        <span class="badge-text">Offline</span>
+      </span>
+    </div>
+    
+    <div class="header-controls">
+      <!-- Theme Toggle Button -->
+      <button id="theme-toggle-btn" class="btn btn-icon-only" aria-label="Toggle Theme" style="margin-right: 8px;">
+        <span id="theme-toggle-icon">☀</span>
+      </button>
+
+      <!-- Admin Login Button -->
+      <button id="auth-btn" class="btn btn-secondary">
+        <span class="btn-icon">🔒</span>
+        <span id="auth-btn-text">Admin Login</span>
+      </button>
+      
+      <!-- Mobile Sidebar Toggle -->
+      <button id="menu-toggle" class="btn btn-icon-only mobile-only" aria-label="Toggle Navigation">
+        <span class="hamburger"></span>
+      </button>
+    </div>
+  </header>
+
+  <div class="app-container">
+    
+    <!-- Fixed Left Side Box (Sidebar) -->
+    <aside id="app-sidebar" class="sidebar">
+      <div class="sidebar-header">
+        <h3>Control Center</h3>
+        <p class="sidebar-subtext">Manage entry configurations and sync operations.</p>
+      </div>
+      
+      <nav class="sidebar-nav">
+        <button class="nav-item active" data-tab="data-entry">
+          <span class="nav-icon">📝</span>
+          <span class="nav-text">Data Entry</span>
+        </button>
+        <button class="nav-item" data-tab="form-creator">
+          <span class="nav-icon">🛠️</span>
+          <span class="nav-text">Form Creator</span>
+        </button>
+        <button class="nav-item" data-tab="sync-console">
+          <span class="nav-icon">📤</span>
+          <span class="nav-text">Verify & Push</span>
+          <span id="drafts-count-badge" class="badge count-badge hidden">0</span>
+        </button>
+        <button class="nav-item" data-tab="import-excel">
+          <span class="nav-icon">📥</span>
+          <span class="nav-text">Import Excel</span>
+        </button>
+        <button class="nav-item" data-tab="db-viewer">
+          <span class="nav-icon">📊</span>
+          <span class="nav-text">Reports</span>
+        </button>
+        <button class="nav-item" data-tab="data-analysis">
+          <span class="nav-icon">📈</span>
+          <span class="nav-text">Analysis</span>
+        </button>
+        <button class="nav-item" data-tab="settings">
+          <span class="nav-icon">⚙️</span>
+          <span class="nav-text">Settings</span>
+        </button>
+      </nav>
+      
+      <div class="sidebar-footer">
+        <div class="status-summary">
+          <div class="status-row">
+            <span>Session:</span>
+            <strong id="session-status-display" class="status-logged-out">Guest Mode</strong>
+          </div>
+        </div>
+      </div>
+    </aside>
+    
+    <!-- Mobile Sidebar Overlay -->
+    <div id="sidebar-overlay" class="sidebar-overlay"></div>
+
+    <!-- Selected View on Right -->
+    <main class="main-content">
+      
+      <!-- TAB 1: DATA ENTRY -->
+      <section id="tab-data-entry" class="tab-panel active">
+        <div class="panel-card">
+          <h2>New Data Entry Row</h2>
+          <p class="card-subtitle">Fill in the current row. Clicking save will draft the entry locally.</p>
+          
+          <form id="data-entry-form" class="entry-form-wrapper">
+            <!-- Dynamic Form Fields will be rendered here -->
+            <div id="dynamic-inputs-container" class="dynamic-inputs-grid">
+              <div class="loading-placeholder">Loading form fields...</div>
+            </div>
+            
+            <div class="form-actions">
+              <button type="submit" id="save-draft-btn" class="btn btn-primary">
+                <span>Save Draft (Next Row)</span>
+                <span class="key-hint">Enter ↵</span>
+              </button>
+              <button type="button" id="clear-fields-btn" class="btn btn-link">Clear Row</button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Local Drafts Preview -->
+        <div class="panel-card mt-4">
+          <div class="card-header-flex">
+            <h2>Current Local Drafts</h2>
+            <span id="draft-summary-text" class="text-muted">No draft entries</span>
+          </div>
+          
+          <div class="table-responsive">
+            <table class="data-table" id="drafts-preview-table">
+              <thead>
+                <tr id="drafts-table-header">
+                  <!-- Dynamic headers based on schema -->
+                </tr>
+              </thead>
+              <tbody id="drafts-table-body">
+                <tr>
+                  <td colspan="100%" class="text-center text-muted py-4">No drafts saved yet. Enter a row above to save a draft.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 2: FORM CREATOR -->
+      <section id="tab-form-creator" class="tab-panel">
+        <div class="panel-card">
+          <div class="card-header-flex">
+            <div>
+              <h2>Form Fields Creator</h2>
+              <p class="card-subtitle">Design the data entry row. Add or delete fields, assign titles, and save configuration.</p>
+            </div>
+            <div id="creator-admin-warning" class="alert-box alert-warning">
+              <span>⚠️ Login required to save changes to the database.</span>
+            </div>
+          </div>
+
+          <div class="form-creator-wrapper">
+            <div class="creator-toolbar">
+              <button id="add-field-btn" class="btn btn-secondary">
+                <span>➕ Add Field</span>
+              </button>
+              <button id="load-headers-btn" class="btn btn-secondary">
+                <span>📂 Load Schema from Excel Headers</span>
+              </button>
+              <input type="file" id="headers-excel-file" accept=".xlsx, .xls, .csv" style="display: none;">
+              <button id="reset-creator-btn" class="btn btn-link">Reset to Default</button>
+            </div>
+
+            <div class="fields-list-container">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Position</th>
+                    <th>Field Title (Display Name)</th>
+                    <th>Data Type</th>
+                    <th>Voice</th>
+                    <th class="actions-col">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="fields-list-body">
+                  <!-- Dynamic rows of fields being created -->
+                </tbody>
+              </table>
+            </div>
+
+            <div class="form-actions mt-4">
+              <button id="save-schema-btn" class="btn btn-primary" disabled>
+                <span>Save Schema Configuration</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 3: VERIFY & PUSH -->
+      <section id="tab-sync-console" class="tab-panel">
+        <div class="panel-card">
+          <div class="card-header-flex">
+            <div>
+              <h2>Verify and Push to Database</h2>
+              <p class="card-subtitle">Review, select, and push offline draft entries to the central SQLite database.</p>
+            </div>
+            <div id="sync-network-warning" class="alert-box alert-danger">
+              <span id="sync-warning-text">⚠️ Connected to server: Checking connection...</span>
+            </div>
+          </div>
+
+          <div class="sync-actions-toolbar">
+            <div class="checkbox-selection-group">
+              <button id="select-all-drafts-btn" class="btn btn-link py-1 px-2">Select All</button>
+              <button id="deselect-all-drafts-btn" class="btn btn-link py-1 px-2">Deselect All</button>
+            </div>
+            
+            <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+              <button id="push-selected-btn" class="btn btn-success" disabled>
+                <span>Push Selected (<span id="push-count-text">0</span>) to Database</span>
+              </button>
+              <button id="reject-selected-btn" class="btn btn-danger" disabled>
+                <span>Reject Selected (<span id="reject-count-text">0</span>)</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="table-responsive mt-3">
+            <table class="data-table">
+              <thead>
+                <tr id="sync-table-header">
+                  <th width="40"><input type="checkbox" id="header-select-all"></th>
+                  <th>Date</th>
+                  <!-- Dynamic schema headers will be added here -->
+                  <th class="actions-col">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="sync-table-body">
+                <tr>
+                  <td colspan="100%" class="text-center text-muted py-4">No local drafts to push. Use the Data Entry view to add records.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 5: IMPORT EXCEL -->
+      <section id="tab-import-excel" class="tab-panel">
+        <div class="panel-card">
+          <h2>Import Excel / CSV</h2>
+          <p class="card-subtitle">Upload a spreadsheet to bulk import records as local drafts. Rows will be mapped based on header titles.</p>
+          
+          <div class="excel-import-zone" id="excel-drop-zone">
+            <span class="upload-icon">📊</span>
+            <p>Drag and drop your spreadsheet here or click to select</p>
+            <input type="file" id="excel-import-file" accept=".xlsx, .xls, .csv">
+          </div>
+          
+          <div id="import-mapping-preview" class="import-preview-wrapper hidden">
+            <h3>Import Preview & Header Mapping</h3>
+            <p class="text-muted mb-3">Ensure the columns in your spreadsheet match the active form fields. Review the first row below before finalizing.</p>
+            
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr id="import-preview-headers">
+                    <!-- Dynamic preview headers -->
+                  </tr>
+                </thead>
+                <tbody id="import-preview-body">
+                  <!-- Dynamic preview rows -->
+                </tbody>
+              </table>
+            </div>
+            
+            <div class="form-actions mt-4">
+              <button id="confirm-import-btn" class="btn btn-success" disabled>
+                <span>Confirm and Import (<span id="import-row-count">0</span>) Rows</span>
+              </button>
+              <button id="cancel-import-btn" class="btn btn-secondary">Cancel</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 4: DATABASE REPORTS -->
+      <section id="tab-db-viewer" class="tab-panel">
+        <div class="panel-card">
+          <div class="card-header-flex">
+            <div>
+              <h2>Database Records</h2>
+              <p class="card-subtitle">Query and view verified entries from the SQLite database.</p>
+            </div>
+            <div class="report-filters">
+              <select id="filter-month" class="form-select">
+                <option value="all">All Months</option>
+                <option value="01">January</option>
+                <option value="02">February</option>
+                <option value="03">March</option>
+                <option value="04">April</option>
+                <option value="05">May</option>
+                <option value="06">June</option>
+                <option value="07">July</option>
+                <option value="08">August</option>
+                <option value="09">September</option>
+                <option value="10">October</option>
+                <option value="11">November</option>
+                <option value="12">December</option>
+              </select>
+              <select id="filter-year" class="form-select">
+                <option value="all">All Years</option>
+                <!-- Dynamic years will be loaded -->
+              </select>
+              <select id="filter-sort" class="form-select">
+                <option value="desc">Latter First</option>
+                <option value="asc">Earlier First</option>
+              </select>
+              <button id="refresh-db-btn" class="btn btn-secondary py-2">
+                <span>🔄 Refresh</span>
+              </button>
+              <button id="print-preview-btn" class="btn btn-primary py-2">
+                <span>🖨️ Print Preview</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Duplicate Records Warning Box -->
+          <div id="db-duplicate-alert" class="alert-box alert-danger hidden mt-3">
+            <span>⚠️ Warning: Duplicate records detected in database! Please review highlighted rows and delete or edit the incorrect entry.</span>
+          </div>
+
+          <div class="reports-summary-cards">
+            <div class="summary-card">
+              <span class="summary-title">Total Records</span>
+              <strong id="summary-total-records">0</strong>
+            </div>
+            <div class="summary-card">
+              <span class="summary-title">Verified Records</span>
+              <strong id="summary-verified-records" class="text-success">0</strong>
+            </div>
+            <div class="summary-card">
+              <span class="summary-title">Unverified Records</span>
+              <strong id="summary-unverified-records" class="text-warning">0</strong>
+            </div>
+          </div>
+
+          <div class="table-responsive mt-4">
+            <table class="data-table">
+              <thead>
+                <tr id="db-table-header">
+                  <th>Status</th>
+                  <!-- Dynamic schema headers will be added here -->
+                  <th class="actions-col">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="db-table-body">
+                <tr>
+                  <td colspan="100%" class="text-center text-muted py-4">No data loaded. Connect to the LAN database to view records.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 6: DATA ANALYSIS DASHBOARD -->
+      <section id="tab-data-analysis" class="tab-panel">
+        <div class="panel-card">
+          <div class="card-header-flex">
+            <div>
+              <h2>Data Analytics Dashboard</h2>
+              <p class="card-subtitle">Visualize metrics and birth statistics from the SQLite database.</p>
+            </div>
+            
+            <div class="report-filters" style="display: flex; gap: 12px; flex-wrap: wrap;">
+              <div class="form-group" style="flex-direction: row; align-items: center; gap: 8px;">
+                <label for="analysis-timeframe" style="white-space: nowrap; margin-bottom: 0;">Timeframe:</label>
+                <select id="analysis-timeframe" class="form-select" style="min-width: 130px;">
+                  <option value="till-date">Till Date</option>
+                  <option value="annual">Annual</option>
+                  <option value="monthly">Monthly</option>
+                  <option value="custom">Custom Range</option>
+                </select>
+              </div>
+              
+              <div id="analysis-year-group" class="form-group hidden" style="flex-direction: row; align-items: center; gap: 8px;">
+                <label for="analysis-year" style="white-space: nowrap; margin-bottom: 0;">Year:</label>
+                <select id="analysis-year" class="form-select" style="min-width: 100px;">
+                  <!-- Dynamic years -->
+                </select>
+              </div>
+              
+              <div id="analysis-month-group" class="form-group hidden" style="flex-direction: row; align-items: center; gap: 8px;">
+                <label for="analysis-month" style="white-space: nowrap; margin-bottom: 0;">Month:</label>
+                <select id="analysis-month" class="form-select" style="min-width: 120px;">
+                  <option value="01">January</option>
+                  <option value="02">February</option>
+                  <option value="03">March</option>
+                  <option value="04">April</option>
+                  <option value="05">May</option>
+                  <option value="06">June</option>
+                  <option value="07">July</option>
+                  <option value="08">August</option>
+                  <option value="09">September</option>
+                  <option value="10">October</option>
+                  <option value="11">November</option>
+                  <option value="12">December</option>
+                </select>
+              </div>
+
+              <div id="analysis-custom-group" class="form-group hidden" style="flex-direction: row; align-items: center; gap: 8px; flex-wrap: wrap;">
+                <label for="analysis-from-date" style="white-space: nowrap; margin-bottom: 0;">From:</label>
+                <input type="date" id="analysis-from-date" class="form-control" style="width: auto;">
+                <label for="analysis-to-date" style="white-space: nowrap; margin-bottom: 0;">To:</label>
+                <input type="date" id="analysis-to-date" class="form-control" style="width: auto;">
+              </div>
+            </div>
+          </div>
+
+          <!-- KPI summary cards -->
+          <div class="reports-summary-cards mt-3">
+            <div class="summary-card">
+              <span class="summary-title">Total Deliveries</span>
+              <strong id="kpi-total-deliveries">0</strong>
+            </div>
+            
+            <div class="summary-card">
+              <span class="summary-title">Avg Birth Weight</span>
+              <strong id="kpi-avg-weight">0g</strong>
+            </div>
+
+            <div class="summary-card">
+              <span class="summary-title">FP Adoption Rate</span>
+              <strong id="kpi-fp-rate">0%</strong>
+              <div class="kpi-progress-bar-container" style="background-color: #21262d; border-radius: 4px; height: 6px; margin-top: 8px; overflow: hidden; width: 100%;">
+                <div id="kpi-fp-progress" class="kpi-progress-bar green" style="background-color: var(--success); height: 100%; width: 0%; transition: width 0.4s ease;"></div>
+              </div>
+            </div>
+
+            <div class="summary-card">
+              <span class="summary-title">LBW Prevalence (< 2.2kg)</span>
+              <strong id="kpi-lbw-rate">0 (0%)</strong>
+              <div class="kpi-progress-bar-container" style="background-color: #21262d; border-radius: 4px; height: 6px; margin-top: 8px; overflow: hidden; width: 100%;">
+                <div id="kpi-lbw-progress" class="kpi-progress-bar red" style="background-color: var(--danger); height: 100%; width: 0%; transition: width 0.4s ease;"></div>
+              </div>
+            </div>
+
+            <div class="summary-card">
+              <span class="summary-title">Baby Gender Ratio</span>
+              <strong id="kpi-gender-ratio">N/A</strong>
+            </div>
+
+            <div class="summary-card">
+              <span class="summary-title">High-Risk Cases</span>
+              <strong id="kpi-high-risk">0</strong>
+            </div>
+          </div>
+
+          <!-- Charts layout grid -->
+          <div class="analytics-grid mt-4">
+            <div class="chart-card">
+              <h3>Baby Gender Distribution</h3>
+              <div class="chart-container">
+                <canvas id="chart-gender"></canvas>
+              </div>
+            </div>
+
+            <div class="chart-card">
+              <h3>Family Planning Options</h3>
+              <div class="chart-container">
+                <canvas id="chart-fp"></canvas>
+              </div>
+            </div>
+
+            <div class="chart-card">
+              <h3>Delivery Shifts</h3>
+              <div class="chart-container">
+                <canvas id="chart-shifts"></canvas>
+              </div>
+            </div>
+
+            <div class="chart-card">
+              <h3>Weekday Birth Load</h3>
+              <div class="chart-container">
+                <canvas id="chart-weekday"></canvas>
+              </div>
+            </div>
+
+            <div id="monthly-load-card" class="chart-card">
+              <h3>Monthly Birth Load</h3>
+              <div class="chart-container">
+                <canvas id="chart-monthly-load"></canvas>
+              </div>
+            </div>
+
+            <div class="chart-card">
+              <h3>Maternal Age Groups</h3>
+              <div class="chart-container">
+                <canvas id="chart-age"></canvas>
+              </div>
+            </div>
+
+            <div class="chart-card address-insights-card">
+              <h3>Top Patient Locations</h3>
+              <div class="top-addresses-wrapper">
+                <ol id="top-addresses-list" class="top-addresses-list">
+                  <li class="text-muted">No data available</li>
+                </ol>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 7: SETTINGS -->
+      <section id="tab-settings" class="tab-panel">
+        <!-- Admin Credentials Settings Card -->
+        <div class="panel-card" id="admin-credentials-card">
+          <h2>Admin Credentials Settings</h2>
+          <p class="card-subtitle">Change the administrative Login User ID and Password. Confirm your current password to save changes.</p>
+          
+          <form id="change-credentials-form">
+            <div class="dynamic-inputs-grid">
+              <div class="form-group">
+                <label for="change-admin-username">New Admin User ID</label>
+                <input type="text" id="change-admin-username" class="form-control" placeholder="e.g. admin" required autocomplete="username">
+              </div>
+              <div class="form-group">
+                <label for="change-admin-password">New Password</label>
+                <input type="password" id="change-admin-password" class="form-control" placeholder="Enter new password" required autocomplete="new-password">
+              </div>
+              <div class="form-group">
+                <label for="change-current-password">Current Password (To Save Changes)</label>
+                <input type="password" id="change-current-password" class="form-control" placeholder="Enter current password" required autocomplete="current-password">
+              </div>
+              <div class="form-group">
+                <label for="change-admin-2fa">2FA Authenticator Code</label>
+                <input type="text" id="change-admin-2fa" class="form-control" placeholder="000000" pattern="[0-9]{6}" inputmode="numeric" maxlength="6" required autocomplete="one-time-code">
+              </div>
+            </div>
+            
+            <div class="form-actions mt-4">
+              <button type="submit" id="submit-credentials-btn" class="btn btn-primary" disabled>
+                <span>Update Credentials</span>
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Two-Factor Authentication (2FA) Settings Card -->
+        <div class="panel-card mt-4" id="two-factor-settings-card">
+          <h2>Two-Factor Authentication (2FA)</h2>
+          <p class="card-subtitle font-sans">Enhance account security by requiring a 6-digit verification code from a TOTP app (like Google Authenticator) during login.</p>
+          
+          <div id="totp-status-container" class="mt-3">
+            <p>Status: <strong id="totp-status-badge" class="text-warning">Checking...</strong></p>
+            <div id="totp-actions" class="mt-2"></div>
+          </div>
+
+          <!-- Setup Section -->
+          <div id="totp-setup-section" class="hidden mt-4" style="border-top: 1px solid var(--panel-border); padding-top: 20px;">
+            <h3>Set up Two-Factor Authentication</h3>
+            <p class="text-muted mb-2">1. Scan the QR code below using your authenticator app (Google Authenticator, Microsoft Authenticator, etc.):</p>
+            
+            <div id="totp-qr-container" style="background: white; padding: 12px; border-radius: 8px; width: 224px; height: 224px; margin: 16px 0; box-shadow: var(--shadow);">
+              <img id="totp-qr-img" src="" alt="TOTP Setup QR Code" style="display: block; width: 200px; height: 200px;">
+            </div>
+
+            <p class="text-muted mb-3">Or enter this secret key manually: <strong id="totp-manual-secret" style="color: var(--accent-color); font-family: monospace; font-size: 1.1rem; letter-spacing: 1px;">-</strong></p>
+            
+            <p class="text-muted mb-2">2. Enter the 6-digit code generated by your app to verify and enable 2FA:</p>
+            <div class="form-group" style="max-width: 200px;">
+              <input type="text" id="totp-setup-code" class="form-control" placeholder="000000" pattern="[0-9]{6}" inputmode="numeric" maxlength="6">
+            </div>
+            
+            <div class="form-actions mt-3">
+              <button type="button" id="confirm-totp-btn" class="btn btn-success">Verify & Enable 2FA</button>
+              <button type="button" id="cancel-totp-setup-btn" class="btn btn-secondary">Cancel Setup</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Cloud Backup & Export Card -->
+        <div class="panel-card mt-4" id="cloud-backup-card">
+          <h2>Cloud Backup & Export (Vercel Blob)</h2>
+          <p class="card-subtitle">Export all database records to a CSV file stored in the cloud. You will receive a secure shareable link to download it.</p>
+          
+          <div class="form-actions mt-3" style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+            <button type="button" id="cloud-backup-btn" class="btn btn-success" disabled>
+              <span>Generate Cloud Backup</span>
+            </button>
+            <a id="cloud-backup-download-link" href="#" target="_blank" class="hidden" style="color: #3fb950; font-weight: 600; text-decoration: underline;">
+              Download Backup File
+            </a>
+          </div>
+        </div>
+
+        <!-- Danger Zone Card -->
+        <div class="panel-card mt-4" id="danger-zone-card" style="border: 1px solid var(--danger);">
+          <h2 style="color: var(--danger);">Danger Zone (Clear All Data)</h2>
+          <p class="card-subtitle">Perform destructive operations. These actions are irreversible and will permanently delete data.</p>
+          
+          <div class="form-actions" style="display: flex; gap: 16px; flex-wrap: wrap; margin-top: 16px;">
+            <button type="button" id="clear-drafts-btn" class="btn btn-secondary" style="border-color: var(--danger); color: var(--danger);">
+              <span>Clear Local Drafts</span>
+            </button>
+            <button type="button" id="clear-database-btn" class="btn btn-danger" disabled>
+              <span>Clear Postgres Database</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      </section>
+
+    </main>
+  </div>
+
+  <!-- Print Preview Modal -->
+  <div id="print-modal" class="modal-overlay">
+    <div class="modal-card" style="max-width: 1100px; width: 95%;">
+      <div class="modal-header">
+        <h2>Print Preview</h2>
+        <button id="close-print-modal-btn" class="modal-close-x">&times;</button>
+      </div>
+      <div class="modal-body">
+        <!-- Print Area Container -->
+        <div id="print-area" class="print-preview-container">
+          <h1 id="print-preview-header-text" class="print-title-header">CHC TANGI OT DATA</h1>
+          <div class="table-responsive mt-3">
+            <table class="data-table">
+              <thead>
+                <tr id="print-table-header">
+                  <!-- Dynamic headers -->
+                </tr>
+              </thead>
+              <tbody id="print-table-body">
+                <!-- Dynamic rows -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="modal-actions" style="padding: 16px 24px; margin-top: 0; background-color: #161b22; border-top: 1px solid var(--panel-border);">
+        <button type="button" id="cancel-print-btn" class="btn btn-secondary">Cancel</button>
+        <button type="button" id="verify-print-btn" class="btn btn-success">Verify and Print</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Auth Prompt Modal (Popup) -->
+  <div id="auth-modal" class="modal-overlay">
+    <div class="modal-card" style="max-width: 400px; width: 95%;">
+      <div class="modal-header">
+        <h2>Admin Authentication</h2>
+        <button id="close-modal-btn" class="modal-close-x">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-subtitle" id="login-modal-subtitle">Log in to modify the form creator schema and verify/push entries to the central SQLite database.</p>
+        
+        <div id="login-error" class="alert-box alert-danger hidden">
+          <span id="login-error-text">Invalid username or password.</span>
+        </div>
+        
+        <form id="login-form">
+          <!-- Step 1: User & Password Credentials -->
+          <div id="login-credentials-section">
+            <div class="form-group">
+              <label for="login-username">Admin User ID</label>
+              <input type="text" id="login-username" class="form-control" placeholder="Enter ID" required autocomplete="username">
+            </div>
+            <div class="form-group mt-3">
+              <label for="login-password">Password</label>
+              <input type="password" id="login-password" class="form-control" placeholder="Enter Password" required autocomplete="current-password">
+            </div>
+          </div>
+          
+          <!-- Step 2: OTP / 2FA Code Entry -->
+          <div id="login-otp-section" class="hidden mt-3">
+            <div class="form-group">
+              <label for="login-otp">2FA Authenticator Code</label>
+              <input type="text" id="login-otp" class="form-control" placeholder="000000" pattern="[0-9]{6}" inputmode="numeric" maxlength="6" autocomplete="one-time-code">
+              <p class="form-text text-muted" style="font-size: 0.75rem; margin-top: 6px; color: var(--text-muted);">Enter the 6-digit verification code from your authenticator app.</p>
+            </div>
+          </div>
+          
+
+          
+          <div class="modal-actions mt-4">
+            <button type="button" id="cancel-login-btn" class="btn btn-secondary">Cancel</button>
+            <button type="submit" id="submit-login-btn" class="btn btn-primary">Login</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Record/Draft Modal -->
+  <div id="edit-modal" class="modal-overlay">
+    <div class="modal-card" style="max-width: 600px; width: 95%;">
+      <div class="modal-header">
+        <h2 id="edit-modal-title">Edit Entry</h2>
+        <button id="close-edit-modal-btn" class="modal-close-x">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="edit-form">
+          <div id="edit-inputs-container" class="dynamic-inputs-grid">
+            <!-- Dynamic fields will be loaded here -->
+          </div>
+          <div class="modal-actions mt-4">
+            <button type="button" id="cancel-edit-btn" class="btn btn-secondary">Cancel</button>
+            <button type="submit" id="submit-edit-btn" class="btn btn-primary">Save Changes</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Floating Action Button for Live Debug Logs (Trial Phase) -->
+  <div id="debug-toggle-btn" style="position: fixed; bottom: 16px; right: 16px; width: 44px; height: 44px; border-radius: 50%; background-color: var(--accent-color); display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 99999; box-shadow: 0 4px 12px rgba(0,0,0,0.5); font-size: 18px; transition: transform 0.2s;" onclick="const p = document.getElementById('debug-overlay-panel'); const isHidden = p.style.display === 'none'; p.style.display = isHidden ? 'flex' : 'none'; if (isHidden) document.getElementById('debug-badge').style.display = 'none';" onmouseover="this.style.transform='scale(1.08)'" onmouseout="this.style.transform='scale(1)'">
+    🪲
+    <span id="debug-badge" style="position: absolute; top: -2px; right: -2px; width: 10px; height: 10px; background-color: var(--danger); border-radius: 50%; border: 2px solid #fff; display: none;"></span>
+  </div>
+
+  <!-- Live Debug Console Overlay (Collapsible) -->
+  <div id="debug-overlay-panel" style="position: fixed; bottom: 72px; right: 16px; width: 320px; max-height: 250px; background: rgba(22, 27, 34, 0.98); border: 1px solid var(--panel-border); border-radius: 8px; z-index: 99998; font-family: monospace; font-size: 11px; color: #8b949e; overflow: hidden; display: none; flex-direction: column; box-shadow: var(--shadow);">
+    <div style="padding: 8px 12px; background: #161b22; border-bottom: 1px solid var(--panel-border); display: flex; justify-content: space-between; align-items: center;">
+      <strong style="color: var(--accent-color);">🪲 Debug Console Logs</strong>
+      <span style="font-size: 12px; cursor: pointer; opacity: 0.7; font-weight: bold; padding: 2px 6px;" onclick="document.getElementById('debug-overlay-panel').style.display = 'none';">✕</span>
+    </div>
+    <div id="debug-content" style="padding: 8px 12px; overflow-y: auto; flex: 1;">
+      <div id="debug-log-list" style="display: flex; flex-direction: column; gap: 4px;"></div>
+    </div>
+  </div>
+  
+  <script>
+    (function() {
+      const list = document.getElementById('debug-log-list');
+      const content = document.getElementById('debug-content');
+      const badge = document.getElementById('debug-badge');
+      
+      function addLog(msg, color) {
+        const item = document.createElement('div');
+        item.style.color = color || '#f0f6fc';
+        item.style.borderBottom = '1px solid rgba(48,54,61,0.3)';
+        item.style.paddingBottom = '3px';
+        item.style.whiteSpace = 'pre-wrap';
+        item.style.wordBreak = 'break-all';
+        item.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+        list.appendChild(item);
+        if (list.childNodes.length > 20) list.removeChild(list.firstChild);
+        content.scrollTop = content.scrollHeight;
+      }
+      
+      // Intercept console functions
+      const _log = console.log;
+      const _warn = console.warn;
+      const _error = console.error;
+      
+      console.log = function(...args) {
+        _log.apply(console, args);
+        addLog(args.join(' '), '#f0f6fc');
+      };
+      console.warn = function(...args) {
+        _warn.apply(console, args);
+        addLog(args.join(' '), '#d29922');
+        if (badge) badge.style.display = 'block'; // Show warning/error badge without blocking screen
+      };
+      console.error = function(...args) {
+        _error.apply(console, args);
+        addLog(args.join(' '), '#ff8080');
+        if (badge) badge.style.display = 'block';
+      };
+      
+      window.onerror = function(message, source, lineno, colno, error) {
+        addLog(`ERROR: ${message} at ${source}:${lineno}:${colno}`, '#ff8080');
+        if (badge) badge.style.display = 'block';
+        return false;
+      };
+      
+      window.addEventListener('unhandledrejection', function(event) {
+        addLog(`Promise Rejected: ${event.reason}`, '#ff8080');
+        if (badge) badge.style.display = 'block';
+      });
+    })();
+  </script>
+
+
+
+  <!-- Service Worker registration script -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+          .then((reg) => console.log('Service Worker: Registered successfully', reg.scope))
+          .catch((err) => console.warn('Service Worker: Registration failed', err));
+      });
+    }
+  </script>
+
+  <!-- Frontend application script -->
+  <script src="/app.js"></script>
+</body>
+</html>
