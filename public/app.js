@@ -5847,16 +5847,49 @@ function renderStockWidget(symbol) {
         <input type="text" id="stock-ticker-input" class="form-control" style="font-size:0.85rem; padding: 6px 10px; flex: 1; min-width: 120px;" placeholder="Custom Ticker: e.g. BSE:SENSEX, AAPL" value="${cleanSymbol}">
         <button class="btn btn-primary" style="padding: 6px 12px;" onclick="renderStockWidget(document.getElementById('stock-ticker-input').value)">Show Chart</button>
       </div>
-      <div style="flex: 1; border-radius: 6px; overflow: hidden; border: 1px solid var(--panel-border); background: #161b22; height: 260px;">
-        <iframe 
-          src="https://s.tradingview.com/widgetembed/?frameElementId=tradingview_1&symbol=${encodeURIComponent(cleanSymbol)}&interval=D&theme=dark&style=1&timezone=Asia%2FKolkata&locale=en" 
-          style="width:100%; height:100%; border:none; background:#0d1117;"
-          scrolling="no" 
-          allowtransparency="true">
-        </iframe>
+      <div style="flex: 1; border-radius: 6px; overflow: hidden; border: 1px solid var(--panel-border); background: #161b22; height: 260px;" id="tradingview-widget-holder">
+        <!-- Dynamically loaded TradingView Widget -->
       </div>
     </div>
   `;
+
+  const widgetHolder = document.getElementById('tradingview-widget-holder');
+  if (widgetHolder) {
+    if (window.TradingView && typeof window.TradingView.widget === 'function') {
+      try {
+        new window.TradingView.widget({
+          "autosize": true,
+          "symbol": cleanSymbol,
+          "interval": "D",
+          "timezone": "Asia/Kolkata",
+          "theme": "dark",
+          "style": "1",
+          "locale": "en",
+          "enable_publishing": false,
+          "hide_side_toolbar": true,
+          "allow_symbol_change": true,
+          "container_id": "tradingview-widget-holder"
+        });
+      } catch (err) {
+        console.error("TradingView widget initialization failed:", err);
+        widgetHolder.innerHTML = `
+          <iframe 
+            src="https://s.tradingview.com/widgetembed/?symbol=${encodeURIComponent(cleanSymbol)}&interval=D&theme=dark&style=1&timezone=Asia%2FKolkata&locale=en" 
+            style="width:100%; height:100%; border:none; background:#0d1117;"
+            scrolling="no" 
+            allowtransparency="true">
+          </iframe>`;
+      }
+    } else {
+      widgetHolder.innerHTML = `
+        <iframe 
+          src="https://s.tradingview.com/widgetembed/?symbol=${encodeURIComponent(cleanSymbol)}&interval=D&theme=dark&style=1&timezone=Asia%2FKolkata&locale=en" 
+          style="width:100%; height:100%; border:none; background:#0d1117;"
+          scrolling="no" 
+          allowtransparency="true">
+        </iframe>`;
+    }
+  }
   
   const dropdown = document.getElementById('stock-select-dropdown');
   if (dropdown) {
