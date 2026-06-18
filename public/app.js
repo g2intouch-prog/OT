@@ -525,15 +525,21 @@ function updateAuthUI() {
   
   // Show/hide nav items based on authentication
   DOM.navItems.forEach(item => {
-    if (item.dataset.tab === 'data-entry') {
+    if (item.dataset.tab === 'data-entry' || item.dataset.tab === 'break-game') {
       item.style.display = 'flex';
     } else {
       item.style.display = state.isAuthenticated ? 'flex' : 'none';
     }
   });
 
+  // Toggle debug console visibility based on authentication
+  const debugBtn = document.getElementById('debug-toggle-btn');
+  const debugPanel = document.getElementById('debug-overlay-panel');
+
   if (state.isAuthenticated) {
     DOM.authBtn.className = 'btn btn-secondary';
+    DOM.authBtn.title = 'Admin Logout';
+    DOM.authBtn.setAttribute('aria-label', 'Admin Logout');
     DOM.authBtnText.textContent = 'Admin Logout';
     if (authBtnIcon) authBtnIcon.textContent = '🔓';
     DOM.sessionStatusDisplay.className = 'status-logged-in';
@@ -544,8 +550,11 @@ function updateAuthUI() {
     if (DOM.clearDatabaseBtn) DOM.clearDatabaseBtn.removeAttribute('disabled');
     if (DOM.localBackupExportBtn) DOM.localBackupExportBtn.removeAttribute('disabled');
     if (DOM.localBackupRestoreBtn) DOM.localBackupRestoreBtn.removeAttribute('disabled');
+    if (debugBtn) debugBtn.style.display = 'flex';
   } else {
     DOM.authBtn.className = 'btn btn-secondary';
+    DOM.authBtn.title = 'Admin Login';
+    DOM.authBtn.setAttribute('aria-label', 'Admin Login');
     DOM.authBtnText.textContent = 'Admin Login';
     if (authBtnIcon) authBtnIcon.textContent = '🔒';
     DOM.sessionStatusDisplay.className = 'status-logged-out';
@@ -556,9 +565,11 @@ function updateAuthUI() {
     if (DOM.clearDatabaseBtn) DOM.clearDatabaseBtn.setAttribute('disabled', 'true');
     if (DOM.localBackupExportBtn) DOM.localBackupExportBtn.setAttribute('disabled', 'true');
     if (DOM.localBackupRestoreBtn) DOM.localBackupRestoreBtn.setAttribute('disabled', 'true');
+    if (debugBtn) debugBtn.style.display = 'none';
+    if (debugPanel) debugPanel.style.display = 'none';
     
     // Fallback if the user logs out from a restricted tab
-    if (state.activeTab !== 'data-entry') {
+    if (state.activeTab !== 'data-entry' && state.activeTab !== 'break-game') {
       switchToTab('data-entry');
     }
   }
@@ -2186,6 +2197,8 @@ function switchToTab(tabId) {
       }
     } else if (tabId === 'settings') {
       fetchTotpStatus();
+    } else if (tabId === 'break-game') {
+      initBreakGame();
     }
   }
 }
@@ -4072,4 +4085,210 @@ async function handleConfirmDisableTotp() {
     DOM.totpToggleBtn.disabled = false;
     DOM.totpToggleBtn.textContent = 'Disable TOTP';
   }
+}
+
+// -------------------------------------------------------------
+// 3-MINUTE SNAKE GAME BREAK MODULE
+// -------------------------------------------------------------
+
+let snakeGameInterval = null;
+let snakeTimerInterval = null;
+let snakeSecondsRemaining = 180;
+let snakeHighScore = 0;
+let snakeGameRunning = false;
+
+function initBreakGame() {
+  const timerDisplay = document.getElementById('game-timer');
+  if (timerDisplay) {
+    const mins = Math.floor(snakeSecondsRemaining / 60).toString().padStart(2, '0');
+    const secs = (snakeSecondsRemaining % 60).toString().padStart(2, '0');
+    timerDisplay.textContent = `Break Time Remaining: ${mins}:${secs}`;
+  }
+  
+  const canvas = document.getElementById('game-canvas');
+  if (canvas) {
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#0d1117';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#ff7b00';
+    ctx.font = '16px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('Click Start to Play', canvas.width / 2, canvas.height / 2);
+  }
+  
+  const startBtn = document.getElementById('start-game-btn');
+  if (startBtn) {
+    startBtn.onclick = startSnakeGame;
+  }
+}
+
+function startSnakeGame() {
+  const overlay = document.getElementById('game-overlay');
+  if (overlay) overlay.style.display = 'none';
+  
+  const scoreDisplay = document.getElementById('game-score');
+  if (scoreDisplay) scoreDisplay.textContent = '0';
+  
+  const canvas = document.getElementById('game-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  
+  let score = 0;
+  const grid = 15;
+  let count = 0;
+  
+  let snake = {
+    x: 150,
+    y: 150,
+    dx: grid,
+    dy: 0,
+    cells: [],
+    maxCells: 4
+  };
+  
+  let apple = {
+    x: 225,
+    y: 225
+  };
+  
+  function getRandomInt(min, max) {
+    return Math.floor(Math.random() * (max - min)) + min;
+  }
+  
+  function resetApple() {
+    apple.x = getRandomInt(0, 20) * grid;
+    apple.y = getRandomInt(0, 20) * grid;
+  }
+  
+  snakeGameRunning = true;
+  
+  if (!snakeTimerInterval) {
+    snakeSecondsRemaining = 180;
+    snakeTimerInterval = setInterval(() => {
+      snakeSecondsRemaining--;
+      const timerDisplay = document.getElementById('game-timer');
+      if (timerDisplay) {
+        const mins = Math.floor(snakeSecondsRemaining / 60).toString().padStart(2, '0');
+        const secs = (snakeSecondsRemaining % 60).toString().padStart(2, '0');
+        timerDisplay.textContent = `Break Time Remaining: ${mins}:${secs}`;
+        
+        if (snakeSecondsRemaining <= 0) {
+          clearInterval(snakeTimerInterval);
+          snakeTimerInterval = null;
+          snakeGameRunning = false;
+          timerDisplay.textContent = "Time's up! Back to work! 🏃‍♂️";
+          alert("Time's up! 3 minutes are over. Please get back to work!");
+          switchToTab('data-entry');
+        }
+      }
+    }, 1000);
+  }
+  
+  const handleKeys = (e) => {
+    if (!snakeGameRunning) return;
+    
+    if ([37, 38, 39, 40].indexOf(e.which) > -1) {
+      e.preventDefault();
+    }
+    
+    if ((e.which === 37 || e.which === 65) && snake.dx === 0) {
+      snake.dx = -grid;
+      snake.dy = 0;
+    }
+    else if ((e.which === 38 || e.which === 87) && snake.dy === 0) {
+      snake.dy = -grid;
+      snake.dx = 0;
+    }
+    else if ((e.which === 39 || e.which === 68) && snake.dx === 0) {
+      snake.dx = grid;
+      snake.dy = 0;
+    }
+    else if ((e.which === 40 || e.which === 83) && snake.dy === 0) {
+      snake.dy = grid;
+      snake.dx = 0;
+    }
+  };
+  
+  document.removeEventListener('keydown', handleKeys);
+  document.addEventListener('keydown', handleKeys);
+  
+  function gameLoop() {
+    if (!snakeGameRunning) return;
+    
+    requestAnimationFrame(gameLoop);
+    
+    if (++count < 6) {
+      return;
+    }
+    count = 0;
+    
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    
+    ctx.fillStyle = '#0d1117';
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    
+    snake.x += snake.dx;
+    snake.y += snake.dy;
+    
+    if (snake.x < 0) {
+      snake.x = canvas.width - grid;
+    }
+    else if (snake.x >= canvas.width) {
+      snake.x = 0;
+    }
+    
+    if (snake.y < 0) {
+      snake.y = canvas.height - grid;
+    }
+    else if (snake.y >= canvas.height) {
+      snake.y = 0;
+    }
+    
+    snake.cells.unshift({x: snake.x, y: snake.y});
+    
+    if (snake.cells.length > snake.maxCells) {
+      snake.cells.pop();
+    }
+    
+    ctx.fillStyle = '#da3637';
+    ctx.fillRect(apple.x, apple.y, grid-1, grid-1);
+    
+    ctx.fillStyle = '#2ea44f';
+    snake.cells.forEach(function(cell, index) {
+      if (index === 0) {
+        ctx.fillStyle = '#3fb950';
+      } else {
+        ctx.fillStyle = '#2ea44f';
+      }
+      ctx.fillRect(cell.x, cell.y, grid-1, grid-1);  
+      
+      if (cell.x === apple.x && cell.y === apple.y) {
+        snake.maxCells++;
+        score += 10;
+        if (scoreDisplay) scoreDisplay.textContent = score;
+        
+        if (score > snakeHighScore) {
+          snakeHighScore = score;
+          const hsDisplay = document.getElementById('game-highscore');
+          if (hsDisplay) hsDisplay.textContent = snakeHighScore;
+        }
+        resetApple();
+      }
+      
+      for (let i = index + 1; i < snake.cells.length; i++) {
+        if (cell.x === snake.cells[i].x && cell.y === snake.cells[i].y) {
+          snakeGameRunning = false;
+          const overlay = document.getElementById('game-overlay');
+          const title = document.getElementById('game-overlay-title');
+          if (overlay && title) {
+            title.textContent = `Game Over! Score: ${score}`;
+            title.style.color = 'var(--danger)';
+            overlay.style.display = 'flex';
+          }
+        }
+      }
+    });
+  }
+  
+  requestAnimationFrame(gameLoop);
 }
