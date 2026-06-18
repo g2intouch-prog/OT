@@ -4691,16 +4691,16 @@ function startSnakeArcade() {
   if (!canvas) return;
   const ctx = canvas.getContext('2d');
   
-  const grid = 16;
+  const grid = 18;
   let count = 0;
   
-  snakeState.x = 160;
-  snakeState.y = 160;
+  snakeState.x = 180;
+  snakeState.y = 180;
   snakeState.dx = grid;
   snakeState.dy = 0;
   snakeState.cells = [];
   snakeState.maxCells = 4;
-  snakeState.apple = { x: 96, y: 96 };
+  snakeState.apple = { x: 90, y: 90 };
   snakeState.speedThreshold = 18;
   
   function getRandomInt(min, max) {
@@ -5106,11 +5106,11 @@ function startWhackMole() {
   const ctx = canvas.getContext('2d');
   
   const spots = [
-    { x: 80, y: 80, active: false, timer: 0 },
-    { x: 240, y: 80, active: false, timer: 0 },
-    { x: 80, y: 240, active: false, timer: 0 },
-    { x: 240, y: 240, active: false, timer: 0 },
-    { x: 160, y: 160, active: false, timer: 0 }
+    { x: 90, y: 90, active: false, timer: 0 },
+    { x: 270, y: 90, active: false, timer: 0 },
+    { x: 90, y: 270, active: false, timer: 0 },
+    { x: 270, y: 270, active: false, timer: 0 },
+    { x: 180, y: 180, active: false, timer: 0 }
   ];
   
   let activeSpotIdx = -1;
@@ -5512,8 +5512,8 @@ function startHiLo() {
   let streak = 0;
   
   // Button definitions (drawn on canvas)
-  const hiBtn = { x: 40, y: 240, w: 100, h: 40, label: "Higher ▲" };
-  const loBtn = { x: 180, y: 240, w: 100, h: 40, label: "Lower ▼" };
+  const hiBtn = { x: 50, y: 280, w: 110, h: 44, label: "Higher ▲" };
+  const loBtn = { x: 200, y: 280, w: 110, h: 44, label: "Lower ▼" };
   
   function getRandomCard() {
     const suit = suits[Math.floor(Math.random() * suits.length)];
@@ -5572,7 +5572,7 @@ function startHiLo() {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
     // Draw current card
-    drawCard(currentCard, canvas.width/2 - 60, 40, 120, 170);
+    drawCard(currentCard, canvas.width/2 - 70, 45, 140, 200);
     
     // Draw action buttons
     drawButton(hiBtn);
@@ -5588,9 +5588,9 @@ function startHiLo() {
     if (feedbackTimer > 0) {
       feedbackTimer--;
       ctx.fillStyle = feedbackColor;
-      ctx.font = 'bold 16px sans-serif';
+      ctx.font = 'bold 14px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(feedbackText, canvas.width / 2, 225);
+      ctx.fillText(feedbackText, canvas.width / 2, 262);
     }
   }
   

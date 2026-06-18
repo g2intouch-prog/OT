@@ -623,69 +623,74 @@
       
       <!-- TAB 8: QUICK BREAK GAME -->
       <section id="tab-break-game" class="tab-panel">
-        <div class="panel-card" style="text-align: center; max-width: 550px; margin: 0 auto;">
-          <h2>Quick Break Room 🎮</h2>
-          <p class="card-subtitle">Take a quick break to recharge! Select a game and choose your break duration.</p>
+        <div class="panel-card" style="max-width: 680px; margin: 0 auto; padding: 20px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--panel-border); padding-bottom: 12px; margin-bottom: 16px;">
+            <div style="text-align: left;">
+              <h2 style="margin: 0; font-size: 1.4rem;">Quick Break Room 🎮</h2>
+              <p class="card-subtitle" style="margin: 4px 0 0 0; font-size: 0.8rem;">Take a quick break to recharge! Select a game and choose your break duration.</p>
+            </div>
+            <!-- Help Button -->
+            <button type="button" id="game-help-btn" style="background: none; border: none; padding: 6px; font-size: 1.25rem; cursor: pointer; color: var(--accent-color); outline: none;" title="Show Rules">❓</button>
+          </div>
           
-          <div style="display: flex; gap: 12px; justify-content: center; align-items: center; margin-bottom: 20px; flex-wrap: wrap;">
-            <div class="form-group" style="text-align: left; min-width: 140px;">
-              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
-                <label for="game-select" style="font-size: 0.75rem; font-weight: 600; margin-bottom: 0;">Choose Game</label>
-                <button type="button" id="game-help-btn" style="background: none; border: none; padding: 0 4px; font-size: 0.85rem; cursor: pointer; color: var(--accent-color); outline: none;" title="Show Rules">❓</button>
+          <div style="display: flex; gap: 24px; align-items: flex-start; justify-content: center; flex-wrap: wrap;">
+            <!-- Left side controls & stats -->
+            <div style="flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 16px; text-align: left;">
+              <div class="form-group" style="text-align: left;">
+                <label for="game-select" style="font-size: 0.75rem; font-weight: 600; margin-bottom: 6px;">Choose Game</label>
+                <select id="game-select" class="form-select" style="padding: 8px 12px; font-size: 0.85rem; width: 100%;">
+                  <option value="bubble-popper" selected>Zen Bubble Popper 🫧</option>
+                  <option value="memory-match">Memory Match 🃏</option>
+                  <option value="gem-clicker">Zen Gem Clicker 💎</option>
+                  <option value="whack-mole">Zen Whack-A-Mole 🔨</option>
+                  <option value="snake">Retro Snake 🐍</option>
+                  <option value="gomoku">Zen Gomoku ⚪</option>
+                  <option value="hilo">Zen Card Hi-Lo 🎴</option>
+                </select>
               </div>
-              <select id="game-select" class="form-select" style="padding: 6px 10px; font-size: 0.85rem;">
-                <option value="bubble-popper" selected>Zen Bubble Popper 🫧</option>
-                <option value="memory-match">Memory Match 🃏</option>
-                <option value="gem-clicker">Zen Gem Clicker 💎</option>
-                <option value="whack-mole">Zen Whack-A-Mole 🔨</option>
-                <option value="snake">Retro Snake 🐍</option>
-                <option value="gomoku">Zen Gomoku ⚪</option>
-                <option value="hilo">Zen Card Hi-Lo 🎴</option>
-              </select>
+              
+              <div class="form-group" style="text-align: left;">
+                <label for="game-timer-select" style="font-size: 0.75rem; font-weight: 600; margin-bottom: 6px;">Break Duration</label>
+                <select id="game-timer-select" class="form-select" style="padding: 8px 12px; font-size: 0.85rem; width: 100%;">
+                  <option value="60">1 Minute</option>
+                  <option value="180" selected>3 Minutes</option>
+                  <option value="300">5 Minutes</option>
+                </select>
+              </div>
+
+              <div id="game-timer" style="font-size: 1.15rem; font-weight: 700; color: var(--accent-color); border-top: 1px dashed var(--panel-border); padding-top: 12px; margin-top: 4px;">
+                Remaining: 03:00
+              </div>
+              
+              <div style="display: flex; justify-content: space-between; align-items: center; background: #161b22; padding: 10px 14px; border-radius: 6px; border: 1px solid var(--panel-border); font-size: 0.9rem;">
+                <div>Score: <strong id="game-score" style="color: var(--accent-color);">0</strong></div>
+                <div>High: <strong id="game-highscore">0</strong></div>
+              </div>
+              
+              <p id="game-controls-help" class="text-muted" style="font-size: 0.75rem; margin: 0; line-height: 1.4;">Controls: Click/Tap bubbles to pop them.</p>
             </div>
             
-            <div class="form-group" style="text-align: left; min-width: 140px;">
-              <label for="game-timer-select" style="font-size: 0.75rem; font-weight: 600;">Break Duration</label>
-              <select id="game-timer-select" class="form-select" style="padding: 6px 10px; font-size: 0.85rem;">
-                <option value="60">1 Minute</option>
-                <option value="180" selected>3 Minutes</option>
-                <option value="300">5 Minutes</option>
-              </select>
-            </div>
-          </div>
+            <!-- Right side game arena -->
+            <div style="background-color: #0d1117; border: 2px solid var(--panel-border); border-radius: 8px; overflow: hidden; position: relative; width: 360px; height: 360px; flex-shrink: 0; box-shadow: var(--shadow);">
+              <!-- Game Container for Canvas-based games or Memory Match Grid -->
+              <div id="game-arena" style="width: 100%; height: 100%; position: relative;">
+                <canvas id="game-canvas" width="360" height="360" style="display: block; background: #0d1117;"></canvas>
+                
+                <!-- Memory Match Card Container -->
+                <div id="memory-match-grid" style="display: none; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 16px; width: 100%; height: 100%; background: #0d1117;">
+                  <!-- Cards will be dynamically inserted here -->
+                </div>
+              </div>
 
-          <div id="game-timer" style="font-size: 1.35rem; font-weight: 700; color: var(--accent-color); margin-bottom: 16px;">
-            Break Time Remaining: 03:00
-          </div>
-          
-          <div style="background-color: #0d1117; border: 2px solid var(--panel-border); border-radius: 8px; overflow: hidden; display: inline-block; position: relative; width: 320px; height: 320px;">
-            <!-- Game Container for Canvas-based games or Memory Match Grid -->
-            <div id="game-arena" style="width: 100%; height: 100%; position: relative;">
-              <canvas id="game-canvas" width="320" height="320" style="display: block; background: #0d1117;"></canvas>
-              
-              <!-- Memory Match Card Container -->
-              <div id="memory-match-grid" style="display: none; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 20px; width: 100%; height: 100%; background: #0d1117;">
-                <!-- Cards will be dynamically inserted here -->
+              <!-- Game Overlay -->
+              <div id="game-overlay" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(13, 17, 23, 0.94); display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; z-index: 10; padding: 20px;">
+                <h3 id="game-overlay-title" style="margin-bottom: 10px; font-size: 1.3rem; color: #ff7b00; text-align: center;">Zen Bubble Popper</h3>
+                <p id="game-overlay-desc" style="font-size: 0.8rem; color: var(--text-muted); max-width: 280px; margin-bottom: 20px; line-height: 1.4; text-align: center;">Relaxing popper. Pop colorful bubbles before they float away! Need low attention.</p>
+                <button type="button" id="start-game-btn" class="btn btn-primary" style="padding: 8px 24px;">Start Break</button>
               </div>
             </div>
-
-            <!-- Game Overlay -->
-            <div id="game-overlay" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(13, 17, 23, 0.92); display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; z-index: 10;">
-              <h3 id="game-overlay-title" style="margin-bottom: 12px; font-size: 1.4rem; color: #ff7b00;">Zen Bubble Popper</h3>
-              <p id="game-overlay-desc" style="font-size: 0.8rem; color: var(--text-muted); max-width: 250px; margin-bottom: 16px; line-height: 1.4;">Relaxing popper. Pop colorful bubbles before they float away! Need low attention.</p>
-              <button type="button" id="start-game-btn" class="btn btn-primary">Start Break</button>
-            </div>
           </div>
-          
-          <div style="margin-top: 16px; display: flex; justify-content: space-between; align-items: center; max-width: 320px; margin-left: auto; margin-right: auto;">
-            <div>Score: <strong id="game-score">0</strong></div>
-            <div>High Score: <strong id="game-highscore">0</strong></div>
-          </div>
-          
-          <p id="game-controls-help" class="text-muted mt-3" style="font-size: 0.75rem;">Controls: Click/Tap bubbles to pop them.</p>
         </div>
-      </section>
-
       </section>
 
     </main>
