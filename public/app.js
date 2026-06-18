@@ -5774,13 +5774,80 @@ function renderStockWidget(symbol) {
   
   const cleanSymbol = symbol.trim().toUpperCase();
   
+  const nifty50Stocks = [
+    { name: "NSE:NIFTY (Nifty 50 Index)", symbol: "NSE:NIFTY" },
+    { name: "ADANIENT (Adani Enterprises)", symbol: "NSE:ADANIENT" },
+    { name: "ADANIPORTS (Adani Ports)", symbol: "NSE:ADANIPORTS" },
+    { name: "APOLLOHOSP (Apollo Hospitals)", symbol: "NSE:APOLLOHOSP" },
+    { name: "ASIANPAINT (Asian Paints)", symbol: "NSE:ASIANPAINT" },
+    { name: "AXISBANK (Axis Bank)", symbol: "NSE:AXISBANK" },
+    { name: "BAJAJ-AUTO (Bajaj Auto)", symbol: "NSE:BAJAJ_AUTO" },
+    { name: "BAJAJFINSV (Bajaj Finserv)", symbol: "NSE:BAJAJFINSV" },
+    { name: "BAJFINANCE (Bajaj Finance)", symbol: "NSE:BAJFINANCE" },
+    { name: "BHARTIARTL (Bharti Airtel)", symbol: "NSE:BHARTIARTL" },
+    { name: "BPCL (Bharat Petroleum)", symbol: "NSE:BPCL" },
+    { name: "BRITANNIA (Britannia Industries)", symbol: "NSE:BRITANNIA" },
+    { name: "CIPLA (Cipla)", symbol: "NSE:CIPLA" },
+    { name: "COALINDIA (Coal India)", symbol: "NSE:COALINDIA" },
+    { name: "DIVISLAB (Divi's Laboratories)", symbol: "NSE:DIVISLAB" },
+    { name: "DRREDDY (Dr. Reddy's)", symbol: "NSE:DRREDDY" },
+    { name: "EICHERMOT (Eicher Motors)", symbol: "NSE:EICHERMOT" },
+    { name: "GRASIM (Grasim Industries)", symbol: "NSE:GRASIM" },
+    { name: "HCLTECH (HCL Technologies)", symbol: "NSE:HCLTECH" },
+    { name: "HDFCBANK (HDFC Bank)", symbol: "NSE:HDFCBANK" },
+    { name: "HDFCLIFE (HDFC Life Insurance)", symbol: "NSE:HDFCLIFE" },
+    { name: "HEROMOTOCO (Hero MotoCorp)", symbol: "NSE:HEROMOTOCO" },
+    { name: "HINDALCO (Hindalco Industries)", symbol: "NSE:HINDALCO" },
+    { name: "HINDUNILVR (Hindustan Unilever)", symbol: "NSE:HINDUNILVR" },
+    { name: "ICICIBANK (ICICI Bank)", symbol: "NSE:ICICIBANK" },
+    { name: "INDUSINDBK (IndusInd Bank)", symbol: "NSE:INDUSINDBK" },
+    { name: "INFY (Infosys)", symbol: "NSE:INFY" },
+    { name: "ITC (ITC Limited)", symbol: "NSE:ITC" },
+    { name: "JSWSTEEL (JSW Steel)", symbol: "NSE:JSWSTEEL" },
+    { name: "KOTAKBANK (Kotak Mahindra Bank)", symbol: "NSE:KOTAKBANK" },
+    { name: "LT (Larsen & Toubro)", symbol: "NSE:LT" },
+    { name: "LTIM (LTIMindtree)", symbol: "NSE:LTIM" },
+    { name: "M&M (Mahindra & Mahindra)", symbol: "NSE:M_M" },
+    { name: "MARUTI (Maruti Suzuki)", symbol: "NSE:MARUTI" },
+    { name: "NESTLEIND (Nestle India)", symbol: "NSE:NESTLEIND" },
+    { name: "NTPC (NTPC Limited)", symbol: "NSE:NTPC" },
+    { name: "ONGC (ONGC)", symbol: "NSE:ONGC" },
+    { name: "POWERGRID (Power Grid Corporation)", symbol: "NSE:POWERGRID" },
+    { name: "RELIANCE (Reliance Industries)", symbol: "NSE:RELIANCE" },
+    { name: "SBILIFE (SBI Life Insurance)", symbol: "NSE:SBILIFE" },
+    { name: "SBIN (State Bank of India)", symbol: "NSE:SBIN" },
+    { name: "SHRIRAMFIN (Shriram Finance)", symbol: "NSE:SHRIRAMFIN" },
+    { name: "SUNPHARMA (Sun Pharmaceutical)", symbol: "NSE:SUNPHARMA" },
+    { name: "TATACONSUM (Tata Consumer Products)", symbol: "NSE:TATACONSUM" },
+    { name: "TATAMOTORS (Tata Motors)", symbol: "NSE:TATAMOTORS" },
+    { name: "TATASTEEL (Tata Steel)", symbol: "NSE:TATASTEEL" },
+    { name: "TCS (Tata Consultancy Services)", symbol: "NSE:TCS" },
+    { name: "TECHM (Tech Mahindra)", symbol: "NSE:TECHM" },
+    { name: "TITAN (Titan Company)", symbol: "NSE:TITAN" },
+    { name: "ULTRACEMCO (UltraTech Cement)", symbol: "NSE:ULTRACEMCO" },
+    { name: "WIPRO (Wipro)", symbol: "NSE:WIPRO" }
+  ];
+
+  const optionsHtml = nifty50Stocks.map(stock => {
+    const isSelected = stock.symbol === cleanSymbol || stock.symbol.replace("NSE:", "") === cleanSymbol;
+    return `<option value="${stock.symbol}" ${isSelected ? 'selected' : ''}>${stock.name}</option>`;
+  }).join('');
+
   container.innerHTML = `
-    <div style="width: 100%; height: 100%; display: flex; flex-direction: column; gap: 10px;">
+    <div style="width: 100%; height: 100%; display: flex; flex-direction: column; gap: 8px;">
+      <div class="form-group" style="margin-bottom: 0;">
+        <label for="stock-select-dropdown" style="font-size: 0.72rem; font-weight: 600; margin-bottom: 4px; display: block; color: var(--text-muted);">Nifty 50 Shares Quick Select</label>
+        <select id="stock-select-dropdown" class="form-select" style="font-size:0.85rem; padding: 6px 10px; width: 100%;">
+          <option value="">-- Or Search Custom Ticker Below --</option>
+          ${optionsHtml}
+        </select>
+      </div>
+      
       <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
-        <input type="text" id="stock-ticker-input" class="form-control" style="font-size:0.85rem; padding: 6px 10px; flex: 1; min-width: 120px;" placeholder="e.g. NSE:RELIANCE, BSE:SENSEX, AAPL" value="${cleanSymbol}">
+        <input type="text" id="stock-ticker-input" class="form-control" style="font-size:0.85rem; padding: 6px 10px; flex: 1; min-width: 120px;" placeholder="Custom Ticker: e.g. BSE:SENSEX, AAPL" value="${cleanSymbol}">
         <button class="btn btn-primary" style="padding: 6px 12px;" onclick="renderStockWidget(document.getElementById('stock-ticker-input').value)">Show Chart</button>
       </div>
-      <div style="flex: 1; border-radius: 6px; overflow: hidden; border: 1px solid var(--panel-border); background: #161b22; height: 320px;">
+      <div style="flex: 1; border-radius: 6px; overflow: hidden; border: 1px solid var(--panel-border); background: #161b22; height: 260px;">
         <iframe 
           src="https://s.tradingview.com/widgetembed/?frameElementId=tradingview_1&symbol=${encodeURIComponent(cleanSymbol)}&interval=D&theme=dark&style=1&timezone=Asia%2FKolkata&locale=en" 
           style="width:100%; height:100%; border:none; background:#0d1117;"
@@ -5791,6 +5858,15 @@ function renderStockWidget(symbol) {
     </div>
   `;
   
+  const dropdown = document.getElementById('stock-select-dropdown');
+  if (dropdown) {
+    dropdown.addEventListener('change', (e) => {
+      if (e.target.value) {
+        renderStockWidget(e.target.value);
+      }
+    });
+  }
+
   const input = document.getElementById('stock-ticker-input');
   if (input) {
     input.addEventListener('keydown', (e) => {
