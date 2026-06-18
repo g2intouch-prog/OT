@@ -87,12 +87,13 @@ body {
 }
 
 .top-banner h1 {
-  font-size: 1.25rem;
-  font-weight: 600;
-  letter-spacing: -0.025em;
-  background: linear-gradient(90deg, #fff 0%, #ffae00 100%);
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  background: linear-gradient(135deg, #ff9f43 0%, #ff5252 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+  color: #ff7b00; /* Fallback */
 }
 
 /* Badges */
@@ -1011,6 +1012,13 @@ body.light-mode {
 /* Light Mode Specific Adjustments */
 body.light-mode .top-banner {
   background-color: rgba(255, 255, 255, 0.95);
+}
+
+body.light-mode .top-banner h1 {
+  background: linear-gradient(135deg, #e65100 0%, #b71c1c 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: #e65100; /* Fallback */
 }
 
 body.light-mode .sidebar {

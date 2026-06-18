@@ -183,6 +183,12 @@ function DOMTextSelector(selector) {
   };
 }
 
+// Helper to strip any leading dashes and spaces from field titles in the UI
+function getFieldDisplayTitle(field) {
+  if (!field || !field.title) return '';
+  return field.title.replace(/^[-\s]+/, '');
+}
+
 // Safe event listener helper to prevent script crashes on cached or missing DOM elements
 function safeAddListener(el, event, handler) {
   if (el) {
@@ -659,7 +665,7 @@ function renderDataEntryForm() {
     
     const label = document.createElement('label');
     label.setAttribute('for', `input-${field.id}`);
-    label.textContent = field.title;
+    label.textContent = getFieldDisplayTitle(field);
     
     let input;
     if (field.type === 'select') {
@@ -768,7 +774,7 @@ function renderDataEntryForm() {
       micBtn.className = 'mic-btn';
       micBtn.innerHTML = '🎤';
       micBtn.title = 'Speak value (Offline Voice Entry)';
-      micBtn.setAttribute('aria-label', `Voice input for ${field.title}`);
+      micBtn.setAttribute('aria-label', `Voice input for ${getFieldDisplayTitle(field)}`);
       
       micBtn.addEventListener('click', (e) => {
         e.preventDefault();
@@ -926,7 +932,7 @@ function renderDraftsTable() {
   // Add Headers dynamically following schema ordering
   state.schema.forEach(field => {
     const th = document.createElement('th');
-    th.textContent = field.title;
+    th.textContent = getFieldDisplayTitle(field);
     DOM.draftsTableHeader.appendChild(th);
   });
 
@@ -1168,7 +1174,7 @@ function renderSyncTable() {
 
   state.schema.forEach(field => {
     const th = document.createElement('th');
-    th.textContent = field.title;
+    th.textContent = getFieldDisplayTitle(field);
     DOM.syncTableHeader.appendChild(th);
   });
 
@@ -1403,7 +1409,7 @@ function renderDBTable() {
 
   state.schema.forEach(field => {
     const th = document.createElement('th');
-    th.textContent = field.title;
+    th.textContent = getFieldDisplayTitle(field);
     DOM.dbTableHeader.appendChild(th);
   });
 
@@ -2145,7 +2151,7 @@ function openEditModal(item, index, isDraft) {
     
     const label = document.createElement('label');
     label.setAttribute('for', `edit-input-${field.id}`);
-    label.textContent = field.title;
+    label.textContent = getFieldDisplayTitle(field);
     formGroup.appendChild(label);
 
     const currentValue = field.id === 'date' ? dateValue : (dataValues[field.id] || '');
@@ -2375,7 +2381,8 @@ function initSpeechRecognition() {
         const parsedNum = parseFloat(transcript.replace(/[^0-9.]/g, ''));
         activeSpeechInput.value = isNaN(parsedNum) ? '' : parsedNum;
       } else {
-        activeSpeechInput.value = transcript;
+        // Trim trailing periods (Edge voice recognition helper)
+        activeSpeechInput.value = transcript.replace(/\.+$/, '').trim();
       }
       // Trigger input event to simulate typing
       activeSpeechInput.dispatchEvent(new Event('input', { bubbles: true }));
@@ -2487,7 +2494,7 @@ function openPrintModal() {
   // Headers
   state.schema.forEach(field => {
     const th = document.createElement('th');
-    th.textContent = field.title;
+    th.textContent = getFieldDisplayTitle(field);
     DOM.printTableHeader.appendChild(th);
   });
 
@@ -2858,7 +2865,7 @@ function renderImportPreview(rowDataList, mapping) {
     const th = document.createElement('th');
     const titleSpan = document.createElement('span');
     titleSpan.style.display = 'block';
-    titleSpan.textContent = field.title;
+    titleSpan.textContent = getFieldDisplayTitle(field);
     th.appendChild(titleSpan);
 
     const mappingSpan = document.createElement('span');
