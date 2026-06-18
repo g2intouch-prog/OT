@@ -335,6 +335,9 @@
               <button id="print-preview-btn" class="btn btn-primary py-2">
                 <span>🖨️ Print Preview</span>
               </button>
+              <button id="export-excel-btn" class="btn btn-success py-2">
+                <span>📥 Export Excel</span>
+              </button>
             </div>
           </div>
 
@@ -575,18 +578,21 @@
           </div>
         </div>
 
-        <!-- Cloud Backup & Export Card -->
-        <div class="panel-card mt-4" id="cloud-backup-card">
-          <h2>Cloud Backup & Export (Vercel Blob)</h2>
-          <p class="card-subtitle">Export all database records to a CSV file stored in the cloud. You will receive a secure shareable link to download it.</p>
+        <!-- Local Backup & Restore Card (CSV) -->
+        <div class="panel-card mt-4" id="local-backup-card">
+          <h2>Local Backup & Restore (CSV)</h2>
+          <p class="card-subtitle">Export your database records to a local CSV file or restore your database from a previously saved backup file.</p>
           
           <div class="form-actions mt-3" style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
-            <button type="button" id="cloud-backup-btn" class="btn btn-success" disabled>
-              <span>Generate Cloud Backup</span>
+            <button type="button" id="local-backup-export-btn" class="btn btn-success" disabled>
+              <span>Export CSV Backup</span>
             </button>
-            <a id="cloud-backup-download-link" href="#" target="_blank" class="hidden" style="color: #3fb950; font-weight: 600; text-decoration: underline;">
-              Download Backup File
-            </a>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <input type="file" id="local-backup-restore-file" accept=".csv" style="display: none;">
+              <button type="button" id="local-backup-restore-btn" class="btn btn-secondary" disabled>
+                <span>Restore from CSV Backup</span>
+              </button>
+            </div>
           </div>
         </div>
 

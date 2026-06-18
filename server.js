@@ -649,36 +649,54 @@ app.post('/api/entries/clear-all', checkAuth, async (req, res) => {
   }
 });
 
-// Vercel Blob backup/export endpoint (forces rebuild to load env vars)
-app.post('/api/backup/export', checkAuth, async (req, res) => {
-  if (!process.env.BLOB_READ_WRITE_TOKEN) {
-    return res.status(400).json({
-      error: 'Vercel Blob token is missing. Please configure the BLOB_READ_WRITE_TOKEN environment variable in your Vercel Dashboard (or in a local .env file when testing locally).'
-    });
+// Local backup restore endpoint
+app.post('/api/backup/restore', checkAuth, async (req, res) => {
+  const records = req.body;
+  if (!Array.isArray(records)) {
+    return res.status(400).json({ error: 'Restore data must be an array of records' });
   }
+
   try {
-    const { rows } = await db.query("SELECT * FROM records ORDER BY date DESC, id DESC");
-
-    // Parse records into simple JSON array or CSV
-    const csvHeader = 'ID,Created At,Verified,Date,Data\n';
-    const csvRows = rows.map(r => {
-      const parsedData = typeof r.data === 'string' ? JSON.parse(r.data) : r.data;
-      const dataEscaped = JSON.stringify(parsedData).replace(/"/g, '""');
-      return `${r.id},"${r.created_at}",${r.verified},"${r.date}","${dataEscaped}"`;
-    }).join('\n');
-    const csvContent = csvHeader + csvRows;
-
-    const filename = `backup_${new Date().toISOString().split('T')[0]}_${Date.now()}.csv`;
-
-    const blob = await put(filename, csvContent, {
-      access: 'public',
-      contentType: 'text/csv',
-    });
-
-    res.json({ success: true, url: blob.url });
+    await db.query("BEGIN");
+    
+    // Clear the existing records
+    await db.query("DELETE FROM records");
+    
+    // Restart identity/sequence
+    await db.query("ALTER SEQUENCE records_id_seq RESTART WITH 1");
+    
+    // Insert all records
+    for (const rec of records) {
+      const recordDate = rec.date || '';
+      const verified = rec.verified ? 1 : 0;
+      const recordData = typeof rec.data === 'object' ? JSON.stringify(rec.data) : (rec.data || '{}');
+      
+      if (rec.id) {
+        await db.query(
+          "INSERT INTO records (id, date, verified, data) VALUES ($1, $2, $3, $4)",
+          [rec.id, recordDate, verified, recordData]
+        );
+      } else {
+        await db.query(
+          "INSERT INTO records (date, verified, data) VALUES ($1, $2, $3)",
+          [recordDate, verified, recordData]
+        );
+      }
+    }
+    
+    // Reset sequence to max id + 1 to prevent collisions on future entries
+    await db.query("SELECT setval('records_id_seq', COALESCE((SELECT MAX(id) FROM records), 0) + 1, false)");
+    
+    await db.query("COMMIT");
+    
+    // Recalculate serials
+    await recalculateSerials();
+    
+    res.json({ success: true, count: records.length });
   } catch (err) {
-    console.error('Backup/export failed:', err.message);
-    res.status(500).json({ error: 'Failed to generate cloud backup: ' + err.message });
+    await db.query("ROLLBACK");
+    console.error('Local restore failed:', err.message);
+    res.status(500).json({ error: 'Failed to restore backup: ' + err.message });
   }
 });
 

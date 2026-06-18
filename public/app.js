@@ -68,9 +68,10 @@ const DOM = {
   summaryTotal: document.getElementById('summary-total-records'),
   summaryVerified: document.getElementById('summary-verified-records'),
   summaryUnverified: document.getElementById('summary-unverified-records'),
-  sessionStatusDisplay: document.getElementById('session-status-display'),
-  cloudBackupBtn: document.getElementById('cloud-backup-btn'),
-  cloudBackupDownloadLink: document.getElementById('cloud-backup-download-link'),
+  localBackupExportBtn: document.getElementById('local-backup-export-btn'),
+  localBackupRestoreBtn: document.getElementById('local-backup-restore-btn'),
+  localBackupRestoreFile: document.getElementById('local-backup-restore-file'),
+  exportExcelBtn: document.getElementById('export-excel-btn'),
   
   // Auth Modal
   authModal: document.getElementById('auth-modal'),
@@ -538,7 +539,8 @@ function updateAuthUI() {
     DOM.saveSchemaBtn.removeAttribute('disabled');
     DOM.submitCredentialsBtn.removeAttribute('disabled');
     if (DOM.clearDatabaseBtn) DOM.clearDatabaseBtn.removeAttribute('disabled');
-    if (DOM.cloudBackupBtn) DOM.cloudBackupBtn.removeAttribute('disabled');
+    if (DOM.localBackupExportBtn) DOM.localBackupExportBtn.removeAttribute('disabled');
+    if (DOM.localBackupRestoreBtn) DOM.localBackupRestoreBtn.removeAttribute('disabled');
   } else {
     DOM.authBtn.className = 'btn btn-secondary';
     DOM.authBtnText.textContent = 'Admin Login';
@@ -549,8 +551,8 @@ function updateAuthUI() {
     DOM.saveSchemaBtn.setAttribute('disabled', 'true');
     DOM.submitCredentialsBtn.setAttribute('disabled', 'true');
     if (DOM.clearDatabaseBtn) DOM.clearDatabaseBtn.setAttribute('disabled', 'true');
-    if (DOM.cloudBackupBtn) DOM.cloudBackupBtn.setAttribute('disabled', 'true');
-    if (DOM.cloudBackupDownloadLink) DOM.cloudBackupDownloadLink.classList.add('hidden');
+    if (DOM.localBackupExportBtn) DOM.localBackupExportBtn.setAttribute('disabled', 'true');
+    if (DOM.localBackupRestoreBtn) DOM.localBackupRestoreBtn.setAttribute('disabled', 'true');
     
     // Fallback if the user logs out from a restricted tab
     if (state.activeTab !== 'data-entry') {
@@ -1786,39 +1788,299 @@ async function handleClearDatabase() {
   }
 }
 
-async function handleCloudBackup() {
-  if (!state.isOnline || !state.isAuthenticated) return;
-
+async function handleLocalBackupExport() {
+  if (!state.isOnline) {
+    alert("Offline: Reconnect to the LAN host to export a database backup.");
+    return;
+  }
+  
   try {
-    DOM.cloudBackupBtn.disabled = true;
-    DOM.cloudBackupBtn.querySelector('span').textContent = 'Generating Backup...';
-    DOM.cloudBackupDownloadLink.classList.add('hidden');
+    DOM.localBackupExportBtn.disabled = true;
+    DOM.localBackupExportBtn.querySelector('span').textContent = 'Exporting...';
+    
+    const response = await fetch('/api/entries');
+    if (!response.ok) {
+      throw new Error("Failed to fetch database entries");
+    }
+    
+    const rows = await response.json();
+    if (rows.length === 0) {
+      alert("No database records found to export.");
+      return;
+    }
+    
+    const csvHeader = 'ID,Created At,Verified,Date,Data\n';
+    const csvRows = rows.map(r => {
+      const parsedData = typeof r.data === 'string' ? JSON.parse(r.data) : r.data;
+      const dataEscaped = JSON.stringify(parsedData).replace(/"/g, '""');
+      return `${r.id},"${r.created_at}",${r.verified},"${r.date}","${dataEscaped}"`;
+    }).join('\n');
+    
+    const csvContent = csvHeader + csvRows;
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `backup_${new Date().toISOString().split('T')[0]}_${Date.now()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    alert('Backup CSV file exported and downloaded successfully!');
+  } catch (err) {
+    alert('Failed to generate local CSV backup: ' + err.message);
+  } finally {
+    DOM.localBackupExportBtn.disabled = false;
+    DOM.localBackupExportBtn.querySelector('span').textContent = 'Export CSV Backup';
+  }
+}
 
-    const response = await fetch('/api/backup/export', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${state.authToken}`
+function parseCSV(text) {
+  const lines = [];
+  let row = [""];
+  let inQuotes = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    const next = text[i+1];
+    
+    if (c === '"') {
+      if (inQuotes && next === '"') {
+        row[row.length - 1] += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (c === ',' && !inQuotes) {
+      row.push('');
+    } else if ((c === '\r' || c === '\n') && !inQuotes) {
+      if (c === '\r' && next === '\n') {
+        i++;
+      }
+      lines.push(row);
+      row = [''];
+    } else {
+      row[row.length - 1] += c;
+    }
+  }
+  if (row.length > 1 || row[0] !== '') {
+    lines.push(row);
+  }
+  return lines;
+}
+
+async function handleLocalBackupRestore(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  if (!state.isOnline) {
+    alert("Offline: Reconnect to the LAN host to restore database records.");
+    DOM.localBackupRestoreFile.value = '';
+    return;
+  }
+  
+  if (!state.isAuthenticated) {
+    openLoginModal();
+    DOM.localBackupRestoreFile.value = '';
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = async function(event) {
+    const text = event.target.result;
+    
+    const parsedLines = parseCSV(text);
+    if (parsedLines.length <= 1) {
+      alert("Invalid or empty CSV backup file.");
+      DOM.localBackupRestoreFile.value = '';
+      return;
+    }
+    
+    const header = parsedLines[0].map(h => h.trim().toUpperCase());
+    if (!header.includes("DATA") || !header.includes("DATE")) {
+      alert("Invalid CSV format. The backup must contain 'Date' and 'Data' columns.");
+      DOM.localBackupRestoreFile.value = '';
+      return;
+    }
+    
+    const records = [];
+    const dataIndex = header.indexOf("DATA");
+    const dateIndex = header.indexOf("DATE");
+    const idIndex = header.indexOf("ID");
+    const verifiedIndex = header.indexOf("VERIFIED");
+    const createdAtIndex = header.indexOf("CREATED AT");
+
+    for (let i = 1; i < parsedLines.length; i++) {
+      const row = parsedLines[i];
+      if (row.length <= Math.max(dataIndex, dateIndex)) continue;
+      
+      const id = idIndex !== -1 ? parseInt(row[idIndex]) || null : null;
+      const created_at = createdAtIndex !== -1 ? row[createdAtIndex] : '';
+      const verified = verifiedIndex !== -1 ? (row[verifiedIndex] === '1' || row[verifiedIndex].toLowerCase() === 'true') : false;
+      const date = row[dateIndex] || '';
+      let data = {};
+      try {
+        data = JSON.parse(row[dataIndex]);
+      } catch (err) {
+        console.warn('Skipping record parsing error:', err);
+        continue;
+      }
+      
+      records.push({ id, created_at, verified, date, data });
+    }
+    
+    if (records.length === 0) {
+      alert("No valid records found in the backup file.");
+      DOM.localBackupRestoreFile.value = '';
+      return;
+    }
+    
+    if (!confirm(`Are you absolutely sure you want to RESTORE ${records.length} records? This will completely overwrite and replace the current database. This action is irreversible.`)) {
+      DOM.localBackupRestoreFile.value = '';
+      return;
+    }
+    
+    let code = '';
+    try {
+      const statusRes = await fetch('/api/settings/totp/status', {
+        headers: { 'Authorization': `Bearer ${state.authToken}` }
+      });
+      if (statusRes.ok) {
+        const statusData = await statusRes.json();
+        if (statusData.enabled) {
+          code = prompt('Enter 6-digit 2FA Authenticator Code to confirm database restoration:');
+          if (code === null) {
+            DOM.localBackupRestoreFile.value = '';
+            return;
+          }
+          if (!code.trim()) {
+            alert('2FA Code is required.');
+            DOM.localBackupRestoreFile.value = '';
+            return;
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to verify 2FA status for restore:', err);
+    }
+    
+    try {
+      DOM.localBackupRestoreBtn.disabled = true;
+      DOM.localBackupRestoreBtn.querySelector('span').textContent = 'Restoring...';
+      
+      if (code) {
+        const verifyRes = await fetch('/api/settings/totp/verify-action', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${state.authToken}`
+          },
+          body: JSON.stringify({ code })
+        });
+        if (!verifyRes.ok) {
+          const errData = await verifyRes.json();
+          alert('Verification failed: ' + (errData.error || 'Invalid 2FA code'));
+          DOM.localBackupRestoreFile.value = '';
+          return;
+        }
+      }
+      
+      const response = await fetch('/api/backup/restore', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${state.authToken}`
+        },
+        body: JSON.stringify(records)
+      });
+      
+      if (response.ok) {
+        const resData = await response.json();
+        alert(`Database restored successfully! ${resData.count} records imported.`);
+        fetchDatabaseRecords();
+      } else {
+        const errData = await response.json();
+        alert('Restore failed: ' + (errData.error || 'Server error'));
+      }
+    } catch (err) {
+      alert('Failed to send restore backup request to server.');
+    } finally {
+      DOM.localBackupRestoreBtn.disabled = false;
+      DOM.localBackupRestoreBtn.querySelector('span').textContent = 'Restore from CSV Backup';
+      DOM.localBackupRestoreFile.value = '';
+    }
+  };
+  reader.readAsText(file);
+}
+
+function handleExportExcel() {
+  const records = state.dbRecords || [];
+  if (records.length === 0) {
+    alert("No records available in database to export.");
+    return;
+  }
+  
+  const selectedMonth = DOM.filterMonth.value;
+  const selectedYear = DOM.filterYear.value;
+  
+  let filteredRecords = records.filter(rec => {
+    if (!rec.date) return false;
+    const [yr, mo] = rec.date.split('-');
+    const matchMonth = (selectedMonth === 'all' || mo === selectedMonth);
+    const matchYear = (selectedYear === 'all' || yr === selectedYear);
+    return matchMonth && matchYear;
+  });
+  
+  const sortOrder = DOM.filterSort ? DOM.filterSort.value : 'desc';
+  filteredRecords.sort((a, b) => {
+    const yearA = (a.date || '').split('-')[0] || '';
+    const yearB = (b.date || '').split('-')[0] || '';
+    if (yearA !== yearB) {
+      return sortOrder === 'asc' ? yearA.localeCompare(yearB) : yearB.localeCompare(yearA);
+    }
+    const serialA = parseInt(a.data.annual_serial) || 0;
+    const serialB = parseInt(b.data.annual_serial) || 0;
+    if (serialA !== serialB) {
+      return sortOrder === 'asc' ? serialA - serialB : serialB - serialA;
+    }
+    return sortOrder === 'asc' ? a.id - b.id : b.id - a.id;
+  });
+
+  if (filteredRecords.length === 0) {
+    alert("No records matching the active filters to export.");
+    return;
+  }
+  
+  const excelData = filteredRecords.map(rec => {
+    const row = {};
+    row["Status"] = rec.verified === 1 ? "Verified" : "Unverified";
+    
+    state.schema.forEach(field => {
+      const displayTitle = getFieldDisplayTitle(field);
+      let val = field.id === 'date' ? rec.date : rec.data[field.id];
+      
+      if (field.id === 'date') {
+        row[displayTitle] = formatDateDisplay(val);
+      } else {
+        row[displayTitle] = formatDisplayValue(val, field);
       }
     });
+    return row;
+  });
 
-    if (response.ok) {
-      const data = await response.json();
-      if (data.success && data.url) {
-        DOM.cloudBackupDownloadLink.href = data.url;
-        DOM.cloudBackupDownloadLink.classList.remove('hidden');
-        alert('Cloud backup generated successfully!');
-      } else {
-        alert('Backup failed: ' + (data.error || 'Unknown response'));
-      }
-    } else {
-      const err = await response.json();
-      alert('Backup failed: ' + (err.error || 'Server error'));
-    }
+  try {
+    const worksheet = XLSX.utils.json_to_sheet(excelData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "OT Records");
+    
+    const yearSuffix = selectedYear === 'all' ? 'AllYears' : selectedYear;
+    const monthSuffix = selectedMonth === 'all' ? 'AllMonths' : selectedMonth;
+    const filename = `OT_Records_${yearSuffix}_${monthSuffix}_${new Date().toISOString().split('T')[0]}.xlsx`;
+    
+    XLSX.writeFile(workbook, filename);
   } catch (err) {
-    alert('Connection failed while generating cloud backup.');
-  } finally {
-    DOM.cloudBackupBtn.disabled = false;
-    DOM.cloudBackupBtn.querySelector('span').textContent = 'Generate Cloud Backup';
+    alert("Failed to export Excel file: " + err.message);
   }
 }
 
@@ -2075,9 +2337,13 @@ function setupEventListeners() {
   }
 
   // Danger Zone Actions
-  safeAddListener(DOM.clearDraftsBtn, 'click', handleClearDrafts);
-  safeAddListener(DOM.clearDatabaseBtn, 'click', handleClearDatabase);
-  safeAddListener(DOM.cloudBackupBtn, 'click', handleCloudBackup);
+  // Local Backup & Restore Actions
+  safeAddListener(DOM.localBackupExportBtn, 'click', handleLocalBackupExport);
+  safeAddListener(DOM.localBackupRestoreBtn, 'click', () => {
+    DOM.localBackupRestoreFile.click();
+  });
+  safeAddListener(DOM.localBackupRestoreFile, 'change', handleLocalBackupRestore);
+  safeAddListener(DOM.exportExcelBtn, 'click', handleExportExcel);
 
   // Analytics Filter Triggers
   if (DOM.analysisTimeframe) {
