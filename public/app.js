@@ -4601,6 +4601,7 @@ function startSnakeArcade() {
   snakeState.cells = [];
   snakeState.maxCells = 4;
   snakeState.apple = { x: 96, y: 96 };
+  snakeState.speedThreshold = 18;
   
   function getRandomInt(min, max) {
     return Math.floor(Math.random() * (max - min)) + min;
@@ -4643,7 +4644,7 @@ function startSnakeArcade() {
     if (!isGameRunning || activeGame !== 'snake') return;
     animationFrameId = requestAnimationFrame(loop);
     
-    if (++count < 10) {
+    if (++count < (snakeState.speedThreshold || 18)) {
       return;
     }
     count = 0;
@@ -4692,6 +4693,9 @@ function startSnakeArcade() {
         gameScore += 10;
         updateGameScore();
         resetApple();
+        if (snakeState.speedThreshold > 5) {
+          snakeState.speedThreshold--;
+        }
       }
       
       for (let i = index + 1; i < snakeState.cells.length; i++) {
