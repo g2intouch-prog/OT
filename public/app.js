@@ -115,6 +115,8 @@ const DOM = {
   confirmImportBtn: document.getElementById('confirm-import-btn'),
   cancelImportBtn: document.getElementById('cancel-import-btn'),
   importRowCount: document.getElementById('import-row-count'),
+  importDuplicateAlert: document.getElementById('import-duplicate-alert'),
+  importDuplicateAlertText: document.getElementById('import-duplicate-alert-text'),
   
   // Headers Creator Selectors
   loadHeadersBtn: document.getElementById('load-headers-btn'),
@@ -3283,7 +3285,20 @@ function renderImportPreview(rowDataList, mapping) {
 
   state.pendingImportDrafts = parsedDrafts;
 
-  // 3. Render all preview rows with formatting
+  // 3. Check for duplicates in imports
+  const duplicateAlerts = checkImportDuplicates(parsedDrafts);
+  if (DOM.importDuplicateAlert && DOM.importDuplicateAlertText) {
+    if (duplicateAlerts.length > 0) {
+      DOM.importDuplicateAlertText.innerHTML = `⚠️ <strong>Warning: Duplicate data detected!</strong><br>` + 
+        duplicateAlerts.slice(0, 5).join('<br>') + 
+        (duplicateAlerts.length > 5 ? `<br>...and ${duplicateAlerts.length - 5} more duplicates.` : '');
+      DOM.importDuplicateAlert.classList.remove('hidden');
+    } else {
+      DOM.importDuplicateAlert.classList.add('hidden');
+    }
+  }
+
+  // 4. Render all preview rows with formatting
   parsedDrafts.forEach(draft => {
     const tr = document.createElement('tr');
     state.schema.forEach(field => {
@@ -3294,15 +3309,85 @@ function renderImportPreview(rowDataList, mapping) {
     DOM.importPreviewBody.appendChild(tr);
   });
 
-  // 4. Update count and display
+  // 5. Update count and display
   DOM.importRowCount.textContent = parsedDrafts.length;
   DOM.confirmImportBtn.removeAttribute('disabled');
   DOM.importMappingPreview.classList.remove('hidden');
 }
 
+function checkImportDuplicates(newRecords) {
+  const duplicateAlerts = [];
+  const allExistingRecords = [...(state.dbRecords || []), ...(state.drafts || [])];
+
+  for (let i = 0; i < newRecords.length; i++) {
+    const r1 = newRecords[i];
+    const name1 = (r1.data.name || '').toString().trim().toLowerCase();
+    const date1 = r1.date || '';
+    if (!name1) continue;
+
+    const time1 = (r1.data.timeob || '').toString().trim().toLowerCase();
+    const wo1 = (r1.data.wo || '').toString().trim().toLowerCase();
+    const addr1 = (r1.data.address || '').toString().trim().toLowerCase();
+
+    // 1. Check against other new records in the import file (index > i)
+    for (let j = i + 1; j < newRecords.length; j++) {
+      const r2 = newRecords[j];
+      const name2 = (r2.data.name || '').toString().trim().toLowerCase();
+      const date2 = r2.date || '';
+      if (date1 === date2 && name1 === name2) {
+        const time2 = (r2.data.timeob || '').toString().trim().toLowerCase();
+        const wo2 = (r2.data.wo || '').toString().trim().toLowerCase();
+        const addr2 = (r2.data.address || '').toString().trim().toLowerCase();
+
+        const matchTime = (time1 === time2 && time1 !== '');
+        const matchWo = (wo1 === wo2 && wo1 !== '');
+        const matchAddr = (addr1 === addr2 && addr1 !== '');
+
+        if (matchTime || matchWo || matchAddr) {
+          duplicateAlerts.push(`Row ${i + 1} and Row ${j + 1} inside import are duplicates ("${r1.data.name}" on ${formatDateDisplay(date1)})`);
+        }
+      }
+    }
+
+    // 2. Check against database records or existing local drafts
+    for (const r2 of allExistingRecords) {
+      const name2 = (r2.data.name || '').toString().trim().toLowerCase();
+      const date2 = r2.date || '';
+      if (date1 === date2 && name1 === name2) {
+        const time2 = (r2.data.timeob || '').toString().trim().toLowerCase();
+        const wo2 = (r2.data.wo || '').toString().trim().toLowerCase();
+        const addr2 = (r2.data.address || '').toString().trim().toLowerCase();
+
+        const matchTime = (time1 === time2 && time1 !== '');
+        const matchWo = (wo1 === wo2 && wo1 !== '');
+        const matchAddr = (addr1 === addr2 && addr1 !== '');
+
+        if (matchTime || matchWo || matchAddr) {
+          const typeStr = r2.id ? `Database Record #${r2.id}` : 'Existing Local Draft';
+          duplicateAlerts.push(`Row ${i + 1} inside import is a duplicate of an ${typeStr} ("${r1.data.name}" on ${formatDateDisplay(date1)})`);
+        }
+      }
+    }
+  }
+
+  return duplicateAlerts;
+}
+
 // Save pending parsed drafts to local drafts store
 function handleConfirmImport() {
   if (!state.pendingImportDrafts || state.pendingImportDrafts.length === 0) return;
+
+  // Final check for duplicates and popup warning if any are found
+  const duplicateAlerts = checkImportDuplicates(state.pendingImportDrafts);
+  if (duplicateAlerts.length > 0) {
+    const message = `⚠️ Warning: Duplicate data detected!\n\n` + 
+      duplicateAlerts.slice(0, 10).join('\n') + 
+      (duplicateAlerts.length > 10 ? `\n...and ${duplicateAlerts.length - 10} more duplicates.` : '') + 
+      `\n\nDo you still want to proceed with importing these records?`;
+    if (!confirm(message)) {
+      return;
+    }
+  }
 
   state.drafts.push(...state.pendingImportDrafts);
   saveDraftsToStorage();
