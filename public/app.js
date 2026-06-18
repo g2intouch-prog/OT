@@ -5681,26 +5681,6 @@ function startHiLo() {
   
   loop();
 }
-    for (let i = particles.length - 1; i >= 0; i--) {
-      const p = particles[i];
-      p.x += p.vx;
-      p.y += p.vy;
-      p.alpha -= 0.04;
-      if (p.alpha <= 0) {
-        particles.splice(i, 1);
-        continue;
-      }
-      ctx.fillStyle = p.color;
-      ctx.globalAlpha = p.alpha;
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    ctx.globalAlpha = 1.0;
-  }
-  
-  loop();
-}
 
 // -------------------------------------------------------------
 // DASHBOARD WIDGETS LOADER (News, Stocks, Weather)
@@ -5750,7 +5730,7 @@ async function loadDashboardWidget(type) {
                onclick="window.open('${item.url}', '_blank')"
                onmouseover="this.style.borderColor='var(--accent-color)'"
                onmouseout="this.style.borderColor='var(--panel-border)'">
-            ${item.image_url ? `<img src="${item.image_url}" style="width: 50px; height: 50px; border-radius: 4px; object-fit: cover; flex-shrink: 0;" />` : ''}
+            ${item.image_url ? '<img src="' + item.image_url + '" style="width: 50px; height: 50px; border-radius: 4px; object-fit: cover; flex-shrink: 0;" />' : ''}
             <div style="flex: 1; min-width: 0;">
               <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted); margin-bottom: 2px;">
                 <span>${item.news_site || 'News'}</span>
