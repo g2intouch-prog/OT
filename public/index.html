@@ -623,28 +623,59 @@
       
       <!-- TAB 8: QUICK BREAK GAME -->
       <section id="tab-break-game" class="tab-panel">
-        <div class="panel-card" style="text-align: center; max-width: 500px; margin: 0 auto;">
-          <h2>Quick Break (Snake) 🐍</h2>
-          <p class="card-subtitle">Take a quick 3-minute break to recharge! Remember to get back to work when the timer runs out.</p>
+        <div class="panel-card" style="text-align: center; max-width: 550px; margin: 0 auto;">
+          <h2>Quick Break Room 🎮</h2>
+          <p class="card-subtitle">Take a quick break to recharge! Select a game and choose your break duration.</p>
           
-          <div id="game-timer" style="font-size: 1.25rem; font-weight: 700; color: var(--accent-color); margin-bottom: 12px;">
+          <div style="display: flex; gap: 12px; justify-content: center; align-items: center; margin-bottom: 20px; flex-wrap: wrap;">
+            <div class="form-group" style="text-align: left; min-width: 140px;">
+              <label for="game-select" style="font-size: 0.75rem; font-weight: 600;">Choose Game</label>
+              <select id="game-select" class="form-select" style="padding: 6px 10px; font-size: 0.85rem;">
+                <option value="bubble-popper" selected>Zen Bubble Popper 🫧</option>
+                <option value="memory-match">Memory Match 🃏</option>
+                <option value="snake">Retro Snake 🐍</option>
+              </select>
+            </div>
+            
+            <div class="form-group" style="text-align: left; min-width: 140px;">
+              <label for="game-timer-select" style="font-size: 0.75rem; font-weight: 600;">Break Duration</label>
+              <select id="game-timer-select" class="form-select" style="padding: 6px 10px; font-size: 0.85rem;">
+                <option value="60">1 Minute</option>
+                <option value="180" selected>3 Minutes</option>
+                <option value="300">5 Minutes</option>
+              </select>
+            </div>
+          </div>
+
+          <div id="game-timer" style="font-size: 1.35rem; font-weight: 700; color: var(--accent-color); margin-bottom: 16px;">
             Break Time Remaining: 03:00
           </div>
           
-          <div style="background-color: #0d1117; border: 2px solid var(--panel-border); border-radius: 8px; overflow: hidden; display: inline-block; position: relative;">
-            <canvas id="game-canvas" width="300" height="300" style="display: block; background: #0d1117; margin: 0 auto;"></canvas>
-            <div id="game-overlay" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(13, 17, 23, 0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; z-index: 10;">
-              <h3 id="game-overlay-title" style="margin-bottom: 12px; font-size: 1.5rem; color: #ff7b00;">Snake Game</h3>
-              <button type="button" id="start-game-btn" class="btn btn-primary">Start Game</button>
+          <div style="background-color: #0d1117; border: 2px solid var(--panel-border); border-radius: 8px; overflow: hidden; display: inline-block; position: relative; width: 320px; height: 320px;">
+            <!-- Game Container for Canvas-based games or Memory Match Grid -->
+            <div id="game-arena" style="width: 100%; height: 100%; position: relative;">
+              <canvas id="game-canvas" width="320" height="320" style="display: block; background: #0d1117;"></canvas>
+              
+              <!-- Memory Match Card Container -->
+              <div id="memory-match-grid" style="display: none; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 20px; width: 100%; height: 100%; background: #0d1117;">
+                <!-- Cards will be dynamically inserted here -->
+              </div>
+            </div>
+
+            <!-- Game Overlay -->
+            <div id="game-overlay" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(13, 17, 23, 0.92); display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; z-index: 10;">
+              <h3 id="game-overlay-title" style="margin-bottom: 12px; font-size: 1.4rem; color: #ff7b00;">Zen Bubble Popper</h3>
+              <p id="game-overlay-desc" style="font-size: 0.8rem; color: var(--text-muted); max-width: 250px; margin-bottom: 16px; line-height: 1.4;">Relaxing popper. Pop colorful bubbles before they float away! Need low attention.</p>
+              <button type="button" id="start-game-btn" class="btn btn-primary">Start Break</button>
             </div>
           </div>
           
-          <div style="margin-top: 16px; display: flex; justify-content: space-between; align-items: center; max-width: 300px; margin-left: auto; margin-right: auto;">
+          <div style="margin-top: 16px; display: flex; justify-content: space-between; align-items: center; max-width: 320px; margin-left: auto; margin-right: auto;">
             <div>Score: <strong id="game-score">0</strong></div>
             <div>High Score: <strong id="game-highscore">0</strong></div>
           </div>
           
-          <p class="text-muted mt-3" style="font-size: 0.8rem;">Controls: Use Arrow Keys or W/A/S/D to move the snake.</p>
+          <p id="game-controls-help" class="text-muted mt-3" style="font-size: 0.75rem;">Controls: Click/Tap bubbles to pop them.</p>
         </div>
       </section>
 

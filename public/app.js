@@ -4088,134 +4088,537 @@ async function handleConfirmDisableTotp() {
 }
 
 // -------------------------------------------------------------
-// 3-MINUTE SNAKE GAME BREAK MODULE
+// QUICK BREAK ROOM GAME MODULE
 // -------------------------------------------------------------
 
-let snakeGameInterval = null;
-let snakeTimerInterval = null;
-let snakeSecondsRemaining = 180;
-let snakeHighScore = 0;
-let snakeGameRunning = false;
+let gameTimerInterval = null;
+let gameSecondsRemaining = 180;
+let activeGame = 'bubble-popper';
+let gameScore = 0;
+let gameHighScores = {
+  'bubble-popper': 0,
+  'memory-match': 0,
+  'snake': 0
+};
+let isGameRunning = false;
+let animationFrameId = null;
+
+// Game states
+let bubblePopperState = {
+  bubbles: [],
+  maxBubbles: 6,
+  particles: []
+};
+
+let memoryMatchState = {
+  cards: [],
+  flippedIndices: [],
+  matchedPairs: 0,
+  lockGrid: false
+};
+
+const gameMetadata = {
+  'bubble-popper': {
+    title: 'Zen Bubble Popper 🫧',
+    desc: 'Relaxing popper. Pop colorful bubbles before they float away! Need low attention.',
+    controls: 'Controls: Click/Tap bubbles to pop them.'
+  },
+  'memory-match': {
+    title: 'Memory Match 🃏',
+    desc: 'Classic card match. Flip cards to find matching emoji pairs. Zero stress, low attention.',
+    controls: 'Controls: Click cards to flip them.'
+  },
+  'snake': {
+    title: 'Retro Snake 🐍',
+    desc: 'Classic keyboard arcade game. Collect apples and avoid walls or self-intersection.',
+    controls: 'Controls: Use Arrow Keys or W/A/S/D to move the snake.'
+  }
+};
 
 function initBreakGame() {
-  const timerDisplay = document.getElementById('game-timer');
-  if (timerDisplay) {
-    const mins = Math.floor(snakeSecondsRemaining / 60).toString().padStart(2, '0');
-    const secs = (snakeSecondsRemaining % 60).toString().padStart(2, '0');
-    timerDisplay.textContent = `Break Time Remaining: ${mins}:${secs}`;
+  const gameSelect = document.getElementById('game-select');
+  const timerSelect = document.getElementById('game-timer-select');
+  
+  if (gameSelect) {
+    gameSelect.onchange = (e) => {
+      stopActiveGame();
+      activeGame = e.target.value;
+      updateGameOverlayUI();
+    };
+    activeGame = gameSelect.value;
   }
   
-  const canvas = document.getElementById('game-canvas');
-  if (canvas) {
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = '#0d1117';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = '#ff7b00';
-    ctx.font = '16px monospace';
-    ctx.textAlign = 'center';
-    ctx.fillText('Click Start to Play', canvas.width / 2, canvas.height / 2);
+  if (timerSelect) {
+    timerSelect.onchange = (e) => {
+      if (!isGameRunning) {
+        gameSecondsRemaining = parseInt(e.target.value);
+        updateTimerDisplay();
+      }
+    };
+    if (!isGameRunning) {
+      gameSecondsRemaining = parseInt(timerSelect.value);
+    }
   }
+
+  updateTimerDisplay();
+  updateGameOverlayUI();
   
   const startBtn = document.getElementById('start-game-btn');
   if (startBtn) {
-    startBtn.onclick = startSnakeGame;
+    startBtn.onclick = startBreakGame;
+  }
+
+  // Draw initial screen on canvas
+  drawInitialCanvasScreen();
+}
+
+function updateTimerDisplay() {
+  const timerDisplay = document.getElementById('game-timer');
+  if (timerDisplay) {
+    const mins = Math.floor(gameSecondsRemaining / 60).toString().padStart(2, '0');
+    const secs = (gameSecondsRemaining % 60).toString().padStart(2, '0');
+    timerDisplay.textContent = `Break Time Remaining: ${mins}:${secs}`;
   }
 }
 
-function startSnakeGame() {
+function updateGameOverlayUI() {
+  const meta = gameMetadata[activeGame] || gameMetadata['bubble-popper'];
+  const title = document.getElementById('game-overlay-title');
+  const desc = document.getElementById('game-overlay-desc');
+  const help = document.getElementById('game-controls-help');
+  const overlay = document.getElementById('game-overlay');
+  
+  if (title) {
+    title.textContent = meta.title;
+    title.style.color = '#ff7b00';
+  }
+  if (desc) desc.textContent = meta.desc;
+  if (help) help.textContent = meta.controls;
+  if (overlay) overlay.style.display = 'flex';
+  
+  // Toggle visibility of canvas vs card grid container
+  const canvas = document.getElementById('game-canvas');
+  const mmGrid = document.getElementById('memory-match-grid');
+  
+  if (activeGame === 'memory-match') {
+    if (canvas) canvas.style.display = 'none';
+    if (mmGrid) mmGrid.style.display = 'grid';
+  } else {
+    if (canvas) canvas.style.display = 'block';
+    if (mmGrid) mmGrid.style.display = 'none';
+  }
+
+  // Sync scores display
+  const scoreDisplay = document.getElementById('game-score');
+  const hsDisplay = document.getElementById('game-highscore');
+  if (scoreDisplay) scoreDisplay.textContent = '0';
+  if (hsDisplay) hsDisplay.textContent = gameHighScores[activeGame] || 0;
+}
+
+function drawInitialCanvasScreen() {
+  const canvas = document.getElementById('game-canvas');
+  if (!canvas || activeGame === 'memory-match') return;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#0d1117';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  
+  ctx.fillStyle = '#ff7b00';
+  ctx.font = '16px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('Click Start to Play', canvas.width / 2, canvas.height / 2);
+}
+
+function stopActiveGame() {
+  isGameRunning = false;
+  if (animationFrameId) {
+    cancelAnimationFrame(animationFrameId);
+    animationFrameId = null;
+  }
+  
+  // Disable timer
+  if (gameTimerInterval) {
+    clearInterval(gameTimerInterval);
+    gameTimerInterval = null;
+  }
+  
+  const gameSelect = document.getElementById('game-select');
+  const timerSelect = document.getElementById('game-timer-select');
+  if (gameSelect) gameSelect.disabled = false;
+  if (timerSelect) timerSelect.disabled = false;
+
+  // Remove event listeners
+  const canvas = document.getElementById('game-canvas');
+  if (canvas) {
+    // Clone and replace to strip all event listeners
+    const newCanvas = canvas.cloneNode(true);
+    canvas.parentNode.replaceChild(newCanvas, canvas);
+  }
+}
+
+function startBreakGame() {
+  stopActiveGame();
+  
   const overlay = document.getElementById('game-overlay');
   if (overlay) overlay.style.display = 'none';
   
   const scoreDisplay = document.getElementById('game-score');
   if (scoreDisplay) scoreDisplay.textContent = '0';
+  gameScore = 0;
+  isGameRunning = true;
   
+  // Lock game configuration while running
+  const gameSelect = document.getElementById('game-select');
+  const timerSelect = document.getElementById('game-timer-select');
+  if (gameSelect) gameSelect.disabled = true;
+  if (timerSelect) timerSelect.disabled = true;
+
+  // Retrieve selected timer value
+  const duration = timerSelect ? parseInt(timerSelect.value) : 180;
+  gameSecondsRemaining = duration;
+  updateTimerDisplay();
+
+  // Start break count down timer
+  gameTimerInterval = setInterval(() => {
+    gameSecondsRemaining--;
+    updateTimerDisplay();
+    
+    if (gameSecondsRemaining <= 0) {
+      stopActiveGame();
+      updateGameOverlayUI();
+      const title = document.getElementById('game-overlay-title');
+      if (title) {
+        title.textContent = "Break Over!";
+        title.style.color = 'var(--warning)';
+      }
+      alert("Time's up! Back to work! 🏃‍♂️");
+      switchToTab('data-entry');
+    }
+  }, 1000);
+
+  // Initialize specific game engine
+  if (activeGame === 'bubble-popper') {
+    startBubblePopper();
+  } else if (activeGame === 'memory-match') {
+    startMemoryMatch();
+  } else if (activeGame === 'snake') {
+    startSnakeArcade();
+  }
+}
+
+// -------------------------------------------------------------
+// GAME 1: ZEN BUBBLE POPPER (Visually Beautiful, Clicker)
+// -------------------------------------------------------------
+
+function startBubblePopper() {
   const canvas = document.getElementById('game-canvas');
   if (!canvas) return;
   const ctx = canvas.getContext('2d');
   
-  let score = 0;
-  const grid = 15;
+  bubblePopperState.bubbles = [];
+  bubblePopperState.particles = [];
+  
+  // Spawns bubble
+  function spawnBubble() {
+    const radius = Math.random() * 20 + 15;
+    const hue = Math.floor(Math.random() * 360);
+    bubblePopperState.bubbles.push({
+      x: Math.random() * (canvas.width - radius * 2) + radius,
+      y: canvas.height + radius,
+      radius: radius,
+      speed: Math.random() * 1.2 + 0.6,
+      color: `hsla(${hue}, 85%, 65%, 0.75)`,
+      border: `hsla(${hue}, 85%, 50%, 0.9)`,
+      pulse: 0,
+      pulseDir: 0.05
+    });
+  }
+
+  // Handle click to pop bubbles
+  canvas.addEventListener('click', (e) => {
+    if (!isGameRunning) return;
+    const rect = canvas.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const clickY = e.clientY - rect.top;
+    
+    for (let i = bubblePopperState.bubbles.length - 1; i >= 0; i--) {
+      const b = bubblePopperState.bubbles[i];
+      const dist = Math.hypot(clickX - b.x, clickY - b.y);
+      if (dist <= b.radius) {
+        // Pop bubble!
+        createPopParticles(b.x, b.y, b.color);
+        bubblePopperState.bubbles.splice(i, 1);
+        gameScore += 10;
+        updateGameScore();
+        break; // Pop one bubble at a time
+      }
+    }
+  });
+
+  function createPopParticles(x, y, color) {
+    for (let i = 0; i < 12; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = Math.random() * 3 + 1.5;
+      bubblePopperState.particles.push({
+        x: x,
+        y: y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        radius: Math.random() * 4 + 1.5,
+        color: color,
+        alpha: 1
+      });
+    }
+  }
+
+  function loop() {
+    if (!isGameRunning) return;
+    animationFrameId = requestAnimationFrame(loop);
+    
+    ctx.fillStyle = '#0d1117';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Draw subtle grid line pattern
+    ctx.strokeStyle = 'rgba(48, 54, 61, 0.15)';
+    ctx.lineWidth = 1;
+    for (let i = 20; i < canvas.width; i += 20) {
+      ctx.beginPath();
+      ctx.moveTo(i, 0);
+      ctx.lineTo(i, canvas.height);
+      ctx.stroke();
+    }
+    for (let j = 20; j < canvas.height; j += 20) {
+      ctx.beginPath();
+      ctx.moveTo(0, j);
+      ctx.lineTo(canvas.width, j);
+      ctx.stroke();
+    }
+    
+    // Spawn new bubble if below capacity
+    if (bubblePopperState.bubbles.length < bubblePopperState.maxBubbles && Math.random() < 0.02) {
+      spawnBubble();
+    }
+    
+    // Update and draw bubbles
+    for (let i = bubblePopperState.bubbles.length - 1; i >= 0; i--) {
+      const b = bubblePopperState.bubbles[i];
+      b.y -= b.speed;
+      b.pulse += b.pulseDir;
+      if (b.pulse > 1.2 || b.pulse < -1.2) b.pulseDir *= -1;
+      
+      // Floating off screen
+      if (b.y < -b.radius) {
+        bubblePopperState.bubbles.splice(i, 1);
+        continue;
+      }
+      
+      // Draw shiny bubble
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, b.radius + b.pulse * 0.4, 0, Math.PI * 2);
+      ctx.fillStyle = b.color;
+      ctx.fill();
+      ctx.strokeStyle = b.border;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      
+      // Bubble highlight shine reflection
+      ctx.beginPath();
+      ctx.arc(b.x - b.radius * 0.35, b.y - b.radius * 0.35, b.radius * 0.2, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
+      ctx.fill();
+    }
+    
+    // Update and draw particles
+    for (let i = bubblePopperState.particles.length - 1; i >= 0; i--) {
+      const p = bubblePopperState.particles[i];
+      p.x += p.vx;
+      p.y += p.vy;
+      p.alpha -= 0.035;
+      
+      if (p.alpha <= 0) {
+        bubblePopperState.particles.splice(i, 1);
+        continue;
+      }
+      
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+      ctx.fillStyle = p.color.replace('0.75', p.alpha.toString());
+      ctx.fill();
+    }
+  }
+  
+  loop();
+}
+
+// -------------------------------------------------------------
+// GAME 2: MEMORY MATCH (Relaxing Grid, Emoji pairs)
+// -------------------------------------------------------------
+
+function startMemoryMatch() {
+  const gridContainer = document.getElementById('memory-match-grid');
+  if (!gridContainer) return;
+  gridContainer.innerHTML = '';
+  
+  const emojis = ['🫧', '🎮', '🦄', '🌟', '🍕', '🚀', '🔮', '🐱'];
+  // Duplicate emojis to make pairs
+  let cardValues = [...emojis, ...emojis];
+  
+  // Shuffle cards
+  cardValues.sort(() => Math.random() - 0.5);
+  
+  memoryMatchState.cards = cardValues;
+  memoryMatchState.flippedIndices = [];
+  memoryMatchState.matchedPairs = 0;
+  memoryMatchState.lockGrid = false;
+  
+  // Render cards
+  cardValues.forEach((val, idx) => {
+    const card = document.createElement('div');
+    card.className = 'memory-card';
+    card.dataset.index = idx;
+    
+    // Styling cards directly
+    card.style.background = '#21262d';
+    card.style.border = '1px solid var(--panel-border)';
+    card.style.borderRadius = '6px';
+    card.style.display = 'flex';
+    card.style.alignItems = 'center';
+    card.style.justifyContent = 'center';
+    card.style.fontSize = '1.8rem';
+    card.style.cursor = 'pointer';
+    card.style.transition = 'transform 0.2s, background-color 0.25s';
+    card.style.userSelect = 'none';
+    card.textContent = '❓';
+    
+    card.addEventListener('click', () => handleCardFlip(card, idx));
+    gridContainer.appendChild(card);
+  });
+}
+
+function handleCardFlip(cardEl, idx) {
+  if (memoryMatchState.lockGrid) return;
+  if (cardEl.classList.contains('flipped') || cardEl.classList.contains('matched')) return;
+  
+  cardEl.textContent = memoryMatchState.cards[idx];
+  cardEl.style.background = '#30363d';
+  cardEl.style.transform = 'scale(1.05)';
+  cardEl.classList.add('flipped');
+  
+  memoryMatchState.flippedIndices.push(idx);
+  
+  if (memoryMatchState.flippedIndices.length === 2) {
+    memoryMatchState.lockGrid = true;
+    
+    const [firstIdx, secondIdx] = memoryMatchState.flippedIndices;
+    const cardsList = document.getElementById('memory-match-grid').children;
+    const firstCard = cardsList[firstIdx];
+    const secondCard = cardsList[secondIdx];
+    
+    if (memoryMatchState.cards[firstIdx] === memoryMatchState.cards[secondIdx]) {
+      // Matched!
+      setTimeout(() => {
+        firstCard.classList.remove('flipped');
+        secondCard.classList.remove('flipped');
+        firstCard.classList.add('matched');
+        secondCard.classList.add('matched');
+        
+        firstCard.style.background = 'rgba(46, 164, 79, 0.2)';
+        secondCard.style.background = 'rgba(46, 164, 79, 0.2)';
+        firstCard.style.borderColor = 'var(--success)';
+        secondCard.style.borderColor = 'var(--success)';
+        
+        memoryMatchState.matchedPairs++;
+        gameScore += 25;
+        updateGameScore();
+        
+        memoryMatchState.flippedIndices = [];
+        memoryMatchState.lockGrid = false;
+        
+        if (memoryMatchState.matchedPairs === 8) {
+          setTimeout(() => {
+            alert('Congratulations! You matched all pairs!');
+            startMemoryMatch(); // Restart memory game
+          }, 500);
+        }
+      }, 400);
+    } else {
+      // Not matched
+      setTimeout(() => {
+        firstCard.textContent = '❓';
+        secondCard.textContent = '❓';
+        firstCard.classList.remove('flipped');
+        secondCard.classList.remove('flipped');
+        firstCard.style.background = '#21262d';
+        secondCard.style.background = '#21262d';
+        firstCard.style.transform = 'scale(1)';
+        secondCard.style.transform = 'scale(1)';
+        
+        memoryMatchState.flippedIndices = [];
+        memoryMatchState.lockGrid = false;
+      }, 900);
+    }
+  }
+}
+
+// -------------------------------------------------------------
+// GAME 3: RETRO SNAKE ARCADE (Classic Keyboard steering)
+// -------------------------------------------------------------
+
+function startSnakeArcade() {
+  const canvas = document.getElementById('game-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  
+  const grid = 16;
   let count = 0;
   
-  let snake = {
-    x: 150,
-    y: 150,
-    dx: grid,
-    dy: 0,
-    cells: [],
-    maxCells: 4
-  };
-  
-  let apple = {
-    x: 225,
-    y: 225
-  };
+  snakeState.x = 160;
+  snakeState.y = 160;
+  snakeState.dx = grid;
+  snakeState.dy = 0;
+  snakeState.cells = [];
+  snakeState.maxCells = 4;
+  snakeState.apple = { x: 96, y: 96 };
   
   function getRandomInt(min, max) {
     return Math.floor(Math.random() * (max - min)) + min;
   }
   
   function resetApple() {
-    apple.x = getRandomInt(0, 20) * grid;
-    apple.y = getRandomInt(0, 20) * grid;
-  }
-  
-  snakeGameRunning = true;
-  
-  if (!snakeTimerInterval) {
-    snakeSecondsRemaining = 180;
-    snakeTimerInterval = setInterval(() => {
-      snakeSecondsRemaining--;
-      const timerDisplay = document.getElementById('game-timer');
-      if (timerDisplay) {
-        const mins = Math.floor(snakeSecondsRemaining / 60).toString().padStart(2, '0');
-        const secs = (snakeSecondsRemaining % 60).toString().padStart(2, '0');
-        timerDisplay.textContent = `Break Time Remaining: ${mins}:${secs}`;
-        
-        if (snakeSecondsRemaining <= 0) {
-          clearInterval(snakeTimerInterval);
-          snakeTimerInterval = null;
-          snakeGameRunning = false;
-          timerDisplay.textContent = "Time's up! Back to work! 🏃‍♂️";
-          alert("Time's up! 3 minutes are over. Please get back to work!");
-          switchToTab('data-entry');
-        }
-      }
-    }, 1000);
+    snakeState.apple.x = getRandomInt(0, 20) * grid;
+    snakeState.apple.y = getRandomInt(0, 20) * grid;
   }
   
   const handleKeys = (e) => {
-    if (!snakeGameRunning) return;
+    if (!isGameRunning || activeGame !== 'snake') return;
     
     if ([37, 38, 39, 40].indexOf(e.which) > -1) {
       e.preventDefault();
     }
     
-    if ((e.which === 37 || e.which === 65) && snake.dx === 0) {
-      snake.dx = -grid;
-      snake.dy = 0;
+    if ((e.which === 37 || e.which === 65) && snakeState.dx === 0) {
+      snakeState.dx = -grid;
+      snakeState.dy = 0;
     }
-    else if ((e.which === 38 || e.which === 87) && snake.dy === 0) {
-      snake.dy = -grid;
-      snake.dx = 0;
+    else if ((e.which === 38 || e.which === 87) && snakeState.dy === 0) {
+      snakeState.dy = -grid;
+      snakeState.dx = 0;
     }
-    else if ((e.which === 39 || e.which === 68) && snake.dx === 0) {
-      snake.dx = grid;
-      snake.dy = 0;
+    else if ((e.which === 39 || e.which === 68) && snakeState.dx === 0) {
+      snakeState.dx = grid;
+      snakeState.dy = 0;
     }
-    else if ((e.which === 40 || e.which === 83) && snake.dy === 0) {
-      snake.dy = grid;
-      snake.dx = 0;
+    else if ((e.which === 40 || e.which === 83) && snakeState.dy === 0) {
+      snakeState.dy = grid;
+      snakeState.dx = 0;
     }
   };
   
   document.removeEventListener('keydown', handleKeys);
   document.addEventListener('keydown', handleKeys);
   
-  function gameLoop() {
-    if (!snakeGameRunning) return;
-    
-    requestAnimationFrame(gameLoop);
+  function loop() {
+    if (!isGameRunning || activeGame !== 'snake') return;
+    animationFrameId = requestAnimationFrame(loop);
     
     if (++count < 6) {
       return;
@@ -4223,38 +4626,37 @@ function startSnakeGame() {
     count = 0;
     
     ctx.clearRect(0,0,canvas.width,canvas.height);
-    
     ctx.fillStyle = '#0d1117';
     ctx.fillRect(0,0,canvas.width,canvas.height);
     
-    snake.x += snake.dx;
-    snake.y += snake.dy;
+    snakeState.x += snakeState.dx;
+    snakeState.y += snakeState.dy;
     
-    if (snake.x < 0) {
-      snake.x = canvas.width - grid;
+    if (snakeState.x < 0) {
+      snakeState.x = canvas.width - grid;
     }
-    else if (snake.x >= canvas.width) {
-      snake.x = 0;
-    }
-    
-    if (snake.y < 0) {
-      snake.y = canvas.height - grid;
-    }
-    else if (snake.y >= canvas.height) {
-      snake.y = 0;
+    else if (snakeState.x >= canvas.width) {
+      snakeState.x = 0;
     }
     
-    snake.cells.unshift({x: snake.x, y: snake.y});
+    if (snakeState.y < 0) {
+      snakeState.y = canvas.height - grid;
+    }
+    else if (snakeState.y >= canvas.height) {
+      snakeState.y = 0;
+    }
     
-    if (snake.cells.length > snake.maxCells) {
-      snake.cells.pop();
+    snakeState.cells.unshift({x: snakeState.x, y: snakeState.y});
+    
+    if (snakeState.cells.length > snakeState.maxCells) {
+      snakeState.cells.pop();
     }
     
     ctx.fillStyle = '#da3637';
-    ctx.fillRect(apple.x, apple.y, grid-1, grid-1);
+    ctx.fillRect(snakeState.apple.x, snakeState.apple.y, grid-1, grid-1);
     
     ctx.fillStyle = '#2ea44f';
-    snake.cells.forEach(function(cell, index) {
+    snakeState.cells.forEach(function(cell, index) {
       if (index === 0) {
         ctx.fillStyle = '#3fb950';
       } else {
@@ -4262,26 +4664,20 @@ function startSnakeGame() {
       }
       ctx.fillRect(cell.x, cell.y, grid-1, grid-1);  
       
-      if (cell.x === apple.x && cell.y === apple.y) {
-        snake.maxCells++;
-        score += 10;
-        if (scoreDisplay) scoreDisplay.textContent = score;
-        
-        if (score > snakeHighScore) {
-          snakeHighScore = score;
-          const hsDisplay = document.getElementById('game-highscore');
-          if (hsDisplay) hsDisplay.textContent = snakeHighScore;
-        }
+      if (cell.x === snakeState.apple.x && cell.y === snakeState.apple.y) {
+        snakeState.maxCells++;
+        gameScore += 10;
+        updateGameScore();
         resetApple();
       }
       
-      for (let i = index + 1; i < snake.cells.length; i++) {
-        if (cell.x === snake.cells[i].x && cell.y === snake.cells[i].y) {
-          snakeGameRunning = false;
+      for (let i = index + 1; i < snakeState.cells.length; i++) {
+        if (cell.x === snakeState.cells[i].x && cell.y === snakeState.cells[i].y) {
+          isGameRunning = false;
           const overlay = document.getElementById('game-overlay');
           const title = document.getElementById('game-overlay-title');
           if (overlay && title) {
-            title.textContent = `Game Over! Score: ${score}`;
+            title.textContent = `Game Over! Score: ${gameScore}`;
             title.style.color = 'var(--danger)';
             overlay.style.display = 'flex';
           }
@@ -4290,5 +4686,16 @@ function startSnakeGame() {
     });
   }
   
-  requestAnimationFrame(gameLoop);
+  loop();
+}
+
+function updateGameScore() {
+  const scoreDisplay = document.getElementById('game-score');
+  if (scoreDisplay) scoreDisplay.textContent = gameScore;
+  
+  if (gameScore > (gameHighScores[activeGame] || 0)) {
+    gameHighScores[activeGame] = gameScore;
+    const hsDisplay = document.getElementById('game-highscore');
+    if (hsDisplay) hsDisplay.textContent = gameScore;
+  }
 }
