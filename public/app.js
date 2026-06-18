@@ -5696,7 +5696,9 @@ async function loadDashboardWidget(type) {
   if (!container) return;
   
   // Clear previous content
-  container.inn  if (type === 'stocks') {
+  container.innerHTML = '<div style="display:flex; align-items:center; justify-content:center; height:100%; color:var(--text-muted);">Loading dashboard data...</div>';
+  
+  if (type === 'stocks') {
     renderStockWidget("NSE:NIFTY");
   }
   else if (type === 'news') {
