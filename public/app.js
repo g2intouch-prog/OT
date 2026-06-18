@@ -5696,25 +5696,8 @@ async function loadDashboardWidget(type) {
   if (!container) return;
   
   // Clear previous content
-  container.innerHTML = '<div style="display:flex; align-items:center; justify-content:center; height:100%; color:var(--text-muted);">Loading dashboard data...</div>';
-  
-  if (type === 'stocks') {
-    container.innerHTML = `
-      <div style="width: 100%; height: 100%; display: flex; flex-direction: column; gap: 8px;">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-          <h4 style="margin: 0; color: #ff7b00; font-size: 0.95rem;">NSE Nifty 50 Overview</h4>
-          <span style="font-size: 0.75rem; color: var(--text-muted);">Real-time Index</span>
-        </div>
-        <div style="flex: 1; border-radius: 6px; overflow: hidden; border: 1px solid var(--panel-border); background: #161b22;">
-          <iframe 
-            src="https://s.tradingview.com/widgetembed/?frameElementId=tradingview_1&symbol=NSE%3ANIFTY&interval=D&theme=dark&style=1&timezone=Asia%2FKolkata&locale=en" 
-            style="width:100%; height:100%; border:none; background:#0d1117;"
-            scrolling="no" 
-            allowtransparency="true">
-          </iframe>
-        </div>
-      </div>
-    `;
+  container.inn  if (type === 'stocks') {
+    renderStockWidget("NSE:NIFTY");
   }
   else if (type === 'news') {
     try {
@@ -5729,20 +5712,26 @@ async function loadDashboardWidget(type) {
       `;
       
       const articles = (data.articles || []).slice(0, 6);
-      articles.forEach(item => {
+      articles.forEach((item, index) => {
         const dateStr = item.publishedAt ? new Date(item.publishedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'Today';
+        const uniqueId = `news-desc-${index}`;
         html += `
-          <div style="background: #161b22; border: 1px solid var(--panel-border); border-radius: 6px; padding: 10px; display: flex; gap: 10px; align-items: flex-start; transition: border-color 0.2s; cursor: pointer;" 
-               onclick="window.open('${item.url}', '_blank')"
+          <div style="background: #161b22; border: 1px solid var(--panel-border); border-radius: 6px; padding: 10px; display: flex; flex-direction: column; gap: 6px; transition: border-color 0.2s; cursor: pointer;" 
+               onclick="const d = document.getElementById('${uniqueId}'); d.style.display = d.style.display === 'none' ? 'block' : 'none';"
                onmouseover="this.style.borderColor='var(--accent-color)'"
                onmouseout="this.style.borderColor='var(--panel-border)'">
-            ${item.urlToImage ? '<img src="' + item.urlToImage + '" style="width: 50px; height: 50px; border-radius: 4px; object-fit: cover; flex-shrink: 0;" />' : ''}
-            <div style="flex: 1; min-width: 0;">
-              <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted); margin-bottom: 2px;">
-                <span>${(item.source && item.source.name) || 'News'}</span>
-                <span>${dateStr}</span>
+            <div style="display: flex; gap: 10px; align-items: flex-start;">
+              ${item.urlToImage ? '<img src="' + item.urlToImage + '" style="width: 50px; height: 50px; border-radius: 4px; object-fit: cover; flex-shrink: 0;" />' : ''}
+              <div style="flex: 1; min-width: 0;">
+                <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted); margin-bottom: 2px;">
+                  <span>${(item.source && item.source.name) || 'News'}</span>
+                  <span>${dateStr}</span>
+                </div>
+                <h5 style="margin: 0; font-size: 0.8rem; line-height: 1.3; color: #f0f6fc; font-weight: 600;">${item.title}</h5>
               </div>
-              <h5 style="margin: 0; font-size: 0.8rem; line-height: 1.3; color: #f0f6fc; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;">${item.title}</h5>
+            </div>
+            <div id="${uniqueId}" style="display: none; font-size: 0.75rem; color: var(--text-muted); line-height: 1.4; border-top: 1px solid rgba(48,54,61,0.3); padding-top: 6px; margin-top: 4px;">
+              ${item.description || item.content || 'No description available for this headline.'}
             </div>
           </div>
         `;
@@ -5760,7 +5749,53 @@ async function loadDashboardWidget(type) {
     }
   }
   else if (type === 'weather') {
-    renderWeatherWidget("Bhubaneswar");
+    // Attempt exact location geolocating on first load of weather dashboard
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          renderWeatherByCoords(pos.coords.latitude, pos.coords.longitude, "Current Location");
+        },
+        () => {
+          renderWeatherWidget("Bhubaneswar");
+        }
+      );
+    } else {
+      renderWeatherWidget("Bhubaneswar");
+    }
+  }
+}
+
+// Custom Stock Ticker search widget
+function renderStockWidget(symbol) {
+  const container = document.getElementById('extra-info-container');
+  if (!container) return;
+  
+  const cleanSymbol = symbol.trim().toUpperCase();
+  
+  container.innerHTML = `
+    <div style="width: 100%; height: 100%; display: flex; flex-direction: column; gap: 10px;">
+      <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+        <input type="text" id="stock-ticker-input" class="form-control" style="font-size:0.85rem; padding: 6px 10px; flex: 1; min-width: 120px;" placeholder="e.g. NSE:RELIANCE, BSE:SENSEX, AAPL" value="${cleanSymbol}">
+        <button class="btn btn-primary" style="padding: 6px 12px;" onclick="renderStockWidget(document.getElementById('stock-ticker-input').value)">Show Chart</button>
+      </div>
+      <div style="flex: 1; border-radius: 6px; overflow: hidden; border: 1px solid var(--panel-border); background: #161b22; height: 320px;">
+        <iframe 
+          src="https://s.tradingview.com/widgetembed/?frameElementId=tradingview_1&symbol=${encodeURIComponent(cleanSymbol)}&interval=D&theme=dark&style=1&timezone=Asia%2FKolkata&locale=en" 
+          style="width:100%; height:100%; border:none; background:#0d1117;"
+          scrolling="no" 
+          allowtransparency="true">
+        </iframe>
+      </div>
+    </div>
+  `;
+  
+  const input = document.getElementById('stock-ticker-input');
+  if (input) {
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        renderStockWidget(input.value);
+      }
+    });
   }
 }
 
@@ -5779,9 +5814,10 @@ async function renderWeatherWidget(city) {
       container.innerHTML = `
         <div style="padding: 12px; display: flex; flex-direction: column; gap: 12px;">
           <h4 style="margin:0; color:#ff7b00; font-size:0.95rem;">Weather Forecast 🌤️</h4>
-          <div style="display:flex; gap:8px;">
-            <input type="text" id="weather-search-input" class="form-control" style="font-size:0.85rem; padding: 6px 10px;" placeholder="Enter city name..." value="${city}">
+          <div style="display:flex; gap:6px; flex-wrap: wrap;">
+            <input type="text" id="weather-search-input" class="form-control" style="font-size:0.85rem; padding: 6px 10px; flex: 1; min-width: 120px;" placeholder="City name..." value="${city}">
             <button class="btn btn-primary" onclick="renderWeatherWidget(document.getElementById('weather-search-input').value)">Search</button>
+            <button class="btn btn-secondary" onclick="navigator.geolocation.getCurrentPosition((pos)=>renderWeatherByCoords(pos.coords.latitude, pos.coords.longitude, 'Your Location'), (err)=>alert(err.message))">📍 Me</button>
           </div>
           <p style="color:var(--danger); font-size:0.85rem; text-align:center; margin-top: 20px;">City "${city}" not found. Try another city name.</p>
         </div>
@@ -5791,8 +5827,23 @@ async function renderWeatherWidget(city) {
     
     const location = geoData.results[0];
     const { latitude, longitude, name, country } = location;
-    
-    // 2. Fetch Forecast from Open-Meteo
+    renderWeatherByCoords(latitude, longitude, `${name}, ${country}`);
+  } catch (err) {
+    container.innerHTML = `
+      <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; color:var(--danger); font-size:0.85rem; text-align:center; gap:8px; padding: 20px;">
+        <span>⚠️ Failed to load weather data.</span>
+        <button class="btn btn-secondary py-1 px-3" onclick="renderWeatherWidget('${city}')">Retry</button>
+      </div>
+    `;
+  }
+}
+
+// Weather widget helper using coordinates
+async function renderWeatherByCoords(latitude, longitude, displayName) {
+  const container = document.getElementById('extra-info-container');
+  if (!container) return;
+  
+  try {
     const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true&daily=temperature_2m_max,temperature_2m_min,weathercode&timezone=auto`);
     if (!weatherRes.ok) throw new Error("Weather fetch failed");
     const weatherData = await weatherRes.json();
@@ -5800,7 +5851,6 @@ async function renderWeatherWidget(city) {
     const curr = weatherData.current_weather;
     const daily = weatherData.daily;
     
-    // Map weather codes to emojis & descriptions
     const weatherCodes = {
       0: { desc: "Clear Sky", emoji: "☀️" },
       1: { desc: "Mainly Clear", emoji: "🌤️" },
@@ -5832,16 +5882,17 @@ async function renderWeatherWidget(city) {
       <div style="display: flex; flex-direction: column; gap: 14px; padding-bottom: 12px; height: 100%;">
         <h4 style="margin: 0; color: #ff7b00; font-size: 0.95rem;">Weather Forecast 🌤️</h4>
         
-        <div style="display: flex; gap: 8px;">
-          <input type="text" id="weather-search-input" class="form-control" style="font-size:0.85rem; padding: 6px 10px;" placeholder="Enter city name..." value="${name}">
-          <button class="btn btn-primary" style="padding: 6px 12px;" onclick="renderWeatherWidget(document.getElementById('weather-search-input').value)">Search</button>
+        <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+          <input type="text" id="weather-search-input" class="form-control" style="font-size:0.85rem; padding: 6px 10px; flex: 1; min-width: 120px;" placeholder="City name..." value="${displayName === 'Current Location' || displayName === 'Your Location' ? '' : displayName.split(',')[0]}">
+          <button class="btn btn-primary" style="padding: 6px 10px;" onclick="renderWeatherWidget(document.getElementById('weather-search-input').value)">Search</button>
+          <button class="btn btn-secondary" style="padding: 6px 10px;" onclick="navigator.geolocation.getCurrentPosition((pos)=>renderWeatherByCoords(pos.coords.latitude, pos.coords.longitude, 'Your Location'), (err)=>alert(err.message))">📍 Me</button>
         </div>
         
         <!-- Current Weather Card -->
         <div style="background: linear-gradient(135deg, #1f293d 0%, #161b22 100%); border: 1px solid var(--panel-border); border-radius: 8px; padding: 16px; display: flex; align-items: center; justify-content: space-between; box-shadow: var(--shadow);">
           <div>
-            <h5 style="margin:0; font-size: 1.1rem; color:#f0f6fc;">${name}</h5>
-            <span style="font-size:0.75rem; color:var(--text-muted);">${country || ''}</span>
+            <h5 style="margin:0; font-size: 1.1rem; color:#f0f6fc;">${displayName}</h5>
+            <span style="font-size:0.75rem; color:var(--text-muted);">Exact Location</span>
             <div style="font-size: 2.1rem; font-weight: 700; color:#ff7b00; margin: 8px 0 2px 0;">${Math.round(curr.temperature)}°C</div>
             <span style="font-size:0.8rem; color:#f0f6fc;">${weatherInfo.emoji} ${weatherInfo.desc}</span>
           </div>
@@ -5901,7 +5952,7 @@ async function renderWeatherWidget(city) {
     container.innerHTML = `
       <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; color:var(--danger); font-size:0.85rem; text-align:center; gap:8px; padding: 20px;">
         <span>⚠️ Failed to load weather data.</span>
-        <button class="btn btn-secondary py-1 px-3" onclick="renderWeatherWidget('${city}')">Retry</button>
+        <button class="btn btn-secondary py-1 px-3" onclick="renderWeatherByCoords(${latitude}, ${longitude}, '${displayName}')">Retry</button>
       </div>
     `;
   }
