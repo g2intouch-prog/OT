@@ -3,6 +3,21 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script>
+    // Programmatically force unregister service workers and clear caches to solve stale cache problems
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function(regs) {
+        for(let reg of regs) {
+          reg.unregister().then(() => console.log('Stale SW unregistered successfully.'));
+        }
+      });
+    }
+    if ('caches' in window) {
+      caches.keys().then(function(keys) {
+        keys.forEach(key => caches.delete(key).then(() => console.log('Cache cleared:', key)));
+      });
+    }
+  </script>
   <title>My Ot Data</title>
   
   <!-- SEO Meta Tags -->
@@ -869,7 +884,7 @@
   </div>
 
   <!-- Floating Action Button for Live Debug Logs (Trial Phase) -->
-  <div id="debug-toggle-btn" style="position: fixed; bottom: 16px; right: 16px; width: 44px; height: 44px; border-radius: 50%; background-color: var(--accent-color); display: none; align-items: center; justify-content: center; cursor: pointer; z-index: 99999; box-shadow: 0 4px 12px rgba(0,0,0,0.5); font-size: 18px; transition: transform 0.2s;" onclick="const p = document.getElementById('debug-overlay-panel'); const isHidden = p.style.display === 'none'; p.style.display = isHidden ? 'flex' : 'none'; if (isHidden) document.getElementById('debug-badge').style.display = 'none';" onmouseover="this.style.transform='scale(1.08)'" onmouseout="this.style.transform='scale(1)'">
+  <div id="debug-toggle-btn" style="position: fixed; bottom: 16px; right: 16px; width: 44px; height: 44px; border-radius: 50%; background-color: var(--accent-color); display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 99999; box-shadow: 0 4px 12px rgba(0,0,0,0.5); font-size: 18px; transition: transform 0.2s;" onclick="const p = document.getElementById('debug-overlay-panel'); const isHidden = p.style.display === 'none'; p.style.display = isHidden ? 'flex' : 'none'; if (isHidden) document.getElementById('debug-badge').style.display = 'none';" onmouseover="this.style.transform='scale(1.08)'" onmouseout="this.style.transform='scale(1)'">
     🪲
     <span id="debug-badge" style="position: absolute; top: -2px; right: -2px; width: 10px; height: 10px; background-color: var(--danger); border-radius: 50%; border: 2px solid #fff; display: none;"></span>
   </div>

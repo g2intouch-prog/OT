@@ -208,40 +208,45 @@ function safeAddListener(el, event, handler) {
 // -------------------------------------------------------------
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Load token from session storage
-  const savedToken = sessionStorage.getItem('authToken');
-  if (savedToken) {
-    state.isAuthenticated = true;
-    state.authToken = savedToken;
-    fetchTotpStatus();
+  try {
+    // Load token from session storage
+    const savedToken = sessionStorage.getItem('authToken');
+    if (savedToken) {
+      state.isAuthenticated = true;
+      state.authToken = savedToken;
+      fetchTotpStatus();
+    }
+    updateAuthUI();
+
+    // Set default server URL
+    state.lanUrl = window.location.origin;
+
+    // Load drafts from localStorage
+    loadDraftsFromStorage();
+
+    // Initialize Theme (Day / Night mode)
+    initTheme();
+
+    // Setup Event Listeners
+    setupEventListeners();
+
+    // Initialize Speech Recognition API
+    initSpeechRecognition();
+
+    // Initial Check Connectivity and Fetch Schema
+    checkConnectivity().then(() => {
+      fetchSchema().then(() => {
+        renderDataEntryForm();
+        renderDraftsTable();
+      }).catch(err => console.error("Error in fetchSchema chain:", err));
+    }).catch(err => console.error("Error in checkConnectivity chain:", err));
+
+    // Start periodic LAN server connectivity check (every 5 seconds)
+    setInterval(checkConnectivity, 5000);
+  } catch (globalInitError) {
+    console.error("GLOBAL INITIALIZATION ERROR:", globalInitError);
+    alert("App initialization failed! Error: " + globalInitError.message + "\nCheck browser console or click the debug button if visible.");
   }
-  updateAuthUI();
-
-  // Set default server URL
-  state.lanUrl = window.location.origin;
-
-  // Load drafts from localStorage
-  loadDraftsFromStorage();
-
-  // Initialize Theme (Day / Night mode)
-  initTheme();
-
-  // Setup Event Listeners
-  setupEventListeners();
-
-  // Initialize Speech Recognition API
-  initSpeechRecognition();
-
-  // Initial Check Connectivity and Fetch Schema
-  checkConnectivity().then(() => {
-    fetchSchema().then(() => {
-      renderDataEntryForm();
-      renderDraftsTable();
-    });
-  });
-
-  // Start periodic LAN server connectivity check (every 5 seconds)
-  setInterval(checkConnectivity, 5000);
 });
 
 // -------------------------------------------------------------
@@ -550,7 +555,6 @@ function updateAuthUI() {
     if (DOM.clearDatabaseBtn) DOM.clearDatabaseBtn.removeAttribute('disabled');
     if (DOM.localBackupExportBtn) DOM.localBackupExportBtn.removeAttribute('disabled');
     if (DOM.localBackupRestoreBtn) DOM.localBackupRestoreBtn.removeAttribute('disabled');
-    if (debugBtn) debugBtn.style.display = 'flex';
   } else {
     DOM.authBtn.className = 'btn btn-secondary';
     DOM.authBtn.title = 'Admin Login';
@@ -565,14 +569,15 @@ function updateAuthUI() {
     if (DOM.clearDatabaseBtn) DOM.clearDatabaseBtn.setAttribute('disabled', 'true');
     if (DOM.localBackupExportBtn) DOM.localBackupExportBtn.setAttribute('disabled', 'true');
     if (DOM.localBackupRestoreBtn) DOM.localBackupRestoreBtn.setAttribute('disabled', 'true');
-    if (debugBtn) debugBtn.style.display = 'none';
-    if (debugPanel) debugPanel.style.display = 'none';
     
     // Fallback if the user logs out from a restricted tab
     if (state.activeTab !== 'data-entry' && state.activeTab !== 'break-game') {
       switchToTab('data-entry');
     }
   }
+
+  // Always show debug toggle button to allow inspection of logs in case of runtime errors
+  if (debugBtn) debugBtn.style.display = 'flex';
 }
 
 // -------------------------------------------------------------
