@@ -92,6 +92,7 @@ const DOM = {
   totpSetupCode: document.getElementById('totp-setup-code'),
   confirmTotpBtn: document.getElementById('confirm-totp-btn'),
   cancelTotpSetupBtn: document.getElementById('cancel-totp-setup-btn'),
+  totpDisableInlineCode: document.getElementById('totp-disable-inline-code'),
 
   // Theme Toggle
   themeToggleBtn: document.getElementById('theme-toggle-btn'),
@@ -2059,7 +2060,7 @@ function setupEventListeners() {
   // TOTP Actions
   safeAddListener(DOM.totpToggleBtn, 'click', () => {
     if (state.totpEnabled) {
-      disableTotp();
+      handleConfirmDisableTotp();
     } else {
       initTotpSetup();
     }
@@ -3572,6 +3573,10 @@ function renderTotpStatus(enabled) {
     DOM.totpToggleBtn.style.borderColor = 'var(--danger)';
     DOM.totpToggleBtn.style.color = 'var(--danger)';
     DOM.totpToggleBtn.textContent = 'Disable TOTP';
+    if (DOM.totpDisableInlineCode) {
+      DOM.totpDisableInlineCode.classList.remove('hidden');
+      DOM.totpDisableInlineCode.value = '';
+    }
   } else {
     DOM.totpStatusBadge.className = 'text-warning';
     DOM.totpStatusBadge.textContent = 'Disabled';
@@ -3579,6 +3584,10 @@ function renderTotpStatus(enabled) {
     DOM.totpToggleBtn.style.borderColor = '';
     DOM.totpToggleBtn.style.color = '';
     DOM.totpToggleBtn.textContent = 'Enable TOTP';
+    if (DOM.totpDisableInlineCode) {
+      DOM.totpDisableInlineCode.classList.add('hidden');
+      DOM.totpDisableInlineCode.value = '';
+    }
   }
 }
 
@@ -3594,6 +3603,10 @@ function resetTotpUI() {
     DOM.totpToggleBtn.textContent = 'Enable TOTP';
   }
   if (DOM.totpSetupCode) DOM.totpSetupCode.value = '';
+  if (DOM.totpDisableInlineCode) {
+    DOM.totpDisableInlineCode.classList.add('hidden');
+    DOM.totpDisableInlineCode.value = '';
+  }
 }
 
 async function initTotpSetup() {
@@ -3652,22 +3665,26 @@ async function confirmTotpSetup() {
   }
 }
 
-async function disableTotp() {
-  const code = prompt('Enter 6-digit TOTP to confirm disabling:');
-  if (code === null) return;
-  if (!code.trim() || code.trim().length !== 6) {
-    alert('A 6-digit TOTP is required.');
+async function handleConfirmDisableTotp() {
+  const code = DOM.totpDisableInlineCode ? DOM.totpDisableInlineCode.value.trim() : '';
+  if (!code || code.length !== 6) {
+    alert('Please enter your 6-digit TOTP code in the input field next to the button to confirm disabling.');
+    if (DOM.totpDisableInlineCode) DOM.totpDisableInlineCode.focus();
     return;
   }
   try {
+    DOM.totpToggleBtn.disabled = true;
+    DOM.totpToggleBtn.textContent = 'Disabling...';
+
     const response = await fetch('/api/settings/totp/disable', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${state.authToken}`
       },
-      body: JSON.stringify({ code: code.trim() })
+      body: JSON.stringify({ code })
     });
+
     if (response.ok) {
       alert('TOTP Authentication has been disabled.');
       fetchTotpStatus();
@@ -3677,5 +3694,8 @@ async function disableTotp() {
     }
   } catch (err) {
     alert('Network error disabling TOTP.');
+  } finally {
+    DOM.totpToggleBtn.disabled = false;
+    DOM.totpToggleBtn.textContent = 'Disable TOTP';
   }
 }
