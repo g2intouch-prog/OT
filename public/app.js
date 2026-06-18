@@ -68,6 +68,7 @@ const DOM = {
   summaryTotal: document.getElementById('summary-total-records'),
   summaryVerified: document.getElementById('summary-verified-records'),
   summaryUnverified: document.getElementById('summary-unverified-records'),
+  sessionStatusDisplay: document.getElementById('session-status-display'),
   localBackupExportBtn: document.getElementById('local-backup-export-btn'),
   localBackupRestoreBtn: document.getElementById('local-backup-restore-btn'),
   localBackupRestoreFile: document.getElementById('local-backup-restore-file'),
