@@ -1037,6 +1037,17 @@ body {
   .desktop-only-btn {
     display: none !important;
   }
+  #tab-data-entry .card-header-flex {
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+  }
+  #tab-data-entry .card-header-flex > div {
+    margin-right: 12px;
+  }
+  #tab-data-entry .card-subtitle {
+    margin-bottom: 0 !important;
+  }
 }
 
 /* Light Mode Variables Override */
