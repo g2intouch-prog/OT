@@ -368,8 +368,41 @@ function closeLoginModal() {
 async function handleLogin(e) {
   e.preventDefault();
   
+  // Registration flow
+  if (state.authModalMode === 'register') {
+    const username = DOM.loginUsername.value.trim();
+    const password = DOM.loginPassword.value;
+    if (!username || !password) {
+      if (DOM.loginErrorText) DOM.loginErrorText.textContent = 'Please fill out all fields.';
+      DOM.loginError.classList.remove('hidden');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+
+      if (response.ok) {
+        alert('Registration successful! Please log in now.');
+        // Toggle back to login mode
+        const toggleLink = document.getElementById('auth-toggle-link');
+        if (toggleLink) toggleLink.click();
+      } else {
+        const err = await response.json();
+        if (DOM.loginErrorText) DOM.loginErrorText.textContent = err.error || 'Registration failed.';
+        DOM.loginError.classList.remove('hidden');
+      }
+    } catch (err) {
+      alert('Network error registering account.');
+    }
+    return;
+  }
+
   // If we are in the OTP verification step
-  if (state.loginTempToken) {
+  if (state.loginTempToken && !state.loginTempToken.startsWith('temp-setup-')) {
     const code = DOM.loginOtp.value.trim();
     if (!code || code.length !== 6) {
       if (DOM.loginErrorText) DOM.loginErrorText.textContent = 'Please enter a 6-digit code.';
@@ -422,6 +455,33 @@ async function handleLogin(e) {
 
     if (response.ok) {
       const data = await response.json();
+      
+      if (data.requireTotpSetup) {
+        // Enforce mandatory TOTP Setup Wizard
+        state.loginTempToken = data.tempToken;
+        try {
+          const setupRes = await fetch('/api/login/totp-setup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tempToken: data.tempToken })
+          });
+          if (setupRes.ok) {
+            const setupData = await setupRes.json();
+            DOM.totpManualSecret.textContent = setupData.secret;
+            DOM.totpQrImg.src = setupData.qrUrl;
+            DOM.totpSetupCode.value = '';
+            
+            DOM.totpSetupModal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+          } else {
+            alert('Failed to initiate mandatory 2FA setup.');
+          }
+        } catch (err) {
+          alert('Network error initiating 2FA setup.');
+        }
+        return;
+      }
+      
       if (data.requireOtp) {
         // Switch to OTP step
         state.loginTempToken = data.tempToken;
@@ -4333,6 +4393,43 @@ async function confirmTotpSetup() {
     alert('Please enter a valid 6-digit code.');
     return;
   }
+
+  // If we are in the mandatory setup login flow
+  if (state.loginTempToken && state.loginTempToken.startsWith('temp-setup-')) {
+    try {
+      const response = await fetch('/api/login/totp-enable', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ tempToken: state.loginTempToken, code })
+      });
+      if (response.ok) {
+        const data = await response.json();
+        alert('TOTP configured successfully! Logged in.');
+        
+        state.isAuthenticated = true;
+        state.authToken = data.token;
+        sessionStorage.setItem('authToken', data.token);
+        state.loginTempToken = null;
+        
+        cancelTotpSetup();
+        closeLoginModal();
+        
+        updateAuthUI();
+        renderFormCreator();
+        fetchDatabaseRecords();
+        fetchTotpStatus();
+      } else {
+        const err = await response.json();
+        alert('Verification failed: ' + (err.error || 'Invalid code'));
+      }
+    } catch (err) {
+      alert('Network error verifying code.');
+    }
+    return;
+  }
+
   try {
     const response = await fetch('/api/settings/totp/enable', {
       method: 'POST',
@@ -6462,12 +6559,20 @@ async function loadTeamAccounts() {
         : `<span style="color: var(--success); font-weight: bold; background: var(--success-glow); padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(46,164,79,0.2)">ACTIVE</span>`;
 
       const isSelf = user.username === 'admin@vault.team' || user.id === 'usr-admin';
+      const isAdminRole = user.role === 'admin';
+
+      let promoteButton = '';
+      if (!isSelf) {
+        promoteButton = isAdminRole
+          ? `<button onclick="promoteUser('${user.id}', 'user')" class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.75rem; margin-right: 8px;">Demote to User</button>`
+          : `<button onclick="promoteUser('${user.id}', 'admin')" class="btn btn-success" style="padding: 4px 10px; font-size: 0.75rem; margin-right: 8px;">Promote to Admin</button>`;
+      }
 
       const actionButton = isSelf 
         ? `<span class="text-muted">Master Root Account</span>`
-        : isRevoked
+        : (isRevoked
           ? `<button onclick="toggleUserStatus('${user.id}', 'active')" class="btn btn-success" style="padding: 4px 10px; font-size: 0.75rem;">Reactivate</button>`
-          : `<button onclick="toggleUserStatus('${user.id}', 'revoked')" class="btn btn-danger" style="padding: 4px 10px; font-size: 0.75rem;">Revoke Access</button>`;
+          : `${promoteButton}<button onclick="toggleUserStatus('${user.id}', 'revoked')" class="btn btn-danger" style="padding: 4px 10px; font-size: 0.75rem;">Revoke Access</button>`);
 
       tr.innerHTML = `
         <td style="font-weight: 500;">${user.username}</td>
@@ -6515,5 +6620,176 @@ async function toggleUserStatus(targetUserId, newStatus) {
   }
 }
 
-// Make toggleUserStatus global for onclick elements
+// Promotes/demotes user role
+async function promoteUser(targetUserId, newRole) {
+  const token = sessionStorage.getItem('authToken');
+  if (!token) return;
+
+  try {
+    const res = await fetch('/api/admin/promote', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ userId: targetUserId, role: newRole })
+    });
+
+    if (res.ok) {
+      alert(`User role successfully changed to ${newRole}!`);
+      await loadTeamAccounts();
+    } else {
+      const err = await res.json();
+      alert('Action failed: ' + (err.error || 'Unknown error'));
+    }
+  } catch (err) {
+    alert('Failed to transmit promotion instruction.');
+  }
+}
+
+// Make functions global for onclick elements
 window.toggleUserStatus = toggleUserStatus;
+window.promoteUser = promoteUser;
+
+// -------------------------------------------------------------
+// E2EE CRYPTOGRAPHIC VERIFIER (TRIAL PHASE ONLY)
+// -------------------------------------------------------------
+const cryptoBtn = document.getElementById('crypto-verifier-btn');
+const cryptoModal = document.getElementById('crypto-verifier-modal');
+const closeCryptoBtn = document.getElementById('close-crypto-verifier-btn');
+const closeCryptoBottomBtn = document.getElementById('close-crypto-verifier-bottom-btn');
+const refreshCryptoBtn = document.getElementById('refresh-crypto-verifier-btn');
+const cryptoContainer = document.getElementById('crypto-verifier-container');
+
+if (cryptoBtn) {
+  cryptoBtn.addEventListener('click', () => {
+    cryptoModal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+    renderCryptoVerificationList();
+  });
+}
+
+function closeCryptoModal() {
+  if (cryptoModal) {
+    cryptoModal.classList.remove('active');
+    document.body.style.overflow = '';
+  }
+}
+
+if (closeCryptoBtn) closeCryptoBtn.addEventListener('click', closeCryptoModal);
+if (closeCryptoBottomBtn) closeCryptoBottomBtn.addEventListener('click', closeCryptoModal);
+if (refreshCryptoBtn) refreshCryptoBtn.addEventListener('click', renderCryptoVerificationList);
+
+async function renderCryptoVerificationList() {
+  if (!cryptoContainer) return;
+  cryptoContainer.innerHTML = '<div class="text-center text-muted py-4">Fetching database entries...</div>';
+
+  try {
+    const res = await fetch('/api/entries');
+    if (!res.ok) throw new Error('Failed to retrieve entries');
+    const records = await res.json();
+
+    if (records.length === 0) {
+      cryptoContainer.innerHTML = '<div class="text-center text-muted py-4">No records found in database.</div>';
+      return;
+    }
+
+    cryptoContainer.innerHTML = '';
+    for (const rec of records) {
+      const rowCard = document.createElement('div');
+      rowCard.style.display = 'flex';
+      rowCard.style.gap = '16px';
+      rowCard.style.padding = '12px';
+      rowCard.style.border = '1px solid var(--panel-border)';
+      rowCard.style.borderRadius = '6px';
+      rowCard.style.backgroundColor = '#161b22';
+      rowCard.style.flexWrap = 'wrap';
+
+      // Left half: Native Data
+      const leftHalf = document.createElement('div');
+      leftHalf.style.flex = '1';
+      leftHalf.style.minWidth = '280px';
+      leftHalf.style.display = 'flex';
+      leftHalf.style.flexDirection = 'column';
+      leftHalf.style.gap = '6px';
+
+      const leftHeader = document.createElement('div');
+      leftHeader.style.fontWeight = 'bold';
+      leftHeader.style.fontSize = '0.85rem';
+      leftHeader.style.color = 'var(--text-muted)';
+      leftHeader.textContent = `Record ID: ${rec.id} | Date: ${rec.date} (Native DB)`;
+
+      const leftPre = document.createElement('pre');
+      leftPre.style.margin = '0';
+      leftPre.style.padding = '8px';
+      leftPre.style.backgroundColor = '#0d1117';
+      leftPre.style.borderRadius = '4px';
+      leftPre.style.fontSize = '0.75rem';
+      leftPre.style.overflowX = 'auto';
+      leftPre.style.border = '1px solid #30363d';
+      leftPre.textContent = JSON.stringify(rec.data, null, 2);
+
+      leftHalf.appendChild(leftHeader);
+      leftHalf.appendChild(leftPre);
+
+      // Right half: Decrypted Data
+      const rightHalf = document.createElement('div');
+      rightHalf.style.flex = '1';
+      rightHalf.style.minWidth = '280px';
+      rightHalf.style.display = 'flex';
+      rightHalf.style.flexDirection = 'column';
+      rightHalf.style.gap = '6px';
+
+      const rightHeader = document.createElement('div');
+      rightHeader.style.fontWeight = 'bold';
+      rightHeader.style.fontSize = '0.85rem';
+      rightHeader.style.color = 'var(--accent-color)';
+      rightHeader.textContent = 'Decrypted Output (RAM Memory)';
+
+      const rightPre = document.createElement('pre');
+      rightPre.style.margin = '0';
+      rightPre.style.padding = '8px';
+      rightPre.style.backgroundColor = '#0d1117';
+      rightPre.style.borderRadius = '4px';
+      rightPre.style.fontSize = '0.75rem';
+      rightPre.style.overflowX = 'auto';
+      rightPre.style.border = '1px solid #30363d';
+
+      // Perform client-side decryption check
+      if (rec.data && rec.data.ciphertext && rec.data.iv) {
+        if (window.SecurityEngine && window.SecurityEngine.isUnlocked()) {
+          try {
+            const decryptedText = await window.SecurityEngine.decryptPayload(rec.data.ciphertext, rec.data.iv);
+            let parsedDecrypted;
+            try {
+              parsedDecrypted = JSON.parse(decryptedText);
+            } catch (e) {
+              parsedDecrypted = decryptedText;
+            }
+            rightPre.textContent = typeof parsedDecrypted === 'object' ? JSON.stringify(parsedDecrypted, null, 2) : parsedDecrypted;
+            rightPre.style.color = '#3fb950'; // green color for successful decryption
+          } catch (decErr) {
+            rightPre.textContent = `[Decryption Error: ${decErr.message}]`;
+            rightPre.style.color = '#f85149'; // red color for error
+          }
+        } else {
+          rightPre.textContent = '[Vault Locked - Cryptographic Key not loaded in RAM]';
+          rightPre.style.color = '#db6d28'; // orange color for locked
+        }
+      } else {
+        rightPre.textContent = '[Plain text - No encryption applied to this record]';
+        rightPre.style.color = '#8b949e';
+      }
+
+      rightHalf.appendChild(rightHeader);
+      rightHalf.appendChild(rightPre);
+
+      rowCard.appendChild(leftHalf);
+      rowCard.appendChild(rightHalf);
+      cryptoContainer.appendChild(rowCard);
+    }
+  } catch (err) {
+    cryptoContainer.innerHTML = `<div class="alert-box alert-danger">Error: ${err.message}</div>`;
+  }
+}
+

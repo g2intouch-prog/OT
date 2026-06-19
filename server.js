@@ -135,6 +135,7 @@ const dbProxy = {
 };
 
 const db = process.env.POSTGRES_URL ? vercelDb : dbProxy;
+const userDb = require('./lib/db');
 
 const app = express();
 const PORT = process.env.PORT || 3080;
@@ -362,14 +363,24 @@ function checkAuth(req, res, next) {
 
 // In-memory map for temporary login sessions during 2-step TOTP flow
 const tempAuthSessions = new Map();
+const tempTotpSecrets = new Map();
 
 // API Routes
 
 // Get TOTP Status
 app.get('/api/settings/totp/status', checkAuth, async (req, res) => {
   try {
-    const { rows } = await db.query("SELECT value FROM config WHERE key = 'totp_enabled'");
-    const enabled = rows.length > 0 ? rows[0].value === '1' : false;
+    const session = await userDb.verifyUserSession(req);
+    if (!session) return res.status(401).json({ error: 'Unauthorized.' });
+    
+    let enabled = false;
+    if (process.env.POSTGRES_URL) {
+      const { rows } = await db.query("SELECT totp_enabled FROM users WHERE id = $1", [session.user_id]);
+      enabled = rows.length > 0 ? (rows[0].totp_enabled === 1 || rows[0].totp_enabled === true) : false;
+    } else {
+      const memoryUser = require('./lib/db').inMemoryDb.users.find(u => u.id === session.user_id);
+      enabled = memoryUser ? (memoryUser.totp_enabled === 1 || memoryUser.totp_enabled === true) : false;
+    }
     res.json({ enabled });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -379,9 +390,13 @@ app.get('/api/settings/totp/status', checkAuth, async (req, res) => {
 // Setup TOTP (Generate temporary secret and QR Url)
 app.get('/api/settings/totp/setup', checkAuth, async (req, res) => {
   try {
+    const session = await userDb.verifyUserSession(req);
+    if (!session) return res.status(401).json({ error: 'Unauthorized.' });
+    
     const secret = generateSecret();
-    await db.query("INSERT INTO config (key, value) VALUES ('totp_temp_secret', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", [secret]);
-    const otpauthUrl = `otpauth://totp/Cloud%20Data%20Entry%20Hub:admin?secret=${secret}&issuer=Cloud%20Data%20Entry%20Hub`;
+    tempTotpSecrets.set(session.user_id, secret);
+    
+    const otpauthUrl = `otpauth://totp/Cloud%20Data%20Entry%20Hub:${encodeURIComponent(session.user_id)}?secret=${secret}&issuer=Cloud%20Data%20Entry%20Hub`;
     res.json({
       secret,
       qrUrl: `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(otpauthUrl)}`
@@ -397,18 +412,16 @@ app.post('/api/settings/totp/enable', checkAuth, async (req, res) => {
   if (!code) return res.status(400).json({ error: 'Verification code is required.' });
 
   try {
-    const { rows } = await db.query("SELECT value FROM config WHERE key = 'totp_temp_secret'");
-    if (rows.length === 0) return res.status(400).json({ error: '2FA setup was not initiated.' });
+    const session = await userDb.verifyUserSession(req);
+    if (!session) return res.status(401).json({ error: 'Unauthorized.' });
 
-    const tempSecret = rows[0].value;
+    const tempSecret = tempTotpSecrets.get(session.user_id);
+    if (!tempSecret) return res.status(400).json({ error: '2FA setup was not initiated.' });
+
     const isValid = verifyTOTP(tempSecret, code);
-
     if (isValid) {
-      await db.query("BEGIN");
-      await db.query("INSERT INTO config (key, value) VALUES ('totp_secret', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", [tempSecret]);
-      await db.query("INSERT INTO config (key, value) VALUES ('totp_enabled', '1') ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value");
-      await db.query("DELETE FROM config WHERE key = 'totp_temp_secret'");
-      await db.query("COMMIT");
+      await userDb.updateUserTotp(session.user_id, tempSecret, true);
+      tempTotpSecrets.delete(session.user_id);
       res.json({ success: true });
     } else {
       res.status(400).json({ error: 'Invalid verification code. Please check your app and try again.' });
@@ -424,20 +437,26 @@ app.post('/api/settings/totp/disable', checkAuth, async (req, res) => {
   if (!code) return res.status(400).json({ error: 'TOTP code is required.' });
 
   try {
-    const { rows: secretRows } = await db.query("SELECT value FROM config WHERE key = 'totp_secret'");
-    if (secretRows.length > 0) {
-      const secret = secretRows[0].value;
+    const session = await userDb.verifyUserSession(req);
+    if (!session) return res.status(401).json({ error: 'Unauthorized.' });
+
+    let secret = null;
+    if (process.env.POSTGRES_URL) {
+      const { rows } = await db.query("SELECT totp_secret FROM users WHERE id = $1", [session.user_id]);
+      if (rows.length > 0) secret = rows[0].totp_secret;
+    } else {
+      const memoryUser = require('./lib/db').inMemoryDb.users.find(u => u.id === session.user_id);
+      secret = memoryUser ? memoryUser.totp_secret : null;
+    }
+
+    if (secret) {
       const isValid = verifyTOTP(secret, code);
       if (!isValid) {
         return res.status(400).json({ error: 'Invalid TOTP code.' });
       }
     }
 
-    await db.query("BEGIN");
-    await db.query("INSERT INTO config (key, value) VALUES ('totp_enabled', '0') ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value");
-    await db.query("DELETE FROM config WHERE key = 'totp_secret'");
-    await db.query("DELETE FROM config WHERE key = 'totp_temp_secret'");
-    await db.query("COMMIT");
+    await userDb.updateUserTotp(session.user_id, null, false);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -446,60 +465,63 @@ app.post('/api/settings/totp/disable', checkAuth, async (req, res) => {
 
 // Get TOTP Enabled Status (unauthenticated, to show TOTP field directly in UI)
 app.get('/api/login/totp-status', async (req, res) => {
-  try {
-    const { rows } = await db.query("SELECT value FROM config WHERE key = 'totp_enabled'");
-    const enabled = rows.length > 0 ? rows[0].value === '1' : false;
-    res.json({ enabled });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  res.json({ enabled: true }); // Enforce mandatory TOTP setup dynamic checks
 });
 
-// Authentication route
+// Authentication route (with mandatory TOTP and multi-user support)
 app.post('/api/login', async (req, res) => {
   const { username, password, code } = req.body;
-  
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Username and password are required.' });
+  }
+
   // Quick check for standard user testing shortcut
   if (username === 'user' && password === 'password') {
     return res.json({ success: true, requireOtp: false, token: 'authenticated-token-user' });
   }
 
   try {
-    const { rows: userRows } = await db.query("SELECT value FROM config WHERE key = 'admin_user'");
-    const { rows: passRows } = await db.query("SELECT value FROM config WHERE key = 'admin_pass'");
+    const user = await userDb.authenticateUser(username, password);
+    if (!user) {
+      return res.status(400).json({ error: 'Invalid ID or Password' });
+    }
 
-    const dbUser = userRows.length > 0 ? userRows[0].value : 'admin';
-    const dbPass = passRows.length > 0 ? passRows[0].value : 'password';
+    if (user.status === 'revoked') {
+      return res.status(403).json({ error: 'Access Revoked' });
+    }
 
-    if (username === dbUser && password === dbPass) {
-      const { rows: totpRows } = await db.query("SELECT value FROM config WHERE key = 'totp_enabled'");
-      const isTotpEnabled = totpRows.length > 0 ? totpRows[0].value === '1' : false;
+    const isTotpEnabled = user.totp_enabled === 1 || user.totp_enabled === true;
 
-      if (isTotpEnabled) {
-        if (code) {
-          const { rows: secretRows } = await db.query("SELECT value FROM config WHERE key = 'totp_secret'");
-          if (secretRows.length === 0) {
-            return res.status(500).json({ error: '2FA secret not found. Please setup again.' });
-          }
-          const isValid = verifyTOTP(secretRows[0].value, code);
-          if (isValid) {
-            res.json({ success: true, requireOtp: false, token: 'authenticated-token-admin' });
-          } else {
-            res.status(400).json({ error: 'Invalid 2FA Authenticator Code.' });
-          }
-        } else {
-          const tempToken = 'temp-' + crypto.randomBytes(16).toString('hex');
-          tempAuthSessions.set(tempToken, {
-            username,
-            expires: Date.now() + 5 * 60 * 1000
-          });
-          res.json({ success: true, requireOtp: true, tempToken });
-        }
+    if (!isTotpEnabled) {
+      // Force mandatory TOTP Setup
+      const tempToken = 'temp-setup-' + crypto.randomBytes(16).toString('hex');
+      tempAuthSessions.set(tempToken, {
+        userId: user.id,
+        requiresSetup: true,
+        expires: Date.now() + 10 * 60 * 1000
+      });
+      return res.json({ success: true, requireTotpSetup: true, tempToken });
+    }
+
+    // TOTP is enabled, verify it
+    if (code) {
+      if (!user.totp_secret) {
+        return res.status(500).json({ error: '2FA secret not found. Please setup again.' });
+      }
+      const isValid = verifyTOTP(user.totp_secret, code);
+      if (isValid) {
+        const token = await userDb.createSession(user.id);
+        res.json({ success: true, requireOtp: false, token });
       } else {
-        res.json({ success: true, requireOtp: false, token: 'authenticated-token-admin' });
+        res.status(400).json({ error: 'Invalid 2FA Authenticator Code.' });
       }
     } else {
-      res.status(400).json({ error: 'Invalid ID or Password' });
+      const tempToken = 'temp-' + crypto.randomBytes(16).toString('hex');
+      tempAuthSessions.set(tempToken, {
+        userId: user.id,
+        expires: Date.now() + 5 * 60 * 1000
+      });
+      res.json({ success: true, requireOtp: true, tempToken });
     }
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -524,20 +546,118 @@ app.post('/api/login/verify-otp', async (req, res) => {
   }
 
   try {
-    const { rows } = await db.query("SELECT value FROM config WHERE key = 'totp_secret'");
-    if (rows.length === 0) {
+    let secret = null;
+    if (process.env.POSTGRES_URL) {
+      const { rows } = await db.query("SELECT totp_secret FROM users WHERE id = $1", [session.userId]);
+      if (rows.length > 0) secret = rows[0].totp_secret;
+    } else {
+      const memoryUser = require('./lib/db').inMemoryDb.users.find(u => u.id === session.userId);
+      secret = memoryUser ? memoryUser.totp_secret : null;
+    }
+
+    if (!secret) {
       return res.status(500).json({ error: '2FA settings are corrupted. Please contact administrator.' });
     }
 
-    const secret = rows[0].value;
     const isValid = verifyTOTP(secret, code);
 
     if (isValid) {
       tempAuthSessions.delete(tempToken);
-      res.json({ success: true, token: 'authenticated-token-admin' });
+      const token = await userDb.createSession(session.userId);
+      res.json({ success: true, token });
     } else {
       res.status(400).json({ error: 'Invalid 2FA code. Please check your app and try again.' });
     }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Public TOTP setup for new user login flow (mandatory setup)
+app.post('/api/login/totp-setup', async (req, res) => {
+  const { tempToken } = req.body;
+  if (!tempToken) return res.status(400).json({ error: 'tempToken is required.' });
+
+  const session = tempAuthSessions.get(tempToken);
+  if (!session || !session.requiresSetup) {
+    return res.status(400).json({ error: 'Invalid or expired setup session.' });
+  }
+
+  try {
+    const secret = generateSecret();
+    tempTotpSecrets.set(session.userId, secret);
+    
+    const otpauthUrl = `otpauth://totp/Cloud%20Data%20Entry%20Hub:${encodeURIComponent(session.userId)}?secret=${secret}&issuer=Cloud%20Data%20Entry%20Hub`;
+    res.json({
+      secret,
+      qrUrl: `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(otpauthUrl)}`
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Public TOTP enable/verify for new user login flow (mandatory verification)
+app.post('/api/login/totp-enable', async (req, res) => {
+  const { tempToken, code } = req.body;
+  if (!tempToken || !code) {
+    return res.status(400).json({ error: 'tempToken and code are required.' });
+  }
+
+  const session = tempAuthSessions.get(tempToken);
+  if (!session || !session.requiresSetup) {
+    return res.status(400).json({ error: 'Invalid or expired setup session.' });
+  }
+
+  const tempSecret = tempTotpSecrets.get(session.userId);
+  if (!tempSecret) {
+    return res.status(400).json({ error: '2FA setup was not initiated. Call totp-setup first.' });
+  }
+
+  try {
+    const isValid = verifyTOTP(tempSecret, code);
+    if (isValid) {
+      await userDb.updateUserTotp(session.userId, tempSecret, true);
+      tempTotpSecrets.delete(session.userId);
+      tempAuthSessions.delete(tempToken);
+      
+      const token = await userDb.createSession(session.userId);
+      res.json({ success: true, token });
+    } else {
+      res.status(400).json({ error: 'Invalid verification code. Please check your app and try again.' });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// New User Registration Route
+app.post('/api/register', async (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Username and Password are required.' });
+  }
+  try {
+    const newUser = await userDb.createUser(username, password);
+    res.json({ success: true, user: { id: newUser.id, username: newUser.username } });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Admin promote user role route
+app.post('/api/admin/promote', checkAuth, async (req, res) => {
+  const { userId, role } = req.body;
+  if (!userId || !role) {
+    return res.status(400).json({ error: 'userId and role are required.' });
+  }
+  try {
+    const session = await userDb.verifyUserSession(req);
+    if (!session) {
+      return res.status(401).json({ error: 'Unauthorized.' });
+    }
+    await userDb.updateUserRole(session.user_id, userId, role);
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

@@ -807,11 +807,11 @@
   <div id="auth-modal" class="modal-overlay">
     <div class="modal-card" style="max-width: 400px; width: 95%;">
       <div class="modal-header">
-        <h2>Admin Authentication</h2>
+        <h2 id="auth-modal-title">Account Authentication</h2>
         <button id="close-modal-btn" class="modal-close-x">&times;</button>
       </div>
       <div class="modal-body">
-        <p class="modal-subtitle" id="login-modal-subtitle">Log in to modify the form creator schema and verify/push entries to the central SQLite database.</p>
+        <p class="modal-subtitle" id="login-modal-subtitle">Log in or register to manage data entry schemas and synchronize encrypted records.</p>
         
         <div id="login-error" class="alert-box alert-danger hidden">
           <span id="login-error-text">Invalid username or password.</span>
@@ -821,7 +821,7 @@
           <!-- Step 1: User & Password Credentials -->
           <div id="login-credentials-section">
             <div class="form-group">
-              <label for="login-username">Admin User ID</label>
+              <label for="login-username" id="login-username-label">User ID / Email</label>
               <input type="text" id="login-username" class="form-control" placeholder="Enter ID" required autocomplete="username">
             </div>
             <div class="form-group mt-3">
@@ -844,6 +844,11 @@
           <div class="modal-actions mt-4">
             <button type="button" id="cancel-login-btn" class="btn btn-secondary">Cancel</button>
             <button type="submit" id="submit-login-btn" class="btn btn-primary">Login</button>
+          </div>
+
+          <div style="margin-top: 16px; text-align: center; font-size: 0.8rem; border-top: 1px dashed var(--panel-border); padding-top: 12px;">
+            <span id="auth-toggle-text">Don't have an account? </span>
+            <a href="#" id="auth-toggle-link" style="color: var(--accent-color); font-weight: 600; text-decoration: none;">Register here</a>
           </div>
         </form>
       </div>
@@ -913,6 +918,28 @@
     </div>
   </div>
 
+  <!-- Crypto Verifier Modal (Trial Phase Only) -->
+  <div id="crypto-verifier-modal" class="modal-overlay">
+    <div class="modal-card" style="max-width: 950px; width: 95%;">
+      <div class="modal-header">
+        <h2>🔐 E2EE Database Verifier</h2>
+        <button type="button" id="close-crypto-verifier-btn" class="modal-close-x">&times;</button>
+      </div>
+      <div class="modal-body" style="padding: 20px;">
+        <p class="modal-subtitle" style="margin-bottom: 16px;">
+          This debugging panel displays the raw stored value from the database next to its decrypted form in browser memory.
+        </p>
+        <div id="crypto-verifier-container" style="display: flex; flex-direction: column; gap: 16px; max-height: 60vh; overflow-y: auto; padding-right: 8px;">
+          <div class="text-center text-muted py-4">Loading database records...</div>
+        </div>
+      </div>
+      <div class="modal-actions" style="padding: 16px 24px; margin-top: 0; background-color: #161b22; border-top: 1px solid var(--panel-border);">
+        <button type="button" id="refresh-crypto-verifier-btn" class="btn btn-primary" style="margin-right: auto;">🔄 Refresh Records</button>
+        <button type="button" id="close-crypto-verifier-bottom-btn" class="btn btn-secondary">Close Panel</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Game Rules Modal -->
   <div id="game-rules-modal" class="modal-overlay">
     <div class="modal-card" style="max-width: 450px; width: 95%;">
@@ -929,6 +956,11 @@
         <button type="button" id="close-rules-btn" class="btn btn-secondary">Got it</button>
       </div>
     </div>
+  </div>
+
+  <!-- Floating Action Button for E2EE Verification (Trial Phase Only) -->
+  <div id="crypto-verifier-btn" style="position: fixed; bottom: 16px; right: 72px; width: 44px; height: 44px; border-radius: 50%; background-color: var(--success); display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 99999; box-shadow: 0 4px 12px rgba(0,0,0,0.5); font-size: 18px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.08)'" onmouseout="this.style.transform='scale(1)'">
+    🔐
   </div>
 
   <!-- Floating Action Button for Live Debug Logs (Trial Phase) -->
