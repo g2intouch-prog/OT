@@ -4226,9 +4226,18 @@ function startActiveGameEngineOnly() {
   }
 }
 
+let isBreakGameInitialized = false;
+
 function initBreakGame() {
   const gameSelect = document.getElementById('game-select');
   const timerSelect = document.getElementById('game-timer-select');
+  
+  if (isBreakGameInitialized) {
+    updateTimerDisplay();
+    updateGameOverlayUI();
+    return;
+  }
+  isBreakGameInitialized = true;
   
   if (gameSelect) {
     gameSelect.onchange = (e) => {
