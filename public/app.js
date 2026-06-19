@@ -332,30 +332,29 @@ async function openLoginModal() {
   DOM.loginUsername.value = '';
   DOM.loginPassword.value = '';
   state.loginTempToken = null;
+  state.authModalMode = 'login'; // Reset to login mode
+
   const credentialsSec = document.getElementById('login-credentials-section');
   if (credentialsSec) credentialsSec.classList.remove('hidden');
-  if (DOM.loginOtp) DOM.loginOtp.value = '';
   
-  // Directly check if TOTP is enabled to display the field immediately
-  try {
-    const res = await fetch('/api/login/totp-status');
-    if (res.ok) {
-      const data = await res.json();
-      if (data.enabled) {
-        if (DOM.loginOtpSection) DOM.loginOtpSection.classList.remove('hidden');
-        if (DOM.loginOtp) DOM.loginOtp.setAttribute('required', 'true');
-      } else {
-        if (DOM.loginOtpSection) DOM.loginOtpSection.classList.add('hidden');
-        if (DOM.loginOtp) DOM.loginOtp.removeAttribute('required');
-      }
-    }
-  } catch (err) {
-    console.warn('Failed to fetch TOTP status on login open:', err);
-    if (DOM.loginOtpSection) DOM.loginOtpSection.classList.add('hidden');
+  if (DOM.loginOtpSection) DOM.loginOtpSection.classList.add('hidden');
+  if (DOM.loginOtp) {
+    DOM.loginOtp.value = '';
+    DOM.loginOtp.removeAttribute('required');
   }
 
+  const title = document.getElementById('auth-modal-title');
+  const subtitle = document.getElementById('login-modal-subtitle');
+  const toggleText = document.getElementById('auth-toggle-text');
+  const toggleLink = document.getElementById('auth-toggle-link');
   const submitBtn = document.getElementById('submit-login-btn');
+
+  if (title) title.textContent = 'Account Authentication';
+  if (subtitle) subtitle.textContent = 'Log in or register to manage data entry schemas and synchronize encrypted records.';
+  if (toggleText) toggleText.textContent = "Don't have an account? ";
+  if (toggleLink) toggleLink.textContent = 'Register here';
   if (submitBtn) submitBtn.textContent = 'Login';
+  
   DOM.loginError.classList.add('hidden');
   DOM.authModal.classList.add('active');
   document.body.style.overflow = 'hidden';
@@ -2417,6 +2416,47 @@ function setupEventListeners() {
     if (e.target === DOM.authModal) closeLoginModal();
   });
   DOM.loginForm.addEventListener('submit', handleLogin);
+
+  const toggleLink = document.getElementById('auth-toggle-link');
+  if (toggleLink) {
+    toggleLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      
+      const title = document.getElementById('auth-modal-title');
+      const subtitle = document.getElementById('login-modal-subtitle');
+      const toggleText = document.getElementById('auth-toggle-text');
+      const submitBtn = document.getElementById('submit-login-btn');
+      
+      if (state.authModalMode === 'register') {
+        state.authModalMode = 'login';
+        if (title) title.textContent = 'Account Authentication';
+        if (subtitle) subtitle.textContent = 'Log in or register to manage data entry schemas and synchronize encrypted records.';
+        if (toggleText) toggleText.textContent = "Don't have an account? ";
+        toggleLink.textContent = 'Register here';
+        if (submitBtn) submitBtn.textContent = 'Login';
+        if (DOM.loginOtpSection) {
+          DOM.loginOtpSection.classList.add('hidden');
+        }
+        if (DOM.loginOtp) {
+          DOM.loginOtp.value = '';
+          DOM.loginOtp.removeAttribute('required');
+        }
+      } else {
+        state.authModalMode = 'register';
+        if (title) title.textContent = 'Create New Account';
+        if (subtitle) subtitle.textContent = 'Register a new client-side account to sync data and manage vaults.';
+        if (toggleText) toggleText.textContent = "Already have an account? ";
+        toggleLink.textContent = 'Login here';
+        if (submitBtn) submitBtn.textContent = 'Register';
+        if (DOM.loginOtpSection) DOM.loginOtpSection.classList.add('hidden');
+        if (DOM.loginOtp) {
+          DOM.loginOtp.removeAttribute('required');
+        }
+      }
+      
+      DOM.loginError.classList.add('hidden');
+    });
+  }
 
   // Form Creator Actions
   DOM.addFieldBtn.addEventListener('click', addNewField);
