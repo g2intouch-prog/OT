@@ -994,7 +994,7 @@ body {
 }
 
 /* Global Voice active and listening button styles */
-.form-control.voice-active {
+.form-control.voice-active, .form-select.voice-active, select.voice-active {
   border-color: var(--danger) !important;
   box-shadow: 0 0 0 3px var(--danger-glow) !important;
   background-color: rgba(218, 54, 55, 0.05) !important;

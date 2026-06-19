@@ -791,17 +791,32 @@ function renderDataEntryForm() {
     formGroup.appendChild(input);
     
     // Track active voice-enabled field to receive voice typing input
-    if (field.voiceEnabled === true && field.type !== 'date' && field.type !== 'time' && field.type !== 'select') {
-      input.addEventListener('focus', () => {
-        state.lastActiveVoiceInput = input.id;
-        highlightActiveVoiceInput(input);
-      });
-      input.addEventListener('blur', () => {
-        // Only remove highlight if we are not actively listening
-        if (!activeSpeechInput) {
-          input.classList.remove('voice-active');
-        }
-      });
+    if (field.voiceEnabled === true && field.type !== 'date') {
+      if (field.type === 'time' && field.timeFormat === '12h') {
+        const hiddenInput = formGroup.querySelector(`input[id="input-${field.id}"]`);
+        const selects = input.querySelectorAll('select');
+        selects.forEach(sel => {
+          sel.addEventListener('focus', () => {
+            state.lastActiveVoiceInput = hiddenInput.id;
+            highlightActiveVoiceInput(hiddenInput);
+          });
+          sel.addEventListener('blur', () => {
+            if (!activeSpeechInput) {
+              selects.forEach(s => s.classList.remove('voice-active'));
+            }
+          });
+        });
+      } else {
+        input.addEventListener('focus', () => {
+          state.lastActiveVoiceInput = input.id;
+          highlightActiveVoiceInput(input);
+        });
+        input.addEventListener('blur', () => {
+          if (!activeSpeechInput) {
+            input.classList.remove('voice-active');
+          }
+        });
+      }
     }
     
     DOM.dynamicInputs.appendChild(formGroup);
@@ -1095,7 +1110,7 @@ function renderFormCreator() {
     const voiceCheckbox = document.createElement('input');
     voiceCheckbox.type = 'checkbox';
     voiceCheckbox.checked = !!field.voiceEnabled;
-    voiceCheckbox.disabled = (field.id === 'date' || field.id === 'time');
+    voiceCheckbox.disabled = (field.id === 'date' || field.type === 'date');
     voiceCheckbox.addEventListener('change', (e) => {
       state.formCreatorSchema[index].voiceEnabled = e.target.checked;
     });
@@ -2764,16 +2779,50 @@ let activeSpeechInput = null;
 state.lastActiveVoiceInput = null;
 
 function highlightActiveVoiceInput(inputEl) {
-  document.querySelectorAll('.form-control').forEach(el => el.classList.remove('voice-active'));
+  document.querySelectorAll('.form-control, .form-select, .time-12h-wrapper select').forEach(el => el.classList.remove('voice-active'));
   if (inputEl) {
-    inputEl.classList.add('voice-active');
+    if (inputEl.type === 'hidden' && inputEl.id.startsWith('input-')) {
+      const formGroup = inputEl.closest('.form-group');
+      if (formGroup) {
+        formGroup.querySelectorAll('select').forEach(sel => sel.classList.add('voice-active'));
+      }
+    } else {
+      inputEl.classList.add('voice-active');
+    }
   }
 }
 
 function getFirstVoiceEnabledInput() {
-  const voiceField = state.schema.find(field => field.voiceEnabled === true && field.type !== 'date' && field.type !== 'time' && field.type !== 'select');
+  const voiceField = state.schema.find(field => field.voiceEnabled === true && field.type !== 'date');
   if (voiceField) {
     return document.getElementById(`input-${voiceField.id}`);
+  }
+  return null;
+}
+
+function matchOption(selectElement, spokenText) {
+  const text = spokenText.toLowerCase().trim();
+  for (let i = 0; i < selectElement.options.length; i++) {
+    const optionText = selectElement.options[i].text.toLowerCase().trim();
+    const optionValue = selectElement.options[i].value.toLowerCase().trim();
+    if (optionText === text || optionValue === text || optionText.includes(text) || text.includes(optionText)) {
+      return selectElement.options[i].value;
+    }
+  }
+  return null;
+}
+
+function parseSpokenTime(spokenText) {
+  const text = spokenText.toLowerCase().trim();
+  const match = text.match(/(\d{1,2})[\s-:]*(\d{2})?\s*(am|pm)?/);
+  if (match) {
+    let hour = parseInt(match[1]);
+    let min = match[2] ? parseInt(match[2]) : 0;
+    let ampm = match[3] ? match[3].toUpperCase() : null;
+    
+    if (hour >= 0 && hour <= 23 && min >= 0 && min <= 59) {
+      return { hour, min, ampm };
+    }
   }
   return null;
 }
@@ -2797,23 +2846,62 @@ function initSpeechRecognition() {
       if (textSpan) textSpan.textContent = 'Listening...';
     }
     if (activeSpeechInput) {
-      activeSpeechInput.classList.add('voice-active');
+      highlightActiveVoiceInput(activeSpeechInput);
     }
   };
 
   recognition.onresult = (event) => {
     const transcript = event.results[0][0].transcript;
     if (activeSpeechInput) {
-      if (activeSpeechInput.type === 'number') {
-        const parsedNum = parseFloat(transcript.replace(/[^0-9.]/g, ''));
-        activeSpeechInput.value = isNaN(parsedNum) ? '' : parsedNum;
+      const fieldId = activeSpeechInput.id.replace('input-', '');
+      const schemaField = state.schema.find(f => f.id === fieldId);
+      const isTimeField = schemaField && schemaField.type === 'time';
+      
+      if (isTimeField) {
+        const parsedTime = parseSpokenTime(transcript);
+        if (parsedTime) {
+          const selHour = document.getElementById(`select-h-${fieldId}`);
+          const selMin = document.getElementById(`select-m-${fieldId}`);
+          const selAmpm = document.getElementById(`select-a-${fieldId}`);
+          
+          if (selHour && selMin && selAmpm) {
+            let h12 = parsedTime.hour;
+            let ampm = parsedTime.ampm;
+            if (!ampm) {
+              ampm = h12 >= 12 ? 'PM' : 'AM';
+            }
+            if (h12 > 12) h12 -= 12;
+            if (h12 === 0) h12 = 12;
+            
+            selHour.value = h12.toString().padStart(2, '0');
+            selMin.value = parsedTime.min.toString().padStart(2, '0');
+            selAmpm.value = ampm;
+            selHour.dispatchEvent(new Event('change', { bubbles: true }));
+          } else {
+            let h24 = parsedTime.hour;
+            if (parsedTime.ampm === 'PM' && h24 < 12) h24 += 12;
+            if (parsedTime.ampm === 'AM' && h24 === 12) h24 = 0;
+            activeSpeechInput.value = `${h24.toString().padStart(2, '0')}:${parsedTime.min.toString().padStart(2, '0')}`;
+            activeSpeechInput.dispatchEvent(new Event('input', { bubbles: true }));
+          }
+        }
+      } else if (activeSpeechInput.tagName === 'SELECT') {
+        const matchedVal = matchOption(activeSpeechInput, transcript);
+        if (matchedVal !== null) {
+          activeSpeechInput.value = matchedVal;
+          activeSpeechInput.dispatchEvent(new Event('change', { bubbles: true }));
+        }
       } else {
-        activeSpeechInput.value = transcript.replace(/\.+$/, '').trim();
+        if (activeSpeechInput.type === 'number') {
+          const parsedNum = parseFloat(transcript.replace(/[^0-9.]/g, ''));
+          activeSpeechInput.value = isNaN(parsedNum) ? '' : parsedNum;
+        } else {
+          activeSpeechInput.value = transcript.replace(/\.+$/, '').trim();
+        }
+        activeSpeechInput.dispatchEvent(new Event('input', { bubbles: true }));
       }
-      activeSpeechInput.dispatchEvent(new Event('input', { bubbles: true }));
       
       const currentInput = activeSpeechInput;
-      // Brief delay before advancing so user sees the change
       setTimeout(() => {
         advanceToNextVoiceInput(currentInput);
       }, 600);
@@ -2833,7 +2921,6 @@ function initSpeechRecognition() {
   };
 
   recognition.onend = () => {
-    // If activeSpeechInput is null, it means we stopped/finished manually
     if (!activeSpeechInput) {
       stopListening();
     }
@@ -2879,7 +2966,16 @@ function toggleGlobalVoiceTyping(e) {
     return;
   }
 
-  targetInput.focus();
+  // Handle focus for 12h time wrapper
+  const fieldId = targetInput.id.replace('input-', '');
+  const schemaField = state.schema.find(f => f.id === fieldId);
+  if (schemaField && schemaField.type === 'time' && schemaField.timeFormat === '12h') {
+    const selHour = document.getElementById(`select-h-${fieldId}`);
+    if (selHour) selHour.focus();
+  } else {
+    targetInput.focus();
+  }
+  
   startListeningToInput(targetInput);
 }
 
@@ -2887,22 +2983,27 @@ function advanceToNextVoiceInput(currentInput) {
   if (!currentInput) return;
   
   const currentId = currentInput.id.replace('input-', '');
-  const voiceFields = state.schema.filter(field => field.voiceEnabled === true && field.type !== 'date' && field.type !== 'time' && field.type !== 'select');
+  const voiceFields = state.schema.filter(field => field.voiceEnabled === true && field.type !== 'date');
   
   const currentIndex = voiceFields.findIndex(f => f.id === currentId);
   if (currentIndex !== -1 && currentIndex < voiceFields.length - 1) {
     const nextField = voiceFields[currentIndex + 1];
     const nextInput = document.getElementById(`input-${nextField.id}`);
     if (nextInput) {
-      // Focus and transition to next field
-      nextInput.focus();
+      const nextFieldId = nextInput.id.replace('input-', '');
+      const nextSchemaField = state.schema.find(f => f.id === nextFieldId);
+      if (nextSchemaField && nextSchemaField.type === 'time' && nextSchemaField.timeFormat === '12h') {
+        const selHour = document.getElementById(`select-h-${nextFieldId}`);
+        if (selHour) selHour.focus();
+      } else {
+        nextInput.focus();
+      }
       state.lastActiveVoiceInput = nextInput.id;
       startListeningToInput(nextInput);
       return;
     }
   }
   
-  // No more fields, stop listening
   activeSpeechInput = null;
   stopListening();
 }
@@ -2913,7 +3014,7 @@ function stopListening() {
     const textSpan = DOM.voiceTypingBtn.querySelector('span:not(.btn-icon)');
     if (textSpan) textSpan.textContent = 'Voice Typing';
   }
-  document.querySelectorAll('.form-control').forEach(el => el.classList.remove('voice-active'));
+  document.querySelectorAll('.form-control, .form-select, .time-12h-wrapper select').forEach(el => el.classList.remove('voice-active'));
   activeSpeechInput = null;
 }
 
