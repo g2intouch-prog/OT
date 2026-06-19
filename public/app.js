@@ -99,6 +99,7 @@ const DOM = {
   // Theme Toggle
   themeToggleBtn: document.getElementById('theme-toggle-btn'),
   themeToggleIcon: document.getElementById('theme-toggle-icon'),
+  voiceTypingBtn: document.getElementById('voice-typing-btn'),
 
   // Enlarged QR Code Selectors
   qrModal: document.getElementById('qr-modal'),
@@ -787,29 +788,20 @@ function renderDataEntryForm() {
     }
     
     formGroup.appendChild(label);
+    formGroup.appendChild(input);
     
-    // Add voice recognition capability to selected text and number fields
+    // Track active voice-enabled field to receive voice typing input
     if (field.voiceEnabled === true && field.type !== 'date' && field.type !== 'time' && field.type !== 'select') {
-      const inputWrapper = document.createElement('div');
-      inputWrapper.className = 'input-with-accessory';
-
-      const micBtn = document.createElement('button');
-      micBtn.type = 'button';
-      micBtn.className = 'mic-btn';
-      micBtn.innerHTML = '🎤';
-      micBtn.title = 'Speak value (Offline Voice Entry)';
-      micBtn.setAttribute('aria-label', `Voice input for ${getFieldDisplayTitle(field)}`);
-      
-      micBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        toggleSpeechListening(input.id, micBtn);
+      input.addEventListener('focus', () => {
+        state.lastActiveVoiceInput = input.id;
+        highlightActiveVoiceInput(input);
       });
-
-      inputWrapper.appendChild(input);
-      inputWrapper.appendChild(micBtn);
-      formGroup.appendChild(inputWrapper);
-    } else {
-      formGroup.appendChild(input);
+      input.addEventListener('blur', () => {
+        // Only remove highlight if we are not actively listening
+        if (!activeSpeechInput) {
+          input.classList.remove('voice-active');
+        }
+      });
     }
     
     DOM.dynamicInputs.appendChild(formGroup);
@@ -2277,6 +2269,9 @@ function setupEventListeners() {
 
   // Theme Toggle
   if (DOM.themeToggleBtn) DOM.themeToggleBtn.addEventListener('click', toggleTheme);
+  
+  // Voice Typing
+  if (DOM.voiceTypingBtn) DOM.voiceTypingBtn.addEventListener('click', toggleGlobalVoiceTyping);
 
   // Sync Table Actions
   DOM.headerSelectAll.addEventListener('change', (e) => {
@@ -2766,7 +2761,22 @@ async function handleEditSubmit(e) {
 
 let recognition = null;
 let activeSpeechInput = null;
-let activeSpeechButton = null;
+state.lastActiveVoiceInput = null;
+
+function highlightActiveVoiceInput(inputEl) {
+  document.querySelectorAll('.form-control').forEach(el => el.classList.remove('voice-active'));
+  if (inputEl) {
+    inputEl.classList.add('voice-active');
+  }
+}
+
+function getFirstVoiceEnabledInput() {
+  const voiceField = state.schema.find(field => field.voiceEnabled === true && field.type !== 'date' && field.type !== 'time' && field.type !== 'select');
+  if (voiceField) {
+    return document.getElementById(`input-${voiceField.id}`);
+  }
+  return null;
+}
 
 function initSpeechRecognition() {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -2781,9 +2791,13 @@ function initSpeechRecognition() {
   recognition.lang = 'en-US';
 
   recognition.onstart = () => {
-    if (activeSpeechButton) {
-      activeSpeechButton.classList.add('listening');
-      activeSpeechButton.innerHTML = '🛑'; // Click to stop
+    if (DOM.voiceTypingBtn) {
+      DOM.voiceTypingBtn.classList.add('listening');
+      const textSpan = DOM.voiceTypingBtn.querySelector('span:not(.btn-icon)');
+      if (textSpan) textSpan.textContent = 'Listening...';
+    }
+    if (activeSpeechInput) {
+      activeSpeechInput.classList.add('voice-active');
     }
   };
 
@@ -2791,63 +2805,44 @@ function initSpeechRecognition() {
     const transcript = event.results[0][0].transcript;
     if (activeSpeechInput) {
       if (activeSpeechInput.type === 'number') {
-        // Parse digits for number inputs
         const parsedNum = parseFloat(transcript.replace(/[^0-9.]/g, ''));
         activeSpeechInput.value = isNaN(parsedNum) ? '' : parsedNum;
       } else {
-        // Trim trailing periods (Edge voice recognition helper)
         activeSpeechInput.value = transcript.replace(/\.+$/, '').trim();
       }
-      // Trigger input event to simulate typing
       activeSpeechInput.dispatchEvent(new Event('input', { bubbles: true }));
+      
+      const currentInput = activeSpeechInput;
+      // Brief delay before advancing so user sees the change
+      setTimeout(() => {
+        advanceToNextVoiceInput(currentInput);
+      }, 600);
     }
   };
 
   recognition.onerror = (event) => {
     console.error('Speech recognition error:', event.error);
-    
-    let errorMsg = `Microphone error: "${event.error}".`;
-    if (event.error === 'network') {
-      errorMsg += '\n\nPossible Reasons:\n' +
-                  '1. Internet Connection Required: Chrome\'s speech recognition requires active internet to contact Google servers. If this device is in an offline LAN or local-only network, voice typing is unavailable.\n' +
-                  '2. Insecure / Self-Signed SSL context: Chrome blocks Web Speech API on self-signed LAN IP connections. You must bypass this by visiting chrome://flags/#unsafely-treat-insecure-origin-as-secure and adding "https://<HOST_IP>:3080" as a secure origin.';
-    } else if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-      errorMsg += '\n\nMicrophone access is blocked. Please check your browser settings or click the site settings icon to allow microphone permission.';
-    } else {
-      errorMsg += '\n\nPlease verify your microphone permissions or check network/internet connectivity.';
+    if (event.error !== 'no-speech') {
+      let errorMsg = `Microphone error: "${event.error}".`;
+      if (event.error === 'network') {
+        errorMsg += '\n\nPossible Reasons:\n1. Internet Connection Required.\n2. Insecure context.';
+      }
+      alert(errorMsg);
     }
-    
-    alert(errorMsg);
     stopListening();
   };
 
   recognition.onend = () => {
-    stopListening();
+    // If activeSpeechInput is null, it means we stopped/finished manually
+    if (!activeSpeechInput) {
+      stopListening();
+    }
   };
 }
 
-function toggleSpeechListening(inputId, buttonEl) {
-  if (!recognition) {
-    alert('Voice recognition is not supported on this browser. Use Chrome/Safari.');
-    return;
-  }
-
-  const input = document.getElementById(inputId);
-  if (!input) return;
-
-  if (activeSpeechInput === input) {
-    recognition.stop();
-    stopListening();
-    return;
-  }
-
-  if (activeSpeechInput) {
-    recognition.stop();
-  }
-
-  activeSpeechInput = input;
-  activeSpeechButton = buttonEl;
-
+function startListeningToInput(inputEl) {
+  if (!recognition) return;
+  activeSpeechInput = inputEl;
   try {
     recognition.start();
   } catch (err) {
@@ -2856,13 +2851,70 @@ function toggleSpeechListening(inputId, buttonEl) {
   }
 }
 
-function stopListening() {
-  if (activeSpeechButton) {
-    activeSpeechButton.classList.remove('listening');
-    activeSpeechButton.innerHTML = '🎤';
+function toggleGlobalVoiceTyping(e) {
+  if (e) e.preventDefault();
+  
+  if (!recognition) {
+    alert('Voice recognition is not supported on this browser. Use Chrome/Safari.');
+    return;
   }
+
+  if (activeSpeechInput) {
+    activeSpeechInput = null;
+    recognition.stop();
+    stopListening();
+    return;
+  }
+
+  let targetInput = null;
+  if (state.lastActiveVoiceInput) {
+    targetInput = document.getElementById(state.lastActiveVoiceInput);
+  }
+  if (!targetInput) {
+    targetInput = getFirstVoiceEnabledInput();
+  }
+
+  if (!targetInput) {
+    alert('No voice-enabled input fields are available.');
+    return;
+  }
+
+  targetInput.focus();
+  startListeningToInput(targetInput);
+}
+
+function advanceToNextVoiceInput(currentInput) {
+  if (!currentInput) return;
+  
+  const currentId = currentInput.id.replace('input-', '');
+  const voiceFields = state.schema.filter(field => field.voiceEnabled === true && field.type !== 'date' && field.type !== 'time' && field.type !== 'select');
+  
+  const currentIndex = voiceFields.findIndex(f => f.id === currentId);
+  if (currentIndex !== -1 && currentIndex < voiceFields.length - 1) {
+    const nextField = voiceFields[currentIndex + 1];
+    const nextInput = document.getElementById(`input-${nextField.id}`);
+    if (nextInput) {
+      // Focus and transition to next field
+      nextInput.focus();
+      state.lastActiveVoiceInput = nextInput.id;
+      startListeningToInput(nextInput);
+      return;
+    }
+  }
+  
+  // No more fields, stop listening
   activeSpeechInput = null;
-  activeSpeechButton = null;
+  stopListening();
+}
+
+function stopListening() {
+  if (DOM.voiceTypingBtn) {
+    DOM.voiceTypingBtn.classList.remove('listening');
+    const textSpan = DOM.voiceTypingBtn.querySelector('span:not(.btn-icon)');
+    if (textSpan) textSpan.textContent = 'Voice Typing';
+  }
+  document.querySelectorAll('.form-control').forEach(el => el.classList.remove('voice-active'));
+  activeSpeechInput = null;
 }
 
 // -------------------------------------------------------------
