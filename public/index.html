@@ -136,8 +136,15 @@
       <!-- TAB 1: DATA ENTRY -->
       <section id="tab-data-entry" class="tab-panel active">
         <div class="panel-card">
-          <h2>New Data Entry Row</h2>
-          <p class="card-subtitle">Fill in the current row. Clicking save will draft the entry locally.</p>
+          <div class="card-header-flex">
+            <div>
+              <h2>New Data Entry Row</h2>
+              <p class="card-subtitle">Fill in the current row. Clicking save will draft the entry locally.</p>
+            </div>
+            <button type="button" id="voice-typing-btn-mobile" class="btn btn-secondary mic-button-round mobile-only-btn" title="Voice Typing">
+              <span class="btn-icon">🎤</span>
+            </button>
+          </div>
           
           <form id="data-entry-form" class="entry-form-wrapper">
             <!-- Dynamic Form Fields will be rendered here -->
@@ -151,9 +158,8 @@
                 <span class="key-hint">Enter ↵</span>
               </button>
               <button type="button" id="clear-fields-btn" class="btn btn-link">Clear Row</button>
-              <button type="button" id="voice-typing-btn" class="btn btn-secondary" style="margin-left: auto;">
+              <button type="button" id="voice-typing-btn" class="btn btn-secondary mic-button-round desktop-only-btn" style="margin-left: auto;" title="Voice Typing">
                 <span class="btn-icon">🎤</span>
-                <span>Voice Typing</span>
               </button>
             </div>
           </form>

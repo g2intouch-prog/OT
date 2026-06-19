@@ -1009,6 +1009,36 @@ body {
   animation: pulse-red 1.2s infinite !important;
 }
 
+/* Mic button round styling & visibility toggles */
+.mic-button-round {
+  width: 42px !important;
+  height: 42px !important;
+  min-width: 42px !important;
+  border-radius: 50% !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+  font-size: 1.15rem !important;
+}
+
+.mobile-only-btn {
+  display: none !important;
+}
+
+.desktop-only-btn {
+  display: inline-flex !important;
+}
+
+@media (max-width: 600px) {
+  .mobile-only-btn {
+    display: inline-flex !important;
+  }
+  .desktop-only-btn {
+    display: none !important;
+  }
+}
+
 /* Light Mode Variables Override */
 body.light-mode {
   --bg-color: #f6f8fa;

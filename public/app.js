@@ -99,7 +99,7 @@ const DOM = {
   // Theme Toggle
   themeToggleBtn: document.getElementById('theme-toggle-btn'),
   themeToggleIcon: document.getElementById('theme-toggle-icon'),
-  voiceTypingBtn: document.getElementById('voice-typing-btn'),
+  voiceTypingBtns: document.querySelectorAll('.mic-button-round'),
 
   // Enlarged QR Code Selectors
   qrModal: document.getElementById('qr-modal'),
@@ -2140,13 +2140,13 @@ function clearEntryFields() {
   }
 }
 
-// Helper to format yyyy-mm-dd to dd-mm-yyyy for display
+// Helper to format yyyy-mm-dd to dd/mm/yyyy for display
 function formatDateDisplay(dateStr) {
-  if (!dateStr) return '-';
+  if (!dateStr) return '';
   const parts = dateStr.split('-');
   if (parts.length === 3) {
     const [yyyy, mm, dd] = parts;
-    return `${dd}-${mm}-${yyyy}`;
+    return `${dd}/${mm}/${yyyy}`;
   }
   return dateStr;
 }
@@ -2286,7 +2286,11 @@ function setupEventListeners() {
   if (DOM.themeToggleBtn) DOM.themeToggleBtn.addEventListener('click', toggleTheme);
   
   // Voice Typing
-  if (DOM.voiceTypingBtn) DOM.voiceTypingBtn.addEventListener('click', toggleGlobalVoiceTyping);
+  if (DOM.voiceTypingBtns) {
+    DOM.voiceTypingBtns.forEach(btn => {
+      btn.addEventListener('click', toggleGlobalVoiceTyping);
+    });
+  }
 
   // Sync Table Actions
   DOM.headerSelectAll.addEventListener('change', (e) => {
@@ -2840,10 +2844,14 @@ function initSpeechRecognition() {
   recognition.lang = 'en-US';
 
   recognition.onstart = () => {
-    if (DOM.voiceTypingBtn) {
-      DOM.voiceTypingBtn.classList.add('listening');
-      const textSpan = DOM.voiceTypingBtn.querySelector('span:not(.btn-icon)');
-      if (textSpan) textSpan.textContent = 'Listening...';
+    if (DOM.voiceTypingBtns) {
+      DOM.voiceTypingBtns.forEach(btn => {
+        btn.classList.add('listening');
+        const textSpan = btn.querySelector('span:not(.btn-icon)');
+        if (textSpan) textSpan.textContent = 'Listening...';
+        const iconSpan = btn.querySelector('.btn-icon');
+        if (iconSpan) iconSpan.textContent = '🛑';
+      });
     }
     if (activeSpeechInput) {
       highlightActiveVoiceInput(activeSpeechInput);
@@ -3009,10 +3017,14 @@ function advanceToNextVoiceInput(currentInput) {
 }
 
 function stopListening() {
-  if (DOM.voiceTypingBtn) {
-    DOM.voiceTypingBtn.classList.remove('listening');
-    const textSpan = DOM.voiceTypingBtn.querySelector('span:not(.btn-icon)');
-    if (textSpan) textSpan.textContent = 'Voice Typing';
+  if (DOM.voiceTypingBtns) {
+    DOM.voiceTypingBtns.forEach(btn => {
+      btn.classList.remove('listening');
+      const textSpan = btn.querySelector('span:not(.btn-icon)');
+      if (textSpan) textSpan.textContent = 'Voice Typing';
+      const iconSpan = btn.querySelector('.btn-icon');
+      if (iconSpan) iconSpan.textContent = '🎤';
+    });
   }
   document.querySelectorAll('.form-control, .form-select, .time-12h-wrapper select').forEach(el => el.classList.remove('voice-active'));
   activeSpeechInput = null;

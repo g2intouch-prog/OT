@@ -12,15 +12,11 @@
   <rect width="100" height="100" rx="22" fill="#0d1117"/>
   <!-- Outline -->
   <rect x="2" y="2" width="96" height="96" rx="20" fill="none" stroke="#21262d" stroke-width="2"/>
-  <!-- Logo Icon: Stack of data boxes (database/sheet metaphor) -->
+  <!-- Logo Icon: O with a T within it -->
   <g filter="url(#shadow)">
-    <!-- Sheet / Form base -->
-    <rect x="25" y="25" width="50" height="50" rx="8" fill="none" stroke="url(#glow)" stroke-width="4"/>
-    <!-- Line items in form -->
-    <line x1="37" y1="40" x2="63" y2="40" stroke="url(#glow)" stroke-width="4" stroke-linecap="round"/>
-    <line x1="37" y1="50" x2="63" y2="50" stroke="url(#glow)" stroke-width="4" stroke-linecap="round"/>
-    <line x1="37" y1="60" x2="53" y2="60" stroke="url(#glow)" stroke-width="4" stroke-linecap="round"/>
-    <!-- Checkmark indicator -->
-    <path d="M68 62 L73 67 L83 55" fill="none" stroke="#58a6ff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- The "O" circle -->
+    <circle cx="50" cy="50" r="28" fill="none" stroke="url(#glow)" stroke-width="6"/>
+    <!-- The "T" inner shape -->
+    <path d="M 38 38 L 62 38 M 50 38 L 50 62" stroke="url(#glow)" stroke-width="6" stroke-linecap="round" fill="none"/>
   </g>
 </svg>
