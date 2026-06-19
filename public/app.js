@@ -4098,6 +4098,7 @@ async function handleConfirmDisableTotp() {
 
 let gameTimerInterval = null;
 let gameSecondsRemaining = 180;
+let isBreakActive = false;
 let activeGame = 'bubble-popper';
 let gameScore = 0;
 let gameHighScores = {
@@ -4185,10 +4186,45 @@ const gameMetadata = {
   },
   'stocks': {
     title: 'Stock Market 📈',
-    desc: 'Live financial indices powered by official public TradingView widget.',
-    controls: 'Interactive real-time S&P 500 chart.'
+    desc: 'Live financial charts for Nifty 50 and custom symbols powered by Yahoo Finance.',
+    controls: 'Interactive real-time chart.'
   }
 };
+
+function cleanupActiveGameEngineOnly() {
+  isGameRunning = false;
+  if (animationFrameId) {
+    cancelAnimationFrame(animationFrameId);
+    animationFrameId = null;
+  }
+  const canvas = document.getElementById('game-canvas');
+  if (canvas) {
+    const newCanvas = canvas.cloneNode(true);
+    canvas.parentNode.replaceChild(newCanvas, canvas);
+  }
+}
+
+function startActiveGameEngineOnly() {
+  isGameRunning = true;
+  const isDashboard = ['weather', 'news', 'stocks'].includes(activeGame);
+  if (isDashboard) return;
+
+  if (activeGame === 'bubble-popper') {
+    startBubblePopper();
+  } else if (activeGame === 'memory-match') {
+    startMemoryMatch();
+  } else if (activeGame === 'gem-clicker') {
+    startGemClicker();
+  } else if (activeGame === 'whack-mole') {
+    startWhackMole();
+  } else if (activeGame === 'snake') {
+    startSnakeArcade();
+  } else if (activeGame === 'gomoku') {
+    startGomoku();
+  } else if (activeGame === 'hilo') {
+    startHiLo();
+  }
+}
 
 function initBreakGame() {
   const gameSelect = document.getElementById('game-select');
@@ -4196,21 +4232,24 @@ function initBreakGame() {
   
   if (gameSelect) {
     gameSelect.onchange = (e) => {
-      stopActiveGame();
+      cleanupActiveGameEngineOnly();
       activeGame = e.target.value;
       updateGameOverlayUI();
+      if (isBreakActive) {
+        startActiveGameEngineOnly();
+      }
     };
     activeGame = gameSelect.value;
   }
   
   if (timerSelect) {
     timerSelect.onchange = (e) => {
-      if (!isGameRunning) {
+      if (!isBreakActive) {
         gameSecondsRemaining = parseInt(e.target.value);
         updateTimerDisplay();
       }
     };
-    if (!isGameRunning) {
+    if (!isBreakActive) {
       gameSecondsRemaining = parseInt(timerSelect.value);
     }
   }
@@ -4339,26 +4378,34 @@ function updateGameOverlayUI() {
   const mmGrid = document.getElementById('memory-match-grid');
   const extraContainer = document.getElementById('extra-info-container');
   
-  const isDashboard = ['weather', 'news', 'stocks'].includes(activeGame);
-  
-  if (isDashboard) {
+  if (isBreakActive) {
     if (overlay) overlay.style.display = 'none';
+    
+    const isDashboard = ['weather', 'news', 'stocks'].includes(activeGame);
+    if (isDashboard) {
+      if (canvas) canvas.style.display = 'none';
+      if (mmGrid) mmGrid.style.display = 'none';
+      if (extraContainer) {
+        extraContainer.style.display = 'block';
+        loadDashboardWidget(activeGame);
+      }
+    } else {
+      if (extraContainer) extraContainer.style.display = 'none';
+      if (activeGame === 'memory-match') {
+        if (canvas) canvas.style.display = 'none';
+        if (mmGrid) mmGrid.style.display = 'grid';
+      } else {
+        if (canvas) canvas.style.display = 'block';
+        if (mmGrid) mmGrid.style.display = 'none';
+      }
+    }
+  } else {
+    // Show overlay to prompt starting the break session
+    if (overlay) overlay.style.display = 'flex';
     if (canvas) canvas.style.display = 'none';
     if (mmGrid) mmGrid.style.display = 'none';
     if (extraContainer) {
-      extraContainer.style.display = 'block';
-      loadDashboardWidget(activeGame);
-    }
-  } else {
-    if (overlay) overlay.style.display = 'flex';
-    if (extraContainer) extraContainer.style.display = 'none';
-    
-    if (activeGame === 'memory-match') {
-      if (canvas) canvas.style.display = 'none';
-      if (mmGrid) mmGrid.style.display = 'grid';
-    } else {
-      if (canvas) canvas.style.display = 'block';
-      if (mmGrid) mmGrid.style.display = 'none';
+      extraContainer.style.display = 'none';
     }
   }
 
@@ -4383,13 +4430,9 @@ function drawInitialCanvasScreen() {
 }
 
 function stopActiveGame() {
-  isGameRunning = false;
-  if (animationFrameId) {
-    cancelAnimationFrame(animationFrameId);
-    animationFrameId = null;
-  }
+  isBreakActive = false;
+  cleanupActiveGameEngineOnly();
   
-  // Disable timer
   if (gameTimerInterval) {
     clearInterval(gameTimerInterval);
     gameTimerInterval = null;
@@ -4399,14 +4442,6 @@ function stopActiveGame() {
   const timerSelect = document.getElementById('game-timer-select');
   if (gameSelect) gameSelect.disabled = false;
   if (timerSelect) timerSelect.disabled = false;
-
-  // Remove event listeners
-  const canvas = document.getElementById('game-canvas');
-  if (canvas) {
-    // Clone and replace to strip all event listeners
-    const newCanvas = canvas.cloneNode(true);
-    canvas.parentNode.replaceChild(newCanvas, canvas);
-  }
 }
 
 function startBreakGame() {
@@ -4418,19 +4453,17 @@ function startBreakGame() {
   const scoreDisplay = document.getElementById('game-score');
   if (scoreDisplay) scoreDisplay.textContent = '0';
   gameScore = 0;
-  isGameRunning = true;
   
-  // Lock game configuration while running
+  isBreakActive = true;
+  
   const gameSelect = document.getElementById('game-select');
   const timerSelect = document.getElementById('game-timer-select');
   if (timerSelect) timerSelect.disabled = true;
 
-  // Retrieve selected timer value
   const duration = timerSelect ? parseInt(timerSelect.value) : 180;
   gameSecondsRemaining = duration;
   updateTimerDisplay();
 
-  // Start break count down timer
   gameTimerInterval = setInterval(() => {
     gameSecondsRemaining--;
     updateTimerDisplay();
@@ -4448,22 +4481,8 @@ function startBreakGame() {
     }
   }, 1000);
 
-  // Initialize specific game engine
-  if (activeGame === 'bubble-popper') {
-    startBubblePopper();
-  } else if (activeGame === 'memory-match') {
-    startMemoryMatch();
-  } else if (activeGame === 'gem-clicker') {
-    startGemClicker();
-  } else if (activeGame === 'whack-mole') {
-    startWhackMole();
-  } else if (activeGame === 'snake') {
-    startSnakeArcade();
-  } else if (activeGame === 'gomoku') {
-    startGomoku();
-  } else if (activeGame === 'hilo') {
-    startHiLo();
-  }
+  updateGameOverlayUI();
+  startActiveGameEngineOnly();
 }
 
 // -------------------------------------------------------------
@@ -5768,6 +5787,179 @@ async function loadDashboardWidget(type) {
 }
 
 // Custom Stock Ticker search widget
+// Helper to map TradingView tickers to Yahoo Finance tickers
+function getYahooSymbol(tvSymbol) {
+  const clean = tvSymbol.toUpperCase().trim();
+  if (clean === 'NSE:NIFTY' || clean === 'NIFTY') {
+    return '^NSEI';
+  }
+  if (clean.startsWith('NSE:')) {
+    return clean.replace('NSE:', '') + '.NS';
+  }
+  if (clean.startsWith('BSE:')) {
+    return clean.replace('BSE:', '') + '.BO';
+  }
+  // Fallback mappings
+  if (!clean.includes('.') && !clean.includes('^')) {
+    const isUS = ['AAPL', 'MSFT', 'GOOG', 'TSLA', 'AMZN'].includes(clean);
+    return isUS ? clean : clean + '.NS';
+  }
+  return clean;
+}
+
+let stockChartInstance = null;
+
+async function renderNativeStockChart(symbol) {
+  const widgetHolder = document.getElementById('tradingview-widget-holder');
+  if (!widgetHolder) return;
+
+  widgetHolder.innerHTML = `
+    <div style="width:100%; height:100%; display:flex; flex-direction:column; justify-content:center; align-items:center; color:var(--text-muted); font-size:0.85rem; background: #0d1117;">
+      <span class="pulse-dot" style="background:var(--accent-color); margin-bottom:8px;"></span>
+      Loading chart data...
+    </div>
+  `;
+
+  try {
+    const yahooSymbol = getYahooSymbol(symbol);
+    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(
+      `https://query1.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?range=1mo&interval=1d`
+    )}`;
+
+    const response = await fetch(proxyUrl);
+    if (!response.ok) throw new Error("HTTP error " + response.status);
+    const jsonWrapper = await response.json();
+    const data = JSON.parse(jsonWrapper.contents);
+
+    if (!data.chart || !data.chart.result || data.chart.result.length === 0) {
+      throw new Error("No data returned for symbol " + yahooSymbol);
+    }
+
+    const result = data.chart.result[0];
+    const meta = result.meta;
+    const timestamps = result.timestamp || [];
+    const quotes = result.indicators.quote[0];
+    const closePrices = quotes.close || [];
+
+    const chartData = [];
+    const labels = [];
+    for (let i = 0; i < timestamps.length; i++) {
+      if (closePrices[i] !== null && closePrices[i] !== undefined) {
+        chartData.push(closePrices[i]);
+        const date = new Date(timestamps[i] * 1000);
+        labels.push(date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }));
+      }
+    }
+
+    if (chartData.length === 0) throw new Error("No pricing history found");
+
+    const currentPrice = meta.regularMarketPrice || chartData[chartData.length - 1] || 0;
+    const prevClose = meta.chartPreviousClose || chartData[0] || currentPrice;
+    const change = currentPrice - prevClose;
+    const pctChange = (change / prevClose) * 100;
+    const isPositive = change >= 0;
+
+    const priceColor = isPositive ? '#2ea44f' : '#f85149';
+    const changeSign = isPositive ? '+' : '';
+
+    widgetHolder.innerHTML = `
+      <div style="display:flex; flex-direction:column; width:100%; height:100%; gap:4px; padding: 4px; box-sizing: border-box;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-end; padding: 0 4px; height: 38px;">
+          <div>
+            <div style="font-size:1rem; font-weight:700; color:#f0f6fc; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${meta.symbol}</div>
+            <span style="font-size:0.7rem; color:var(--text-muted);">${meta.exchangeName || 'NSE'} • ${meta.currency || 'INR'}</span>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:1rem; font-weight:700; color:#f0f6fc;">${currentPrice.toFixed(2)}</div>
+            <div style="font-size:0.75rem; font-weight:600; color:${priceColor};">
+              ${changeSign}${change.toFixed(2)} (${changeSign}${pctChange.toFixed(2)}%)
+            </div>
+          </div>
+        </div>
+        <div style="flex:1; position:relative; width:100%; height: 190px;">
+          <canvas id="stock-chart-canvas"></canvas>
+        </div>
+      </div>
+    `;
+
+    const canvas = document.getElementById('stock-chart-canvas');
+    if (!canvas) return;
+
+    if (stockChartInstance) {
+      stockChartInstance.destroy();
+    }
+
+    const ctx = canvas.getContext('2d');
+    const gradient = ctx.createLinearGradient(0, 0, 0, 180);
+    gradient.addColorStop(0, isPositive ? 'rgba(46, 164, 79, 0.25)' : 'rgba(248, 81, 73, 0.25)');
+    gradient.addColorStop(1, 'rgba(13, 17, 23, 0)');
+
+    stockChartInstance = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Close Price',
+          data: chartData,
+          borderColor: priceColor,
+          backgroundColor: gradient,
+          fill: true,
+          tension: 0.15,
+          borderWidth: 2,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            mode: 'index',
+            intersect: false,
+            backgroundColor: '#161b22',
+            titleColor: '#f0f6fc',
+            bodyColor: '#f0f6fc',
+            borderColor: 'rgba(48, 54, 61, 0.8)',
+            borderWidth: 1,
+          }
+        },
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: {
+              color: '#8b949e',
+              font: { size: 9 },
+              maxRotation: 0,
+              autoSkip: true,
+              maxTicksLimit: 5
+            }
+          },
+          y: {
+            grid: { color: 'rgba(48, 54, 61, 0.3)' },
+            ticks: {
+              color: '#8b949e',
+              font: { size: 9 },
+              count: 4
+            }
+          }
+        }
+      }
+    });
+
+  } catch (err) {
+    console.error("Failed to render native stock chart:", err);
+    widgetHolder.innerHTML = `
+      <div style="width:100%; height:100%; display:flex; flex-direction:column; justify-content:center; align-items:center; color:var(--danger); font-size:0.82rem; padding:12px; text-align:center; box-sizing: border-box; background: #0d1117;">
+        ⚠️ Failed to load Yahoo Finance data for "${symbol}". Check network or try another ticker.
+        <button class="btn btn-secondary mt-2" style="font-size:0.75rem; padding: 4px 10px;" onclick="renderStockWidget('${symbol}')">Retry</button>
+      </div>
+    `;
+  }
+}
+
+// Custom Stock Ticker search widget
 function renderStockWidget(symbol) {
   const container = document.getElementById('extra-info-container');
   if (!container) return;
@@ -5848,40 +6040,13 @@ function renderStockWidget(symbol) {
         <button class="btn btn-primary" style="padding: 6px 12px;" onclick="renderStockWidget(document.getElementById('stock-ticker-input').value)">Show Chart</button>
       </div>
       <div style="flex: 1; border-radius: 6px; overflow: hidden; border: 1px solid var(--panel-border); background: #161b22; height: 260px;" id="tradingview-widget-holder">
-        <!-- Dynamically loaded TradingView Widget -->
+        <!-- Dynamically loaded Native Chart -->
       </div>
     </div>
   `;
 
-  const widgetHolder = document.getElementById('tradingview-widget-holder');
-  if (widgetHolder) {
-    widgetHolder.innerHTML = '';
-    
-    const widgetDiv = document.createElement('div');
-    widgetDiv.className = 'tradingview-widget-container__widget';
-    widgetDiv.style.width = '100%';
-    widgetDiv.style.height = '100%';
-    widgetHolder.appendChild(widgetDiv);
-    
-    const script = document.createElement('script');
-    script.type = 'text/javascript';
-    script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
-    script.async = true;
-    script.textContent = JSON.stringify({
-      "autosize": true,
-      "symbol": cleanSymbol,
-      "interval": "D",
-      "timezone": "Asia/Kolkata",
-      "theme": "dark",
-      "style": "1",
-      "locale": "en",
-      "enable_publishing": false,
-      "allow_symbol_change": true,
-      "calendar": false,
-      "support_host": "https://www.tradingview.com"
-    });
-    widgetHolder.appendChild(script);
-  }
+  // Render the native Yahoo Chart
+  renderNativeStockChart(cleanSymbol);
   
   const dropdown = document.getElementById('stock-select-dropdown');
   if (dropdown) {
