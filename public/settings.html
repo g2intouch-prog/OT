@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Security Settings | E2EE PWA Vault</title>
+  <meta name="description" content="Manage security policies, team accounts, and cryptographic settings.">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="stylesheet" href="/styles.css">
+  <!-- Google Fonts - Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    /* Additional isolation styling for Tutorial components */
+    .tutorial-container {
+      margin-top: 24px;
+      padding: 24px;
+      background: rgba(255, 123, 0, 0.03);
+      border: 1px dashed rgba(255, 123, 0, 0.25);
+      border-radius: 12px;
+      animation: fadeIn 0.4s ease-in-out;
+    }
+    .tutorial-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      border-bottom: 1px solid rgba(255, 123, 0, 0.1);
+      padding-bottom: 12px;
+    }
+    .tutorial-badge {
+      background: var(--accent-color);
+      color: white;
+      padding: 4px 8px;
+      font-size: 0.7rem;
+      border-radius: 4px;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+    .tutorial-steps {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .step-item {
+      display: flex;
+      gap: 12px;
+      font-size: 0.85rem;
+    }
+    .step-number {
+      background: var(--panel-border);
+      color: var(--text-main);
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      font-weight: bold;
+      flex-shrink: 0;
+    }
+    .practice-box {
+      background: var(--bg-color);
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+      padding: 16px;
+      margin-top: 16px;
+    }
+    .ciphertext-output {
+      font-family: monospace;
+      background: rgba(0, 0, 0, 0.4);
+      color: #39ff14;
+      padding: 12px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      word-break: break-all;
+      margin-top: 8px;
+      min-height: 40px;
+      border: 1px solid rgba(57, 255, 20, 0.15);
+    }
+    .protocol-card {
+      background: rgba(218, 54, 55, 0.03);
+      border: 1px solid rgba(218, 54, 55, 0.2);
+      border-radius: 8px;
+      padding: 16px;
+      margin-top: 12px;
+    }
+    .protocol-workflow {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 12px;
+      font-size: 0.8rem;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Banner -->
+  <header class="top-banner">
+    <div class="logo-area">
+      <img src="/favicon.svg" alt="Logo" class="banner-logo">
+      <h1>E2EE PWA Vault</h1>
+      <span id="session-badge" class="badge online">
+        <span class="pulse-dot"></span>
+        <span id="session-badge-text">Authenticating...</span>
+      </span>
+    </div>
+    <div>
+      <button onclick="window.location.href='/'" class="btn btn-secondary">
+        <span>← Exit Settings</span>
+      </button>
+    </div>
+  </header>
+
+  <div class="app-container" style="justify-content: center;">
+    <main class="main-content" style="max-width: 900px; margin-left: 0; width: 100%;">
+      
+      <div style="margin-bottom: 24px;">
+        <h2>Security Settings & System Vault</h2>
+        <p class="card-subtitle">Manage role privileges, view operational guides, and configure cryptographic keys.</p>
+      </div>
+
+      <!-- Live Admin Team Management Panel -->
+      <section id="admin-management-panel" class="panel-card hidden" style="margin-bottom: 24px;">
+        <h2>Live Team Status Panel (Admin Operations)</h2>
+        <p class="card-subtitle">Change member authorizations. Changing status to 'revoked' will trigger an instant SELF_DESTRUCT instruction to purge volatile session variables and local caches on their device.</p>
+        
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Username/Email</th>
+                <th>Role</th>
+                <th>Current Status</th>
+                <th class="actions-col">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="team-table-body">
+              <tr>
+                <td colspan="4" class="text-center py-4 text-muted">Loading team accounts...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Placeholder for dynamically injected targeted tutorial -->
+      <div id="tutorial-mount-point"></div>
+
+      <!-- Security Settings Form -->
+      <section class="panel-card" style="margin-top: 24px;">
+        <h2>Session Profile & Configuration</h2>
+        <p class="card-subtitle">Details about your active cryptographic session configuration.</p>
+        
+        <div class="dynamic-inputs-grid">
+          <div class="form-group">
+            <label>Current Account Role</label>
+            <input type="text" id="display-role" class="form-control" readonly style="opacity: 0.8; font-weight: bold;">
+          </div>
+          <div class="form-group">
+            <label>Cryptographic Vault Key Status</label>
+            <input type="text" id="display-key-status" class="form-control" readonly style="opacity: 0.8; color: var(--success); font-weight: bold;">
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- Scripts -->
+  <script src="/js/securityEngine.js"></script>
+  <script src="/js/settings.js"></script>
+</body>
+</html>

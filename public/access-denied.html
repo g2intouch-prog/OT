@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Access Revoked | Security Boundary</title>
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body style="align-items: center; justify-content: center; min-height: 100vh; padding: 24px;">
+
+  <div class="panel-card" style="max-width: 480px; width: 100%; border: 1px solid var(--danger); text-align: center; background: rgba(22, 27, 34, 0.95); padding: 40px 24px;">
+    <div style="font-size: 3rem; margin-bottom: 16px;">🛑</div>
+    <h2 style="color: var(--danger); font-size: 1.5rem; font-weight: 700; margin-bottom: 12px;">Access Revoked & Self-Destruct Triggered</h2>
+    <p class="text-muted" style="font-size: 0.875rem; line-height: 1.6; margin-bottom: 24px;">
+      An administrator has modified your authorization status to revoked. In compliance with data vault safety boundaries, all volatile cryptokeys have been cleared from RAM and all session caches on this client have been wiped.
+    </p>
+    <div>
+      <button onclick="window.location.href='/'" class="btn btn-secondary" style="width: 100%;">
+        Return to Login Boundary
+      </button>
+    </div>
+  </div>
+
+</body>
+</html>

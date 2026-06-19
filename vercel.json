@@ -2,6 +2,10 @@
   "version": 2,
   "builds": [
     {
+      "src": "api/**/*.js",
+      "use": "@vercel/node"
+    },
+    {
       "src": "server.js",
       "use": "@vercel/node"
     },
@@ -11,6 +15,14 @@
     }
   ],
   "routes": [
+    {
+      "src": "/api/bootstrap",
+      "dest": "api/bootstrap.js"
+    },
+    {
+      "src": "/api/admin/update-status",
+      "dest": "api/admin/update-status.js"
+    },
     {
       "src": "/api/(.*)",
       "dest": "server.js"
@@ -30,6 +42,26 @@
     {
       "src": "/styles.css",
       "dest": "public/styles.css"
+    },
+    {
+      "src": "/js/securityEngine.js",
+      "dest": "public/js/securityEngine.js"
+    },
+    {
+      "src": "/js/app.js",
+      "dest": "public/js/app.js"
+    },
+    {
+      "src": "/js/settings.js",
+      "dest": "public/js/settings.js"
+    },
+    {
+      "src": "/settings.html",
+      "dest": "public/settings.html"
+    },
+    {
+      "src": "/access-denied.html",
+      "dest": "public/access-denied.html"
     },
     {
       "src": "/app.js",
