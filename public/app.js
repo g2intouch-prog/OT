@@ -5776,8 +5776,20 @@ async function loadDashboardWidget(type) {
     // Attempt exact location geolocating on first load of weather dashboard
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          renderWeatherByCoords(pos.coords.latitude, pos.coords.longitude, "Current Location");
+        async (pos) => {
+          try {
+            const lat = pos.coords.latitude;
+            const lon = pos.coords.longitude;
+            const geoRes = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`);
+            let areaName = "Current Location";
+            if (geoRes.ok) {
+              const geoData = await geoRes.json();
+              areaName = geoData.city || geoData.locality || geoData.principalSubdivision || "Current Location";
+            }
+            renderWeatherByCoords(lat, lon, areaName);
+          } catch (e) {
+            renderWeatherByCoords(pos.coords.latitude, pos.coords.longitude, "Current Location");
+          }
         },
         () => {
           renderWeatherWidget("Bhubaneswar");
@@ -6071,6 +6083,34 @@ function renderStockWidget(symbol) {
   }
 }
 
+// Helper for geolocation with reverse geocoding
+async function handleGeolocateMe() {
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const lat = pos.coords.latitude;
+          const lon = pos.coords.longitude;
+          const geoRes = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`);
+          let areaName = "Your Location";
+          if (geoRes.ok) {
+            const geoData = await geoRes.json();
+            areaName = geoData.city || geoData.locality || geoData.principalSubdivision || "Your Location";
+          }
+          renderWeatherByCoords(lat, lon, areaName);
+        } catch (e) {
+          renderWeatherByCoords(pos.coords.latitude, pos.coords.longitude, "Your Location");
+        }
+      },
+      (err) => {
+        alert("Geolocation error: " + err.message);
+      }
+    );
+  } else {
+    alert("Geolocation is not supported by your browser.");
+  }
+}
+
 // Weather widget render utility helper
 async function renderWeatherWidget(city) {
   const container = document.getElementById('extra-info-container');
@@ -6089,7 +6129,7 @@ async function renderWeatherWidget(city) {
           <div style="display:flex; gap:6px; flex-wrap: wrap;">
             <input type="text" id="weather-search-input" class="form-control" style="font-size:0.85rem; padding: 6px 10px; flex: 1; min-width: 120px;" placeholder="City name..." value="${city}">
             <button class="btn btn-primary" onclick="renderWeatherWidget(document.getElementById('weather-search-input').value)">Search</button>
-            <button class="btn btn-secondary" onclick="navigator.geolocation.getCurrentPosition((pos)=>renderWeatherByCoords(pos.coords.latitude, pos.coords.longitude, 'Your Location'), (err)=>alert(err.message))">📍 Me</button>
+            <button class="btn btn-secondary" onclick="handleGeolocateMe()">📍 Me</button>
           </div>
           <p style="color:var(--danger); font-size:0.85rem; text-align:center; margin-top: 20px;">City "${city}" not found. Try another city name.</p>
         </div>
@@ -6160,7 +6200,7 @@ async function renderWeatherByCoords(latitude, longitude, displayName) {
         <div style="display: flex; gap: 6px; flex-wrap: wrap;">
           <input type="text" id="weather-search-input" class="form-control" style="font-size:0.85rem; padding: 6px 10px; flex: 1; min-width: 120px;" placeholder="City name..." value="${displayName === 'Current Location' || displayName === 'Your Location' ? '' : displayName.split(',')[0]}">
           <button class="btn btn-primary" style="padding: 6px 10px;" onclick="renderWeatherWidget(document.getElementById('weather-search-input').value)">Search</button>
-          <button class="btn btn-secondary" style="padding: 6px 10px;" onclick="navigator.geolocation.getCurrentPosition((pos)=>renderWeatherByCoords(pos.coords.latitude, pos.coords.longitude, 'Your Location'), (err)=>alert(err.message))">📍 Me</button>
+          <button class="btn btn-secondary" style="padding: 6px 10px;" onclick="handleGeolocateMe()">📍 Me</button>
         </div>
         
         <!-- Current Weather Card -->
