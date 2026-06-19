@@ -22,7 +22,7 @@ module.exports = async (req, res) => {
     }
 
     // Vault key is held strictly in Vercel env and only delivered to active sessions
-    const vaultKey = process.env.TEAM_VAULT_KEY || 'dGhpcy1pcy1hLXNlY3JldC0zMi1ieXRlLWtleS0xMjM0NTY='; // Default key for development if env is missing
+    const vaultKey = process.env.TEAM_VAULT_KEY || 'dGhpcy1pcy1hLXNlY3JldC0zMi1ieXRlLWtleS0xMjM='; // Default 32-byte key for development if env is missing
     
     // Feature flag: SHOW_TUTORIAL controlled by NEXT_PUBLIC_SHOW_TUTORIAL env var or default to true
     const showTutorial = process.env.NEXT_PUBLIC_SHOW_TUTORIAL !== 'false';

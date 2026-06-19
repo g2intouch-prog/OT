@@ -8,7 +8,11 @@ const SecurityEngine = (function () {
 
   // Utility to convert Base64 string to Uint8Array
   function base64ToUint8Array(base64) {
-    const binaryString = atob(base64);
+    let normalized = base64.replace(/-/g, '+').replace(/_/g, '/');
+    while (normalized.length % 4) {
+      normalized += '=';
+    }
+    const binaryString = atob(normalized);
     const len = binaryString.length;
     const bytes = new Uint8Array(len);
     for (let i = 0; i < len; i++) {
