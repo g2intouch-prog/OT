@@ -216,6 +216,7 @@ document.addEventListener('DOMContentLoaded', () => {
       state.isAuthenticated = true;
       state.authToken = savedToken;
       fetchTotpStatus();
+      fetchUserProfile();
     }
     updateAuthUI();
 
@@ -424,7 +425,7 @@ async function handleLogin(e) {
         sessionStorage.setItem('authToken', data.token);
         state.loginTempToken = null;
         
-        updateAuthUI();
+        await fetchUserProfile();
         closeLoginModal();
         
         renderFormCreator();
@@ -501,7 +502,7 @@ async function handleLogin(e) {
         state.authToken = data.token;
         sessionStorage.setItem('authToken', data.token);
         
-        updateAuthUI();
+        await fetchUserProfile();
         closeLoginModal();
         
         renderFormCreator();
@@ -521,8 +522,10 @@ async function handleLogin(e) {
 function handleLogout() {
   state.isAuthenticated = false;
   state.authToken = null;
+  state.userRole = null;
   sessionStorage.removeItem('authToken');
   updateAuthUI();
+  resetSettingsRoleCards();
   
   // Refresh views
   renderFormCreator();
@@ -602,14 +605,25 @@ function updateAuthUI() {
   const debugBtn = document.getElementById('debug-toggle-btn');
   const debugPanel = document.getElementById('debug-overlay-panel');
 
+  const guestPrompt = document.getElementById('data-entry-guest-prompt');
+  const formCard = document.getElementById('data-entry-form-card');
+  const draftsCard = document.getElementById('drafts-preview-card');
+
   if (state.isAuthenticated) {
+    if (guestPrompt) guestPrompt.style.display = 'none';
+    if (formCard) formCard.style.display = 'block';
+    if (draftsCard) draftsCard.style.display = 'block';
+
     DOM.authBtn.className = 'btn btn-secondary';
-    DOM.authBtn.title = 'Admin Logout';
-    DOM.authBtn.setAttribute('aria-label', 'Admin Logout');
-    DOM.authBtnText.textContent = 'Admin Logout';
+    DOM.authBtn.title = 'Logout';
+    DOM.authBtn.setAttribute('aria-label', 'Logout');
+    DOM.authBtnText.textContent = 'Logout';
     if (authBtnIcon) authBtnIcon.textContent = '🔓';
+
+    const roleName = state.userRole === 'admin' ? 'Admin' : 'User';
     DOM.sessionStatusDisplay.className = 'status-logged-in';
-    DOM.sessionStatusDisplay.textContent = 'Admin Mode';
+    DOM.sessionStatusDisplay.textContent = `${roleName} Mode`;
+
     DOM.creatorAdminWarning.className = 'alert-box alert-warning hidden';
     DOM.saveSchemaBtn.removeAttribute('disabled');
     DOM.submitCredentialsBtn.removeAttribute('disabled');
@@ -617,10 +631,14 @@ function updateAuthUI() {
     if (DOM.localBackupExportBtn) DOM.localBackupExportBtn.removeAttribute('disabled');
     if (DOM.localBackupRestoreBtn) DOM.localBackupRestoreBtn.removeAttribute('disabled');
   } else {
+    if (guestPrompt) guestPrompt.style.display = 'block';
+    if (formCard) formCard.style.display = 'none';
+    if (draftsCard) draftsCard.style.display = 'none';
+
     DOM.authBtn.className = 'btn btn-secondary';
-    DOM.authBtn.title = 'Admin Login';
-    DOM.authBtn.setAttribute('aria-label', 'Admin Login');
-    DOM.authBtnText.textContent = 'Admin Login';
+    DOM.authBtn.title = 'Login';
+    DOM.authBtn.setAttribute('aria-label', 'Login');
+    DOM.authBtnText.textContent = 'Login';
     if (authBtnIcon) authBtnIcon.textContent = '🔒';
     DOM.sessionStatusDisplay.className = 'status-logged-out';
     DOM.sessionStatusDisplay.textContent = 'Guest Mode';
@@ -639,6 +657,55 @@ function updateAuthUI() {
 
   // Always show debug toggle button to allow inspection of logs in case of runtime errors
   if (debugBtn) debugBtn.style.display = 'flex';
+}
+
+async function fetchUserProfile() {
+  const token = sessionStorage.getItem('authToken');
+  if (!token) return;
+  try {
+    const res = await fetch('/api/bootstrap', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      state.userRole = data.role;
+      updateAuthUI();
+      updateSettingsRoleCards(data.role);
+    }
+  } catch (err) {
+    console.error('Failed to fetch user profile:', err);
+  }
+}
+
+function updateSettingsRoleCards(role) {
+  const adminPanel = document.getElementById('admin-management-panel');
+  const adminCredentialsCard = document.getElementById('admin-credentials-card');
+  const dangerZoneCard = document.getElementById('danger-zone-card');
+  const localBackupCard = document.getElementById('local-backup-card');
+  
+  if (role === 'admin') {
+    if (adminPanel) adminPanel.classList.remove('hidden');
+    if (adminCredentialsCard) adminCredentialsCard.classList.remove('hidden');
+    if (dangerZoneCard) dangerZoneCard.classList.remove('hidden');
+    if (localBackupCard) localBackupCard.classList.remove('hidden');
+  } else {
+    if (adminPanel) adminPanel.classList.add('hidden');
+    if (adminCredentialsCard) adminCredentialsCard.classList.add('hidden');
+    if (dangerZoneCard) dangerZoneCard.classList.add('hidden');
+    if (localBackupCard) localBackupCard.classList.add('hidden');
+  }
+}
+
+function resetSettingsRoleCards() {
+  const adminPanel = document.getElementById('admin-management-panel');
+  const adminCredentialsCard = document.getElementById('admin-credentials-card');
+  const dangerZoneCard = document.getElementById('danger-zone-card');
+  const localBackupCard = document.getElementById('local-backup-card');
+  
+  if (adminPanel) adminPanel.classList.add('hidden');
+  if (adminCredentialsCard) adminCredentialsCard.classList.add('hidden');
+  if (dangerZoneCard) dangerZoneCard.classList.add('hidden');
+  if (localBackupCard) localBackupCard.classList.add('hidden');
 }
 
 // -------------------------------------------------------------

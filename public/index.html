@@ -135,7 +135,17 @@
       
       <!-- TAB 1: DATA ENTRY -->
       <section id="tab-data-entry" class="tab-panel active">
-        <div class="panel-card">
+        <!-- Guest Login Prompt -->
+        <div id="data-entry-guest-prompt" class="panel-card text-center" style="display: none; padding: 48px 24px; max-width: 600px; margin: 40px auto; border: 1px solid var(--panel-border); border-radius: 8px; background-color: #161b22;">
+          <span style="font-size: 3.5rem; display: block; margin-bottom: 16px;">🔒</span>
+          <h2 style="margin-bottom: 8px;">Authentication Required</h2>
+          <p class="card-subtitle" style="margin-bottom: 24px; color: var(--text-muted);">
+            You must be logged in to access the Data Entry workspace, save local drafts, and synchronize records to the secure cloud vault.
+          </p>
+          <button type="button" class="btn btn-primary" onclick="openLoginModal()" style="margin: 0 auto; display: block; padding: 10px 24px;">Log In to Account</button>
+        </div>
+
+        <div id="data-entry-form-card" class="panel-card">
           <div class="card-header-flex">
             <div>
               <h2>New Data Entry</h2>
@@ -166,7 +176,7 @@
         </div>
 
         <!-- Local Drafts Preview -->
-        <div class="panel-card mt-4">
+        <div id="drafts-preview-card" class="panel-card mt-4">
           <div class="card-header-flex">
             <h2>Current Local Drafts</h2>
             <span id="draft-summary-text" class="text-muted">No draft entries</span>
