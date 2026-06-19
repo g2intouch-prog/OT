@@ -5729,7 +5729,10 @@ async function loadDashboardWidget(type) {
       
       let html = `
         <div style="display: flex; flex-direction: column; gap: 12px; padding-bottom: 20px;">
-          <h4 style="margin: 0 0 4px 0; color: #ff7b00; font-size: 0.95rem; border-bottom: 1px solid var(--panel-border); padding-bottom: 8px;">India National News 📰</h4>
+          <h4 style="margin: 0 0 4px 0; color: #ff7b00; font-size: 0.95rem; border-bottom: 1px solid var(--panel-border); padding-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+            <span>India National News 📰</span>
+            <button class="btn btn-secondary" style="font-size: 0.72rem; padding: 2px 8px; font-weight: normal;" onclick="loadDashboardWidget('news')">🔄 Refresh</button>
+          </h4>
       `;
       
       const articles = (data.articles || []).slice(0, 6);
@@ -6027,13 +6030,14 @@ function renderStockWidget(symbol) {
 
   container.innerHTML = `
     <div style="width: 100%; height: 100%; display: flex; flex-direction: column; gap: 8px;">
-      <div class="form-group" style="margin-bottom: 0;">
+      <div class="form-group" style="margin-bottom: 0; display: flex; justify-content: space-between; align-items: center;">
         <label for="stock-select-dropdown" style="font-size: 0.72rem; font-weight: 600; margin-bottom: 4px; display: block; color: var(--text-muted);">Nifty 50 Shares Quick Select</label>
-        <select id="stock-select-dropdown" class="form-select" style="font-size:0.85rem; padding: 6px 10px; width: 100%;">
-          <option value="">-- Or Search Custom Ticker Below --</option>
-          ${optionsHtml}
-        </select>
+        <button class="btn btn-secondary" style="font-size: 0.72rem; padding: 2px 8px; margin-bottom: 4px; font-weight: normal;" onclick="renderStockWidget(document.getElementById('stock-ticker-input').value || '${cleanSymbol}')">🔄 Refresh</button>
       </div>
+      <select id="stock-select-dropdown" class="form-select" style="font-size:0.85rem; padding: 6px 10px; width: 100%;">
+        <option value="">-- Or Search Custom Ticker Below --</option>
+        ${optionsHtml}
+      </select>
       
       <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
         <input type="text" id="stock-ticker-input" class="form-control" style="font-size:0.85rem; padding: 6px 10px; flex: 1; min-width: 120px;" placeholder="Custom Ticker: e.g. BSE:SENSEX, AAPL" value="${cleanSymbol}">
@@ -6148,7 +6152,10 @@ async function renderWeatherByCoords(latitude, longitude, displayName) {
     
     let html = `
       <div style="display: flex; flex-direction: column; gap: 14px; padding-bottom: 12px; height: 100%;">
-        <h4 style="margin: 0; color: #ff7b00; font-size: 0.95rem;">Weather Forecast 🌤️</h4>
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--panel-border); padding-bottom: 4px;">
+          <h4 style="margin: 0; color: #ff7b00; font-size: 0.95rem;">Weather Forecast 🌤️</h4>
+          <button class="btn btn-secondary" style="font-size: 0.72rem; padding: 2px 8px; font-weight: normal;" onclick="renderWeatherByCoords(${latitude}, ${longitude}, '${displayName}')">🔄 Refresh</button>
+        </div>
         
         <div style="display: flex; gap: 6px; flex-wrap: wrap;">
           <input type="text" id="weather-search-input" class="form-control" style="font-size:0.85rem; padding: 6px 10px; flex: 1; min-width: 120px;" placeholder="City name..." value="${displayName === 'Current Location' || displayName === 'Your Location' ? '' : displayName.split(',')[0]}">
