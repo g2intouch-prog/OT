@@ -475,11 +475,6 @@ app.post('/api/login', async (req, res) => {
     return res.status(400).json({ error: 'Username and password are required.' });
   }
 
-  // Quick check for standard user testing shortcut
-  if (username === 'user' && password === 'password') {
-    return res.json({ success: true, requireOtp: false, token: 'authenticated-token-user' });
-  }
-
   try {
     const user = await userDb.authenticateUser(username, password);
     if (!user) {

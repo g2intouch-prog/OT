@@ -2310,6 +2310,19 @@ function formatDisplayValue(val, field) {
 
 // Helper to programmatically switch tabs
 function switchToTab(tabId) {
+  // Security Enforcement: Limit access to tabs by role
+  if (state.isAuthenticated) {
+    if (state.userRole === 'user' && tabId !== 'data-entry') {
+      tabId = 'data-entry';
+    } else if (state.userRole === 'viewer' && tabId !== 'db-viewer') {
+      tabId = 'db-viewer';
+    }
+  } else {
+    if (tabId !== 'data-entry' && tabId !== 'break-game') {
+      tabId = 'data-entry';
+    }
+  }
+
   const item = Array.from(DOM.navItems).find(nav => nav.dataset.tab === tabId);
   if (item) {
     DOM.navItems.forEach(nav => nav.classList.remove('active'));
@@ -6630,9 +6643,22 @@ async function loadTeamAccounts() {
 
       let promoteButton = '';
       if (!isSelf) {
-        promoteButton = isAdminRole
-          ? `<button onclick="promoteUser('${user.id}', 'user')" class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.75rem; margin-right: 8px;">Demote to User</button>`
-          : `<button onclick="promoteUser('${user.id}', 'admin')" class="btn btn-success" style="padding: 4px 10px; font-size: 0.75rem; margin-right: 8px;">Promote to Admin</button>`;
+        if (user.role === 'admin') {
+          promoteButton = `
+            <button onclick="promoteUser('${user.id}', 'user')" class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.75rem; margin-right: 8px;">Demote to User</button>
+            <button onclick="promoteUser('${user.id}', 'viewer')" class="btn btn-primary" style="padding: 4px 10px; font-size: 0.75rem; margin-right: 8px;">Make Viewer</button>
+          `;
+        } else if (user.role === 'user') {
+          promoteButton = `
+            <button onclick="promoteUser('${user.id}', 'admin')" class="btn btn-success" style="padding: 4px 10px; font-size: 0.75rem; margin-right: 8px;">Promote to Admin</button>
+            <button onclick="promoteUser('${user.id}', 'viewer')" class="btn btn-primary" style="padding: 4px 10px; font-size: 0.75rem; margin-right: 8px;">Make Viewer</button>
+          `;
+        } else if (user.role === 'viewer') {
+          promoteButton = `
+            <button onclick="promoteUser('${user.id}', 'admin')" class="btn btn-success" style="padding: 4px 10px; font-size: 0.75rem; margin-right: 8px;">Promote to Admin</button>
+            <button onclick="promoteUser('${user.id}', 'user')" class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.75rem; margin-right: 8px;">Make User</button>
+          `;
+        }
       }
 
       const actionButton = isSelf 
@@ -6728,6 +6754,10 @@ const closeCryptoBottomBtn = document.getElementById('close-crypto-verifier-bott
 const refreshCryptoBtn = document.getElementById('refresh-crypto-verifier-btn');
 const cryptoContainer = document.getElementById('crypto-verifier-container');
 
+const cryptoFilterYear = document.getElementById('crypto-filter-year');
+const cryptoFilterMonth = document.getElementById('crypto-filter-month');
+const cryptoFilterRange = document.getElementById('crypto-filter-range');
+
 if (cryptoBtn) {
   cryptoBtn.addEventListener('click', () => {
     cryptoModal.classList.add('active');
@@ -6747,6 +6777,10 @@ if (closeCryptoBtn) closeCryptoBtn.addEventListener('click', closeCryptoModal);
 if (closeCryptoBottomBtn) closeCryptoBottomBtn.addEventListener('click', closeCryptoModal);
 if (refreshCryptoBtn) refreshCryptoBtn.addEventListener('click', renderCryptoVerificationList);
 
+if (cryptoFilterYear) cryptoFilterYear.addEventListener('change', renderCryptoVerificationList);
+if (cryptoFilterMonth) cryptoFilterMonth.addEventListener('change', renderCryptoVerificationList);
+if (cryptoFilterRange) cryptoFilterRange.addEventListener('change', renderCryptoVerificationList);
+
 async function renderCryptoVerificationList() {
   if (!cryptoContainer) return;
   cryptoContainer.innerHTML = '<div class="text-center text-muted py-4">Fetching database entries...</div>';
@@ -6756,13 +6790,34 @@ async function renderCryptoVerificationList() {
     if (!res.ok) throw new Error('Failed to retrieve entries');
     const records = await res.json();
 
-    if (records.length === 0) {
-      cryptoContainer.innerHTML = '<div class="text-center text-muted py-4">No records found in database.</div>';
+    const fYear = document.getElementById('crypto-filter-year') ? document.getElementById('crypto-filter-year').value : 'all';
+    const fMonth = document.getElementById('crypto-filter-month') ? document.getElementById('crypto-filter-month').value : 'all';
+    const fRange = document.getElementById('crypto-filter-range') ? document.getElementById('crypto-filter-range').value : 'till-date';
+
+    let filtered = [...records];
+
+    if (fYear !== 'all') {
+      filtered = filtered.filter(rec => rec.date && rec.date.startsWith(fYear));
+    }
+    if (fMonth !== 'all') {
+      filtered = filtered.filter(rec => {
+        if (!rec.date) return false;
+        const parts = rec.date.split('-');
+        return parts.length > 1 && parts[1] === fMonth;
+      });
+    }
+    if (fRange === 'till-date') {
+      const todayStr = new Date().toISOString().split('T')[0];
+      filtered = filtered.filter(rec => rec.date && rec.date <= todayStr);
+    }
+
+    if (filtered.length === 0) {
+      cryptoContainer.innerHTML = '<div class="text-center text-muted py-4">No records found matching the selected filters.</div>';
       return;
     }
 
     cryptoContainer.innerHTML = '';
-    for (const rec of records) {
+    for (const rec of filtered) {
       const rowCard = document.createElement('div');
       rowCard.style.display = 'flex';
       rowCard.style.gap = '16px';
