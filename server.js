@@ -352,12 +352,18 @@ async function recalculateSerials() {
 }
 
 // Basic auth middleware (checking dynamic header)
-function checkAuth(req, res, next) {
-  const token = req.headers['authorization'];
-  if (token === 'Bearer authenticated-token-admin' || token === 'Bearer authenticated-token-user') {
-    next();
-  } else {
-    res.status(401).json({ error: 'Unauthorized. Please login.' });
+async function checkAuth(req, res, next) {
+  try {
+    const session = await userDb.verifyUserSession(req);
+    if (session) {
+      req.session = session;
+      next();
+    } else {
+      res.status(401).json({ error: 'Unauthorized. Please login.' });
+    }
+  } catch (err) {
+    console.error('checkAuth error:', err);
+    res.status(500).json({ error: 'Authentication check failed.' });
   }
 }
 

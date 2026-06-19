@@ -774,6 +774,22 @@ async function fetchDatabaseRecords() {
     const response = await fetch('/api/entries');
     if (response.ok) {
       state.dbRecords = await response.json();
+      
+      // Decrypt all database records inline if key is loaded in memory
+      if (window.SecurityEngine && window.SecurityEngine.isUnlocked()) {
+        for (const rec of state.dbRecords) {
+          if (rec.data && rec.data.ciphertext && rec.data.iv) {
+            try {
+              const decText = await window.SecurityEngine.decryptPayload(rec.data.ciphertext, rec.data.iv);
+              rec.encryptedData = rec.data;
+              rec.data = JSON.parse(decText);
+            } catch (e) {
+              console.warn('Failed to decrypt record', rec.id, e);
+            }
+          }
+        }
+      }
+      
       renderDBTable();
       populateYearFilters();
 
@@ -1489,16 +1505,38 @@ async function pushSelectedDrafts() {
   if (toPush.length === 0) return;
 
   try {
-    DOM.pushSelectedBtn.disabled = true;
-    DOM.pushSelectedBtn.textContent = 'Pushing...';
-    
+    // Encrypt drafts on-the-fly before transmission
+    const encryptedToPush = [];
+    for (const draft of toPush) {
+      if (window.SecurityEngine && window.SecurityEngine.isUnlocked()) {
+        try {
+          const plainString = JSON.stringify(draft.data);
+          const encrypted = await window.SecurityEngine.encryptPayload(plainString);
+          encryptedToPush.push({
+            date: draft.date,
+            verified: draft.verified,
+            ciphertext: encrypted.ciphertext,
+            iv: encrypted.iv
+          });
+        } catch (encErr) {
+          console.error('Failed to encrypt draft on push:', encErr);
+          alert('Failed to encrypt one or more drafts. Sync aborted.');
+          DOM.pushSelectedBtn.disabled = false;
+          DOM.pushSelectedBtn.textContent = 'Push Selected';
+          return;
+        }
+      } else {
+        encryptedToPush.push(draft);
+      }
+    }
+
     const response = await fetch('/api/entries/push', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${state.authToken}`
       },
-      body: JSON.stringify(toPush)
+      body: JSON.stringify(encryptedToPush)
     });
 
     if (response.ok) {
@@ -6895,7 +6933,7 @@ async function renderCryptoVerificationList() {
       leftPre.style.fontSize = '0.75rem';
       leftPre.style.overflowX = 'auto';
       leftPre.style.border = '1px solid #30363d';
-      leftPre.textContent = JSON.stringify(rec.data, null, 2);
+      leftPre.textContent = JSON.stringify(rec.encryptedData || rec.data, null, 2);
 
       leftHalf.appendChild(leftHeader);
       leftHalf.appendChild(leftPre);
@@ -6924,10 +6962,11 @@ async function renderCryptoVerificationList() {
       rightPre.style.border = '1px solid #30363d';
 
       // Perform client-side decryption check
-      if (rec.data && rec.data.ciphertext && rec.data.iv) {
+      const rawEnc = rec.encryptedData;
+      if (rawEnc && rawEnc.ciphertext && rawEnc.iv) {
         if (window.SecurityEngine && window.SecurityEngine.isUnlocked()) {
           try {
-            const decryptedText = await window.SecurityEngine.decryptPayload(rec.data.ciphertext, rec.data.iv);
+            const decryptedText = await window.SecurityEngine.decryptPayload(rawEnc.ciphertext, rawEnc.iv);
             let parsedDecrypted;
             try {
               parsedDecrypted = JSON.parse(decryptedText);
