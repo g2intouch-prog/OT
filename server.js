@@ -1,8 +1,140 @@
 const express = require('express');
 const path = require('path');
 const crypto = require('crypto');
-const { db } = require('@vercel/postgres');
+const { db: vercelDb } = require('@vercel/postgres');
 const { put } = require('@vercel/blob');
+
+// Mock in-memory database configuration when running without Vercel Postgres URL
+const memoryConfig = new Map([
+  ['schema', JSON.stringify([
+    { id: 'date', title: 'Date', type: 'date' },
+    { id: 'item_name', title: 'Item Name', type: 'text' },
+    { id: 'quantity', title: 'Quantity', type: 'number' },
+    { id: 'remarks', title: 'Remarks', type: 'text' }
+  ])],
+  ['admin_user', 'admin'],
+  ['admin_pass', 'password'],
+  ['totp_enabled', '0']
+]);
+const memoryRecords = [];
+let recordIdCounter = 1;
+
+const dbProxy = {
+  query: async (text, params) => {
+    const normalizedText = text.trim().replace(/\s+/g, ' ').toLowerCase();
+    
+    if (normalizedText.startsWith('create table')) {
+      return { rows: [], rowCount: 0 };
+    }
+    
+    if (normalizedText === 'begin' || normalizedText === 'commit' || normalizedText === 'rollback') {
+      return { rows: [], rowCount: 0 };
+    }
+    
+    if (normalizedText.startsWith('alter sequence')) {
+      return { rows: [], rowCount: 0 };
+    }
+    
+    if (normalizedText.startsWith("select value from config where key =")) {
+      const key = params ? params[0] : (normalizedText.match(/'([^']+)'/) ? normalizedText.match(/'([^']+)'/)[1] : null);
+      const val = memoryConfig.get(key);
+      return { rows: val !== undefined ? [{ value: val }] : [], rowCount: val !== undefined ? 1 : 0 };
+    }
+
+    if (normalizedText.startsWith("select * from config")) {
+      const rows = Array.from(memoryConfig.entries()).map(([key, value]) => ({ key, value }));
+      return { rows, rowCount: rows.length };
+    }
+    
+    if (normalizedText.startsWith("insert into config")) {
+      const key = params[0];
+      const value = params[1];
+      memoryConfig.set(key, value);
+      return { rows: [], rowCount: 1 };
+    }
+
+    if (normalizedText.startsWith("delete from config")) {
+      const key = params[0];
+      memoryConfig.delete(key);
+      return { rows: [], rowCount: 1 };
+    }
+    
+    if (normalizedText.startsWith("select * from records")) {
+      let sorted = [...memoryRecords];
+      if (normalizedText.includes("order by date desc")) {
+        sorted.sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
+      }
+      return { rows: sorted, rowCount: sorted.length };
+    }
+    
+    if (normalizedText.startsWith("insert into records")) {
+      let id, date, verified, data;
+      if (params.length === 4) {
+        id = params[0];
+        date = params[1];
+        verified = params[2];
+        data = params[3];
+        if (id > recordIdCounter) recordIdCounter = id + 1;
+      } else {
+        id = recordIdCounter++;
+        date = params[0];
+        verified = params[1];
+        data = params[2];
+      }
+      const newRec = { id, created_at: new Date().toISOString(), verified, date, data };
+      memoryRecords.push(newRec);
+      return { rows: [newRec], rowCount: 1 };
+    }
+    
+    if (normalizedText.startsWith("update records set")) {
+      if (normalizedText.includes("verified = $1")) {
+        const verified = params[0];
+        const id = parseInt(params[1]);
+        const rec = memoryRecords.find(r => r.id === id);
+        if (rec) {
+          rec.verified = verified;
+          return { rows: [rec], rowCount: 1 };
+        }
+        return { rows: [], rowCount: 0 };
+      } else {
+        const date = params[0];
+        const data = params[1];
+        const id = parseInt(params[2]);
+        const rec = memoryRecords.find(r => r.id === id);
+        if (rec) {
+          rec.date = date;
+          rec.data = data;
+          return { rows: [rec], rowCount: 1 };
+        }
+        return { rows: [], rowCount: 0 };
+      }
+    }
+    
+    if (normalizedText.startsWith("delete from records where id =")) {
+      const id = parseInt(params[0]);
+      const idx = memoryRecords.findIndex(r => r.id === id);
+      if (idx !== -1) {
+        memoryRecords.splice(idx, 1);
+        return { rows: [], rowCount: 1 };
+      }
+      return { rows: [], rowCount: 0 };
+    }
+
+    if (normalizedText.startsWith("delete from records")) {
+      memoryRecords.length = 0;
+      return { rows: [], rowCount: 1 };
+    }
+
+    if (normalizedText.includes("setval('records_id_seq'")) {
+      return { rows: [], rowCount: 0 };
+    }
+    
+    console.warn("Unhandled mock DB query:", text, params);
+    return { rows: [], rowCount: 0 };
+  }
+};
+
+const db = process.env.POSTGRES_URL ? vercelDb : dbProxy;
 
 const app = express();
 const PORT = process.env.PORT || 3080;
@@ -507,7 +639,14 @@ app.post('/api/entries/push', checkAuth, async (req, res) => {
     for (const draft of drafts) {
       const recordDate = draft.date || new Date().toISOString().split('T')[0];
       const verified = draft.verified ? 1 : 0;
-      const recordData = JSON.stringify(draft.data || {});
+      
+      let recordData;
+      if (draft.ciphertext && draft.iv) {
+        recordData = JSON.stringify({ ciphertext: draft.ciphertext, iv: draft.iv });
+      } else {
+        recordData = JSON.stringify(draft.data || {});
+      }
+
       await db.query(
         "INSERT INTO records (date, verified, data) VALUES ($1, $2, $3)",
         [recordDate, verified, recordData]
@@ -697,6 +836,33 @@ app.post('/api/backup/restore', checkAuth, async (req, res) => {
     await db.query("ROLLBACK");
     console.error('Local restore failed:', err.message);
     res.status(500).json({ error: 'Failed to restore backup: ' + err.message });
+  }
+});
+
+// File Upload to Vercel Blob
+app.post('/api/upload', async (req, res) => {
+  try {
+    const filename = req.query.filename || 'upload-' + Date.now();
+    
+    // In local development, if Vercel Blob token is missing, simulate a local save or return a mock URL
+    if (!process.env.BLOB_READ_WRITE_TOKEN) {
+      console.warn('BLOB_READ_WRITE_TOKEN environment variable is missing. Returning a local mock URL.');
+      return res.json({
+        url: `https://mock-blob-storage.local/${filename}`,
+        downloadUrl: `https://mock-blob-storage.local/${filename}`,
+        pathname: filename,
+        contentType: req.headers['content-type'] || 'application/octet-stream'
+      });
+    }
+
+    // Upload to Vercel Blob
+    const blob = await put(filename, req, {
+      access: 'public',
+    });
+    return res.json(blob);
+  } catch (err) {
+    console.error('Blob upload error:', err.message);
+    res.status(500).json({ error: 'Failed to upload: ' + err.message });
   }
 });
 
