@@ -2806,10 +2806,29 @@ function getFirstVoiceEnabledInput() {
 
 function matchOption(selectElement, spokenText) {
   const text = spokenText.toLowerCase().trim();
+  
+  // 1. First pass: exact match
   for (let i = 0; i < selectElement.options.length; i++) {
     const optionText = selectElement.options[i].text.toLowerCase().trim();
     const optionValue = selectElement.options[i].value.toLowerCase().trim();
-    if (optionText === text || optionValue === text || optionText.includes(text) || text.includes(optionText)) {
+    if (optionText === text || optionValue === text) {
+      return selectElement.options[i].value;
+    }
+  }
+  
+  // 2. Second pass: boundary-safe word matching
+  for (let i = 0; i < selectElement.options.length; i++) {
+    const optionText = selectElement.options[i].text.toLowerCase().trim();
+    const optionValue = selectElement.options[i].value.toLowerCase().trim();
+    
+    // Safety check: if option is "male" but user spoke "female", do not match!
+    if (optionText === 'male' && text.includes('female')) {
+      continue;
+    }
+
+    const escapedOpt = optionText.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+    const regex = new RegExp('\\b' + escapedOpt + '\\b', 'i');
+    if (regex.test(text) || optionText.startsWith(text) || text.startsWith(optionText)) {
       return selectElement.options[i].value;
     }
   }
