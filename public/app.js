@@ -4505,6 +4505,12 @@ async function initTotpSetup() {
 function cancelTotpSetup() {
   if (DOM.totpSetupModal) DOM.totpSetupModal.classList.remove('active');
   if (DOM.totpSetupCode) DOM.totpSetupCode.value = '';
+  
+  // If canceling during login setup, reopen the login modal so they cannot bypass
+  if (state.loginTempToken && state.loginTempToken.startsWith('temp-setup-')) {
+    state.loginTempToken = null;
+    openLoginModal();
+  }
 }
 
 async function confirmTotpSetup() {
