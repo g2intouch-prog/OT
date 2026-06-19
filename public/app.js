@@ -2209,6 +2209,9 @@ function switchToTab(tabId) {
       }
     } else if (tabId === 'settings') {
       fetchTotpStatus();
+      if (typeof loadTeamAccounts === 'function') {
+        loadTeamAccounts();
+      }
     } else if (tabId === 'break-game') {
       initBreakGame();
     }
@@ -6397,3 +6400,120 @@ async function renderWeatherByCoords(latitude, longitude, displayName) {
     `;
   }
 }
+
+// Live Team status loader for settings
+async function loadTeamAccounts() {
+  const token = sessionStorage.getItem('authToken');
+  const tbody = document.getElementById('team-table-body');
+  const adminPanel = document.getElementById('admin-management-panel');
+  const displayRole = document.getElementById('display-role');
+  const displayKeyStatus = document.getElementById('display-key-status');
+
+  if (!token) return;
+
+  try {
+    // 1. Fetch bootstrap to retrieve active role and vault status
+    const bootRes = await fetch('/api/bootstrap', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    
+    if (bootRes.ok) {
+      const data = await bootRes.json();
+      if (displayRole) displayRole.value = data.role.toUpperCase();
+      if (displayKeyStatus) {
+        displayKeyStatus.value = (window.SecurityEngine && window.SecurityEngine.isUnlocked()) ? 'RAM VOLATILE LOCKED-IN' : 'WIPED/LOCKED';
+      }
+
+      if (data.role === 'admin') {
+        if (adminPanel) adminPanel.classList.remove('hidden');
+      } else {
+        if (adminPanel) adminPanel.classList.add('hidden');
+        return; // standard user doesn't load team table
+      }
+    } else {
+      if (displayRole) displayRole.value = 'UNKNOWN';
+      if (adminPanel) adminPanel.classList.add('hidden');
+      return;
+    }
+
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4">Loading accounts...</td></tr>';
+
+    const res = await fetch('/api/admin/update-status', {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    if (!res.ok) {
+      tbody.innerHTML = `<tr><td colspan="4" class="text-center text-muted">Failed to load team data.</td></tr>`;
+      return;
+    }
+
+    const { users } = await res.json();
+    tbody.innerHTML = '';
+
+    users.forEach(user => {
+      const tr = document.createElement('tr');
+      const isRevoked = user.status === 'revoked';
+      const statusBadge = isRevoked 
+        ? `<span style="color: var(--danger); font-weight: bold; background: var(--danger-glow); padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(218,54,55,0.2)">REVOKED</span>`
+        : `<span style="color: var(--success); font-weight: bold; background: var(--success-glow); padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(46,164,79,0.2)">ACTIVE</span>`;
+
+      const isSelf = user.username === 'admin@vault.team' || user.id === 'usr-admin';
+
+      const actionButton = isSelf 
+        ? `<span class="text-muted">Master Root Account</span>`
+        : isRevoked
+          ? `<button onclick="toggleUserStatus('${user.id}', 'active')" class="btn btn-success" style="padding: 4px 10px; font-size: 0.75rem;">Reactivate</button>`
+          : `<button onclick="toggleUserStatus('${user.id}', 'revoked')" class="btn btn-danger" style="padding: 4px 10px; font-size: 0.75rem;">Revoke Access</button>`;
+
+      tr.innerHTML = `
+        <td style="font-weight: 500;">${user.username}</td>
+        <td><span class="position-badge">${user.role.toUpperCase()}</span></td>
+        <td>${statusBadge}</td>
+        <td class="actions-col">${actionButton}</td>
+      `;
+      tr.style.animation = 'fadeIn 0.3s ease-in-out';
+      tbody.appendChild(tr);
+    });
+
+  } catch (err) {
+    console.error('Failed to load team details:', err);
+    if (tbody) tbody.innerHTML = `<tr><td colspan="4" class="text-center text-muted">Network error loading accounts.</td></tr>`;
+  }
+}
+
+// Toggles user access status
+async function toggleUserStatus(targetUserId, newStatus) {
+  const token = sessionStorage.getItem('authToken');
+  if (!token) return;
+
+  if (newStatus === 'revoked' && !confirm('WARNING: Revoking status will deploy a client-side SELF_DESTRUCT instruction. This purges their RAM key and local caches immediately upon their next server request. Continue?')) {
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/admin/update-status', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ userId: targetUserId, newStatus })
+    });
+
+    if (res.ok) {
+      await loadTeamAccounts();
+    } else {
+      const err = await res.json();
+      alert('Action failed: ' + (err.error || 'Unknown error'));
+    }
+  } catch (err) {
+    alert('Failed to transmit update instruction.');
+  }
+}
+
+// Make toggleUserStatus global for onclick elements
+window.toggleUserStatus = toggleUserStatus;

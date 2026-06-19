@@ -107,7 +107,7 @@
           <span class="nav-icon">📈</span>
           <span class="nav-text">Analysis</span>
         </button>
-        <button class="nav-item" data-tab="settings" onclick="window.location.href='/settings.html'">
+        <button class="nav-item" data-tab="settings">
           <span class="nav-icon">⚙️</span>
           <span class="nav-text">Settings</span>
         </button>
@@ -567,6 +567,47 @@
 
       <!-- TAB 7: SETTINGS -->
       <section id="tab-settings" class="tab-panel">
+        <!-- Live Team Status Panel -->
+        <div id="admin-management-panel" class="panel-card hidden" style="margin-bottom: 24px;">
+          <h2>Live Team Status Panel (Admin Operations)</h2>
+          <p class="card-subtitle">Change member authorizations. Changing status to 'revoked' will trigger an instant SELF_DESTRUCT instruction to purge volatile session variables and local caches on their device.</p>
+          
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Username/Email</th>
+                  <th>Role</th>
+                  <th>Current Status</th>
+                  <th class="actions-col">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="team-table-body">
+                <tr>
+                  <td colspan="4" class="text-center py-4 text-muted">Loading team accounts...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Session Profile & Configuration Card -->
+        <div class="panel-card mb-4" id="session-profile-card">
+          <h2>Session Profile & Configuration</h2>
+          <p class="card-subtitle">Details about your active cryptographic session configuration.</p>
+          
+          <div class="dynamic-inputs-grid">
+            <div class="form-group">
+              <label>Current Account Role</label>
+              <input type="text" id="display-role" class="form-control" readonly style="opacity: 0.8; font-weight: bold;">
+            </div>
+            <div class="form-group">
+              <label>Cryptographic Vault Key Status</label>
+              <input type="text" id="display-key-status" class="form-control" readonly style="opacity: 0.8; color: var(--success); font-weight: bold;">
+            </div>
+          </div>
+        </div>
+
         <!-- Admin Credentials Settings Card -->
         <div class="panel-card" id="admin-credentials-card">
           <h2>Admin Credentials Settings</h2>
