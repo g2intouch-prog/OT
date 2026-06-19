@@ -5855,40 +5855,32 @@ function renderStockWidget(symbol) {
 
   const widgetHolder = document.getElementById('tradingview-widget-holder');
   if (widgetHolder) {
-    if (window.TradingView && typeof window.TradingView.widget === 'function') {
-      try {
-        new window.TradingView.widget({
-          "autosize": true,
-          "symbol": cleanSymbol,
-          "interval": "D",
-          "timezone": "Asia/Kolkata",
-          "theme": "dark",
-          "style": "1",
-          "locale": "en",
-          "enable_publishing": false,
-          "hide_side_toolbar": true,
-          "allow_symbol_change": true,
-          "container_id": "tradingview-widget-holder"
-        });
-      } catch (err) {
-        console.error("TradingView widget initialization failed:", err);
-        widgetHolder.innerHTML = `
-          <iframe 
-            src="https://s.tradingview.com/widgetembed/?symbol=${encodeURIComponent(cleanSymbol)}&interval=D&theme=dark&style=1&timezone=Asia%2FKolkata&locale=en" 
-            style="width:100%; height:100%; border:none; background:#0d1117;"
-            scrolling="no" 
-            allowtransparency="true">
-          </iframe>`;
-      }
-    } else {
-      widgetHolder.innerHTML = `
-        <iframe 
-          src="https://s.tradingview.com/widgetembed/?symbol=${encodeURIComponent(cleanSymbol)}&interval=D&theme=dark&style=1&timezone=Asia%2FKolkata&locale=en" 
-          style="width:100%; height:100%; border:none; background:#0d1117;"
-          scrolling="no" 
-          allowtransparency="true">
-        </iframe>`;
-    }
+    widgetHolder.innerHTML = '';
+    
+    const widgetDiv = document.createElement('div');
+    widgetDiv.className = 'tradingview-widget-container__widget';
+    widgetDiv.style.width = '100%';
+    widgetDiv.style.height = '100%';
+    widgetHolder.appendChild(widgetDiv);
+    
+    const script = document.createElement('script');
+    script.type = 'text/javascript';
+    script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
+    script.async = true;
+    script.textContent = JSON.stringify({
+      "autosize": true,
+      "symbol": cleanSymbol,
+      "interval": "D",
+      "timezone": "Asia/Kolkata",
+      "theme": "dark",
+      "style": "1",
+      "locale": "en",
+      "enable_publishing": false,
+      "allow_symbol_change": true,
+      "calendar": false,
+      "support_host": "https://www.tradingview.com"
+    });
+    widgetHolder.appendChild(script);
   }
   
   const dropdown = document.getElementById('stock-select-dropdown');
