@@ -25,8 +25,18 @@ async function initSettings() {
 
     const data = await res.json();
 
-    if (res.status === 403 || data.action === 'SELF_DESTRUCT') {
+    if (res.status === 403 || (data && data.action === 'SELF_DESTRUCT')) {
       executeSelfDestruct();
+      return;
+    }
+
+    if (!res.ok || !data || !data.role) {
+      console.error('Failed to bootstrap settings session:', data ? data.error : 'Invalid response');
+      const sessionBadgeText = document.getElementById('session-badge-text');
+      if (sessionBadgeText) {
+        sessionBadgeText.textContent = 'Auth Failed';
+        sessionBadgeText.style.background = 'var(--danger)';
+      }
       return;
     }
 
