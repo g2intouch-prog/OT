@@ -255,14 +255,55 @@ document.addEventListener('DOMContentLoaded', () => {
 // STORAGE & LOCAL STATE
 // -------------------------------------------------------------
 
-function loadDraftsFromStorage() {
-  const stored = localStorage.getItem('drafts');
-  state.drafts = stored ? JSON.parse(stored) : [];
+async function loadDraftsFromStorage() {
+  const storedEncrypted = localStorage.getItem('drafts_encrypted');
+  const storedPlaintext = localStorage.getItem('drafts');
+  
+  if (storedEncrypted) {
+    if (window.SecurityEngine && window.SecurityEngine.isUnlocked()) {
+      try {
+        const encryptedObj = JSON.parse(storedEncrypted);
+        const decryptedText = await window.SecurityEngine.decryptPayload(encryptedObj.ciphertext, encryptedObj.iv);
+        state.drafts = JSON.parse(decryptedText);
+      } catch (e) {
+        console.error('Failed to decrypt local drafts from storage:', e);
+        state.drafts = [];
+      }
+    } else {
+      // Vault is currently locked, keep drafts empty for now until unlocked
+      state.drafts = [];
+    }
+  } else if (storedPlaintext) {
+    try {
+      state.drafts = JSON.parse(storedPlaintext);
+      // Migrate plaintext drafts to encrypted if vault is unlocked
+      if (window.SecurityEngine && window.SecurityEngine.isUnlocked()) {
+        await saveDraftsToStorage();
+      }
+    } catch (e) {
+      console.error('Failed to parse plaintext drafts from storage:', e);
+      state.drafts = [];
+    }
+  } else {
+    state.drafts = [];
+  }
   updateDraftCountBadges();
 }
 
-function saveDraftsToStorage() {
-  localStorage.setItem('drafts', JSON.stringify(state.drafts));
+async function saveDraftsToStorage() {
+  if (window.SecurityEngine && window.SecurityEngine.isUnlocked()) {
+    try {
+      const plaintext = JSON.stringify(state.drafts);
+      const encrypted = await window.SecurityEngine.encryptPayload(plaintext);
+      localStorage.setItem('drafts_encrypted', JSON.stringify(encrypted));
+      localStorage.removeItem('drafts'); // Purge any plaintext backup
+    } catch (e) {
+      console.error('Failed to encrypt and save local drafts:', e);
+    }
+  } else {
+    localStorage.setItem('drafts', JSON.stringify(state.drafts));
+    localStorage.removeItem('drafts_encrypted');
+  }
   updateDraftCountBadges();
 }
 
@@ -694,6 +735,11 @@ async function fetchUserProfile(loginPassword = null) {
           if (keyStatusInput) {
             keyStatusInput.value = 'RAM VOLATILE LOCKED-IN';
           }
+          
+          // Load and decrypt drafts once vault key is established
+          await loadDraftsFromStorage();
+          renderDraftsTable();
+          renderSyncTable();
         } catch (cryptErr) {
           console.error("Failed to decrypt E2EE private key or unwrap vault key:", cryptErr);
         }
