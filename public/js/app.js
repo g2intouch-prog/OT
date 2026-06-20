@@ -62,10 +62,16 @@ async function bootstrapSession() {
 
     if (response.ok) {
       const data = await response.json();
-      if (data.action === 'PROCEED' && data.vaultKey) {
-        // Unlock client-side cryptographic RAM vault
-        await window.SecurityEngine.unlockVault(data.vaultKey);
-        console.log('Cryptographic boundary established.');
+      if (data.action === 'PROCEED') {
+        const savedPwd = sessionStorage.getItem('encryptionPassword');
+        if (savedPwd) {
+          await window.SecurityEngine.unlockVaultWithPassword(savedPwd);
+          console.log('Cryptographic boundary restored from sessionStorage.');
+        } else if (data.vaultKey) {
+          // Unlock client-side cryptographic RAM vault
+          await window.SecurityEngine.unlockVault(data.vaultKey);
+          console.log('Cryptographic boundary established.');
+        }
       }
     }
   } catch (err) {

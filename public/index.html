@@ -637,6 +637,29 @@
           </form>
         </div>
 
+        <!-- Rotate Encryption Key Card -->
+        <div class="panel-card mb-4" id="rotate-key-card">
+          <h2>🔄 Rotate Encryption Key</h2>
+          <p class="card-subtitle">Safely rotate your encryption key. This will decrypt all existing database records using your old password, re-encrypt them with your new password, and save them back to the database.</p>
+          <form id="key-rotation-form">
+            <div class="dynamic-inputs-grid">
+              <div class="form-group">
+                <label for="old-encryption-password-input">Old Encryption Password</label>
+                <input type="password" id="old-encryption-password-input" class="form-control" placeholder="Enter old password..." required autocomplete="new-password">
+              </div>
+              <div class="form-group">
+                <label for="new-encryption-password-input">New Encryption Password</label>
+                <input type="password" id="new-encryption-password-input" class="form-control" placeholder="Enter new password..." required autocomplete="new-password">
+              </div>
+            </div>
+            <div class="form-actions mt-4">
+              <button type="submit" id="rotate-key-btn" class="btn btn-warning">
+                <span>Rotate Password & Re-encrypt DB</span>
+              </button>
+            </div>
+          </form>
+        </div>
+
         <!-- Admin Credentials Settings Card -->
         <div class="panel-card" id="admin-credentials-card">
           <h2>Admin Credentials Settings</h2>

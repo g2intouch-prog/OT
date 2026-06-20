@@ -13,6 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       try {
         await window.SecurityEngine.unlockVaultWithPassword(pwd);
+        sessionStorage.setItem('encryptionPassword', pwd);
         
         // Update display fields
         const displayKeyStatus = document.getElementById('display-key-status');
@@ -34,6 +35,181 @@ document.addEventListener('DOMContentLoaded', () => {
         pwdInput.value = '';
       } catch (err) {
         alert('Failed to derive encryption key: ' + err.message);
+      }
+    });
+  }
+
+  // Key Rotation Form Submit
+  const keyRotationForm = document.getElementById('key-rotation-form');
+  if (keyRotationForm) {
+    keyRotationForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const oldPwdInput = document.getElementById('old-encryption-password-input');
+      const newPwdInput = document.getElementById('new-encryption-password-input');
+      if (!oldPwdInput || !newPwdInput) return;
+      const oldPwd = oldPwdInput.value;
+      const newPwd = newPwdInput.value;
+      if (!oldPwd || !newPwd) return;
+
+      if (oldPwd === newPwd) {
+        alert('New password must be different from the old password.');
+        return;
+      }
+
+      const rotateBtn = document.getElementById('rotate-key-btn');
+      if (rotateBtn) rotateBtn.disabled = true;
+
+      try {
+        const token = sessionStorage.getItem('authToken');
+        const fetchRes = await fetch('/api/entries', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!fetchRes.ok) throw new Error('Failed to retrieve database records for rotation.');
+        const records = await fetchRes.json();
+
+        // Cryptographic helpers
+        const encoder = new TextEncoder();
+        const decoder = new TextDecoder();
+
+        async function deriveTempKey(pwd) {
+          const rawData = encoder.encode(pwd);
+          const hashBuffer = await window.crypto.subtle.digest('SHA-256', rawData);
+          return window.crypto.subtle.importKey(
+            'raw',
+            hashBuffer,
+            { name: 'AES-GCM', length: 256 },
+            false,
+            ['encrypt', 'decrypt']
+          );
+        }
+
+        function base64ToUint8Array(base64) {
+          let normalized = base64.replace(/-/g, '+').replace(/_/g, '/');
+          while (normalized.length % 4) normalized += '=';
+          const binaryString = atob(normalized);
+          const len = binaryString.length;
+          const bytes = new Uint8Array(len);
+          for (let i = 0; i < len; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+          }
+          return bytes;
+        }
+
+        function uint8ArrayToBase64(uint8Array) {
+          let binary = '';
+          const len = uint8Array.byteLength;
+          for (let i = 0; i < len; i++) {
+            binary += String.fromCharCode(uint8Array[i]);
+          }
+          return btoa(binary);
+        }
+
+        async function decryptWithKey(key, ciphertextB64, ivB64) {
+          const ciphertext = base64ToUint8Array(ciphertextB64);
+          const iv = base64ToUint8Array(ivB64);
+          const decryptedBuffer = await window.crypto.subtle.decrypt(
+            { name: 'AES-GCM', iv: iv },
+            key,
+            ciphertext
+          );
+          return decoder.decode(decryptedBuffer);
+        }
+
+        async function encryptWithKey(key, plainText) {
+          const iv = window.crypto.getRandomValues(new Uint8Array(12));
+          const encodedData = encoder.encode(plainText);
+          const ciphertextBuffer = await window.crypto.subtle.encrypt(
+            { name: 'AES-GCM', iv: iv },
+            key,
+            encodedData
+          );
+          return {
+            ciphertext: uint8ArrayToBase64(new Uint8Array(ciphertextBuffer)),
+            iv: uint8ArrayToBase64(iv)
+          };
+        }
+
+        async function batchPromises(promisesCreators, limit) {
+          const results = [];
+          const executing = [];
+          for (const creator of promisesCreators) {
+            const p = creator().then(res => {
+              executing.splice(executing.indexOf(p), 1);
+              return res;
+            });
+            results.push(p);
+            executing.push(p);
+            if (executing.length >= limit) {
+              await Promise.race(executing);
+            }
+          }
+          return Promise.all(results);
+        }
+
+        // 2. Derive old and new keys
+        const oldKey = await deriveTempKey(oldPwd);
+        const newKey = await deriveTempKey(newPwd);
+
+        // 3. Decrypt and re-encrypt
+        const rotatedRecords = [];
+        for (const rec of records) {
+          const encData = rec.data && rec.data.ciphertext ? rec.data : null;
+          if (encData) {
+            try {
+              const plainText = await decryptWithKey(oldKey, encData.ciphertext, encData.iv);
+              const reEncrypted = await encryptWithKey(newKey, plainText);
+              rotatedRecords.push({
+                id: rec.id,
+                date: rec.date,
+                data: reEncrypted
+              });
+            } catch (decErr) {
+              console.error('Decryption failed for record ID:', rec.id, decErr);
+              throw new Error(`Decryption failed for record ID ${rec.id}. Please verify your old password.`);
+            }
+          }
+        }
+
+        // 4. Update the server in batches of 5 parallel requests
+        const updatePromises = rotatedRecords.map(item => async () => {
+          const res = await fetch(`/api/entries/update/${item.id}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              date: item.date,
+              data: item.data
+            })
+          });
+          if (!res.ok) {
+            throw new Error(`Failed to update record ID ${item.id} on the server.`);
+          }
+        });
+
+        await batchPromises(updatePromises, 5);
+
+        // 5. Unlock vault with new key & refresh UI
+        await window.SecurityEngine.unlockVaultWithPassword(newPwd);
+        sessionStorage.setItem('encryptionPassword', newPwd);
+
+        const displayKeyStatus = document.getElementById('display-key-status');
+        if (displayKeyStatus) {
+          displayKeyStatus.value = 'RAM VOLATILE LOCKED-IN';
+        }
+
+        if (typeof fetchDatabaseRecords === 'function') {
+          await fetchDatabaseRecords();
+        }
+
+        alert(`Successfully rotated password and re-encrypted ${rotatedRecords.length} records!`);
+        oldPwdInput.value = '';
+        newPwdInput.value = '';
+      } catch (err) {
+        alert('Rotation failed: ' + err.message);
+      } finally {
+        if (rotateBtn) rotateBtn.disabled = false;
       }
     });
   }
