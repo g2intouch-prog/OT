@@ -379,10 +379,18 @@ async function handleLogin(e) {
     }
 
     try {
+      const keypair = await window.SecurityEngine.generateKeyPair();
+      const encPrivate = await window.SecurityEngine.encryptPrivateKey(keypair.privateKey, password);
+
       const response = await fetch('/api/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
+        body: JSON.stringify({ 
+          username, 
+          password, 
+          publicKey: keypair.publicKeyB64,
+          encryptedPrivateKey: JSON.stringify(encPrivate)
+        })
       });
 
       if (response.ok) {
@@ -424,7 +432,8 @@ async function handleLogin(e) {
         sessionStorage.setItem('authToken', data.token);
         state.loginTempToken = null;
         
-        await fetchUserProfile();
+        await fetchUserProfile(state.loginTempPassword);
+        state.loginTempPassword = null;
         closeLoginModal();
         
         renderFormCreator();
@@ -484,6 +493,7 @@ async function handleLogin(e) {
       
       if (data.requireOtp) {
         // Switch to OTP step
+        state.loginTempPassword = password;
         state.loginTempToken = data.tempToken;
         const credentialsSec = document.getElementById('login-credentials-section');
         if (credentialsSec) credentialsSec.classList.add('hidden');
@@ -501,7 +511,7 @@ async function handleLogin(e) {
         state.authToken = data.token;
         sessionStorage.setItem('authToken', data.token);
         
-        await fetchUserProfile();
+        await fetchUserProfile(password);
         closeLoginModal();
         
         renderFormCreator();
@@ -658,7 +668,7 @@ function updateAuthUI() {
   if (debugBtn) debugBtn.style.display = 'flex';
 }
 
-async function fetchUserProfile() {
+async function fetchUserProfile(loginPassword = null) {
   const token = sessionStorage.getItem('authToken');
   if (!token) return;
   try {
@@ -670,6 +680,24 @@ async function fetchUserProfile() {
       state.userRole = data.role;
       updateAuthUI();
       updateSettingsRoleCards(data.role);
+
+      // E2EE Asymmetric Key Unwrapping
+      const pwd = loginPassword || sessionStorage.getItem('encryptionPassword');
+      if (pwd && data.encryptedPrivateKey && data.wrappedVaultKey) {
+        try {
+          const encPrivObj = JSON.parse(data.encryptedPrivateKey);
+          const privateKey = await window.SecurityEngine.decryptPrivateKey(encPrivObj.ciphertext, encPrivObj.iv, pwd);
+          await window.SecurityEngine.unwrapVaultKey(data.wrappedVaultKey, privateKey);
+          sessionStorage.setItem('encryptionPassword', pwd);
+          
+          const keyStatusInput = document.getElementById('display-key-status');
+          if (keyStatusInput) {
+            keyStatusInput.value = 'RAM VOLATILE LOCKED-IN';
+          }
+        } catch (cryptErr) {
+          console.error("Failed to decrypt E2EE private key or unwrap vault key:", cryptErr);
+        }
+      }
     }
   } catch (err) {
     console.error('Failed to fetch user profile:', err);
@@ -6713,6 +6741,7 @@ async function loadTeamAccounts() {
     }
 
     const { users } = await res.json();
+    window.teamUsersCache = users;
     tbody.innerHTML = '';
 
     users.forEach(user => {
@@ -6787,6 +6816,24 @@ async function toggleUserStatus(targetUserId, newStatus) {
     });
 
     if (res.ok) {
+      if (newStatus === 'active' && window.teamUsersCache) {
+        const targetUser = window.teamUsersCache.find(u => u.id === targetUserId);
+        if (targetUser && targetUser.public_key) {
+          try {
+            const wrappedKey = await window.SecurityEngine.wrapVaultKey(targetUser.public_key);
+            await fetch('/api/admin/save-wrapped-key', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify({ userId: targetUserId, wrappedVaultKey: wrappedKey })
+            });
+          } catch (wrapErr) {
+            console.error('Failed to wrap vault key for user:', wrapErr);
+          }
+        }
+      }
       await loadTeamAccounts();
     } else {
       const err = await res.json();
@@ -6813,6 +6860,24 @@ async function promoteUser(targetUserId, newRole) {
     });
 
     if (res.ok) {
+      if (window.teamUsersCache) {
+        const targetUser = window.teamUsersCache.find(u => u.id === targetUserId);
+        if (targetUser && targetUser.public_key) {
+          try {
+            const wrappedKey = await window.SecurityEngine.wrapVaultKey(targetUser.public_key);
+            await fetch('/api/admin/save-wrapped-key', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify({ userId: targetUserId, wrappedVaultKey: wrappedKey })
+            });
+          } catch (wrapErr) {
+            console.error('Failed to wrap vault key for user:', wrapErr);
+          }
+        }
+      }
       alert(`User role successfully changed to ${newRole}!`);
       await loadTeamAccounts();
     } else {

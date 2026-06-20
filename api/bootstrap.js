@@ -31,6 +31,9 @@ module.exports = async (req, res) => {
       action: 'PROCEED',
       vaultKey,
       role: user.role,
+      publicKey: user.public_key,
+      encryptedPrivateKey: user.encrypted_private_key,
+      wrappedVaultKey: user.wrapped_vault_key,
       showTutorial
     });
   } catch (err) {

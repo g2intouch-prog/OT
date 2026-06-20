@@ -634,12 +634,12 @@ app.post('/api/login/totp-enable', async (req, res) => {
 
 // New User Registration Route
 app.post('/api/register', async (req, res) => {
-  const { username, password } = req.body;
+  const { username, password, publicKey, encryptedPrivateKey } = req.body;
   if (!username || !password) {
     return res.status(400).json({ error: 'Username and Password are required.' });
   }
   try {
-    const newUser = await userDb.createUser(username, password);
+    const newUser = await userDb.createUser(username, password, publicKey, encryptedPrivateKey);
     res.json({ success: true, user: { id: newUser.id, username: newUser.username } });
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -658,6 +658,24 @@ app.post('/api/admin/promote', checkAuth, async (req, res) => {
       return res.status(401).json({ error: 'Unauthorized.' });
     }
     await userDb.updateUserRole(session.user_id, userId, role);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Admin save wrapped key for a user route
+app.post('/api/admin/save-wrapped-key', checkAuth, async (req, res) => {
+  const { userId, wrappedVaultKey } = req.body;
+  if (!userId || !wrappedVaultKey) {
+    return res.status(400).json({ error: 'userId and wrappedVaultKey are required.' });
+  }
+  try {
+    const session = await userDb.verifyUserSession(req);
+    if (!session) {
+      return res.status(401).json({ error: 'Unauthorized.' });
+    }
+    await userDb.updateUserWrappedKey(session.user_id, userId, wrappedVaultKey);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });

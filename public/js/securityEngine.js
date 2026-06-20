@@ -44,7 +44,7 @@ const SecurityEngine = (function () {
           'raw',
           rawKey,
           { name: 'AES-GCM', length: 256 },
-          false, // extractable: false (security enforcement: key cannot be exported or read from JavaScript memory once loaded)
+          true, // extractable: true (for key wrapping/unwrapping)
           ['encrypt', 'decrypt']
         );
         console.log('Vault loaded successfully in RAM.');
@@ -126,7 +126,7 @@ const SecurityEngine = (function () {
           'raw',
           hashBuffer,
           { name: 'AES-GCM', length: 256 },
-          false, // extractable: false
+          true, // extractable: true (for key wrapping/unwrapping)
           ['encrypt', 'decrypt']
         );
         console.log('Vault loaded successfully in RAM using password-derived key.');
@@ -134,6 +134,183 @@ const SecurityEngine = (function () {
       } catch (err) {
         console.error('Failed to unlock vault with password:', err);
         throw new Error('Cryptographic vault initialization failed.');
+      }
+    },
+
+    /**
+     * Generates a new RSA-OAEP keypair and returns base64 public key and raw CryptoKey private key.
+     */
+    async generateKeyPair() {
+      try {
+        const keyPair = await window.crypto.subtle.generateKey(
+          {
+            name: "RSA-OAEP",
+            modulusLength: 2048,
+            publicExponent: new Uint8Array([1, 0, 1]),
+            hash: "SHA-256"
+          },
+          true,
+          ["encrypt", "decrypt"]
+        );
+
+        const exportedPublic = await window.crypto.subtle.exportKey("spki", keyPair.publicKey);
+        const publicKeyB64 = uint8ArrayToBase64(new Uint8Array(exportedPublic));
+
+        return {
+          publicKeyB64,
+          privateKey: keyPair.privateKey
+        };
+      } catch (err) {
+        console.error("Failed to generate key pair:", err);
+        throw err;
+      }
+    },
+
+    /**
+     * Encrypts the private key with a password-derived key (KEK) using AES-GCM.
+     */
+    async encryptPrivateKey(privateKey, password) {
+      try {
+        const exportedPrivate = await window.crypto.subtle.exportKey("pkcs8", privateKey);
+        const encoder = new TextEncoder();
+        const rawData = encoder.encode(password);
+        const hashBuffer = await window.crypto.subtle.digest('SHA-256', rawData);
+        
+        const kek = await window.crypto.subtle.importKey(
+          'raw',
+          hashBuffer,
+          { name: 'AES-GCM', length: 256 },
+          false,
+          ['encrypt']
+        );
+
+        const iv = window.crypto.getRandomValues(new Uint8Array(12));
+        const encryptedBuffer = await window.crypto.subtle.encrypt(
+          { name: 'AES-GCM', iv: iv },
+          kek,
+          exportedPrivate
+        );
+
+        return {
+          ciphertext: uint8ArrayToBase64(new Uint8Array(encryptedBuffer)),
+          iv: uint8ArrayToBase64(iv)
+        };
+      } catch (err) {
+        console.error("Failed to encrypt private key:", err);
+        throw err;
+      }
+    },
+
+    /**
+     * Decrypts and imports the private key using the password-derived key (KEK).
+     */
+    async decryptPrivateKey(encryptedB64, ivB64, password) {
+      try {
+        const ciphertext = base64ToUint8Array(encryptedB64);
+        const iv = base64ToUint8Array(ivB64);
+        const encoder = new TextEncoder();
+        const rawData = encoder.encode(password);
+        const hashBuffer = await window.crypto.subtle.digest('SHA-256', rawData);
+        
+        const kek = await window.crypto.subtle.importKey(
+          'raw',
+          hashBuffer,
+          { name: 'AES-GCM', length: 256 },
+          false,
+          ['decrypt']
+        );
+
+        const decryptedBuffer = await window.crypto.subtle.decrypt(
+          { name: 'AES-GCM', iv: iv },
+          kek,
+          ciphertext
+        );
+
+        return window.crypto.subtle.importKey(
+          "pkcs8",
+          decryptedBuffer,
+          { name: "RSA-OAEP", hash: "SHA-256" },
+          false,
+          ["decrypt"]
+        );
+      } catch (err) {
+        console.error("Failed to decrypt private key:", err);
+        throw err;
+      }
+    },
+
+    /**
+     * Asymmetrically wraps (encrypts) the active symmetric key using a recipient's public key.
+     */
+    async wrapVaultKey(recipientPublicKeyB64) {
+      if (!memoryOnlyKey) {
+        throw new Error('Vault is locked. Cannot wrap key.');
+      }
+      try {
+        const rawPubKey = base64ToUint8Array(recipientPublicKeyB64);
+        const pubKey = await window.crypto.subtle.importKey(
+          "spki",
+          rawPubKey,
+          { name: "RSA-OAEP", hash: "SHA-256" },
+          false,
+          ["wrapKey"]
+        );
+
+        const wrappedBuffer = await window.crypto.subtle.wrapKey(
+          "raw",
+          memoryOnlyKey,
+          pubKey,
+          { name: "RSA-OAEP" }
+        );
+
+        return uint8ArrayToBase64(new Uint8Array(wrappedBuffer));
+      } catch (err) {
+        console.error("Failed to wrap vault key:", err);
+        throw err;
+      }
+    },
+
+    /**
+     * Unwraps a wrapped master key using the private key and sets it active.
+     */
+    async unwrapVaultKey(wrappedKeyB64, privateKey) {
+      try {
+        const wrappedBuffer = base64ToUint8Array(wrappedKeyB64);
+        memoryOnlyKey = await window.crypto.subtle.unwrapKey(
+          "raw",
+          wrappedBuffer,
+          privateKey,
+          { name: "RSA-OAEP" },
+          { name: "AES-GCM", length: 256 },
+          true, // extractable
+          ["encrypt", "decrypt"]
+        );
+        console.log("Vault key successfully unwrapped and loaded in RAM.");
+        return true;
+      } catch (err) {
+        console.error("Failed to unwrap vault key:", err);
+        throw err;
+      }
+    },
+
+    /**
+     * Generates a new random symmetric vault key in RAM and returns its base64.
+     */
+    async generateRandomVaultKey() {
+      try {
+        const rawKey = window.crypto.getRandomValues(new Uint8Array(32));
+        memoryOnlyKey = await window.crypto.subtle.importKey(
+          'raw',
+          rawKey,
+          { name: 'AES-GCM', length: 256 },
+          true,
+          ['encrypt', 'decrypt']
+        );
+        console.log('New random master vault key generated.');
+        return uint8ArrayToBase64(rawKey);
+      } catch (err) {
+        console.error("Failed to generate random vault key:", err);
+        throw err;
       }
     },
 
