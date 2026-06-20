@@ -1432,3 +1432,40 @@ body.light-mode .top-addresses-list li {
   border-color: #d0d7de;
   color: #24292f;
 }
+
+/* Edit Modal Custom Compact Styles */
+#edit-modal .modal-card {
+  max-width: 900px !important;
+  width: 95%;
+}
+
+#edit-modal .modal-body {
+  padding: 16px 20px;
+}
+
+#edit-modal .dynamic-inputs-grid {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+#edit-modal .form-group {
+  gap: 4px;
+}
+
+#edit-modal .form-group label {
+  font-size: 0.75rem;
+  margin-bottom: 2px;
+}
+
+#edit-modal .form-control, 
+#edit-modal .form-select {
+  padding: 8px 12px;
+  font-size: 0.825rem;
+}
+
+#edit-modal .modal-actions {
+  margin-top: 16px !important;
+  padding-top: 12px;
+}
+
