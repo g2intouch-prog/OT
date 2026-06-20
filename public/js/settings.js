@@ -25,6 +25,11 @@ document.addEventListener('DOMContentLoaded', () => {
           renderTutorials();
         }
 
+        // Fetch database records using the new key
+        if (typeof fetchDatabaseRecords === 'function') {
+          await fetchDatabaseRecords();
+        }
+
         alert('Symmetric encryption key derived and vault unlocked successfully!');
         pwdInput.value = '';
       } catch (err) {
