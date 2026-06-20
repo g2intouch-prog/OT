@@ -2189,7 +2189,7 @@ async function deleteRecord(rec, rowNum) {
     }
   }
 
-  const displayMsg = `Are you sure you want to permanently delete this record?\n\nRow: ${rowNum}\nDate: ${rec.date || 'N/A'}${info ? '\n' + info : ''}`;
+  const displayMsg = `Are you sure you want to delete this record and move it to the Trash Bin?\n\nRow: ${rowNum}\nDate: ${rec.date || 'N/A'}${info ? '\n' + info : ''}`;
   if (!confirm(displayMsg)) return;
 
   try {
@@ -2201,6 +2201,17 @@ async function deleteRecord(rec, rowNum) {
     });
 
     if (response.ok) {
+      // Add deleted record to the Trash Bin
+      const trashItem = {
+        localId: Date.now(),
+        date: rec.date,
+        verified: false,
+        data: { ...rec.data }
+      };
+      state.deletedDrafts.push(trashItem);
+      await saveDeletedDraftsToStorage();
+      renderDeletedDraftsTable();
+
       fetchDatabaseRecords();
     } else {
       alert('Error deleting entry');
