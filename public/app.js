@@ -1532,6 +1532,9 @@ async function pushSelectedDrafts() {
   const toPush = state.drafts.filter(d => d.verified);
   if (toPush.length === 0) return;
 
+  DOM.pushSelectedBtn.disabled = true;
+  DOM.pushSelectedBtn.textContent = 'Pushing...';
+
   try {
     // Encrypt drafts on-the-fly before transmission
     const encryptedToPush = [];
@@ -2775,30 +2778,34 @@ function checkDuplicates(records) {
       const r1 = records[i];
       const r2 = records[j];
       
-      const name1 = (r1.data.name || '').toString().trim().toLowerCase();
-      const name2 = (r2.data.name || '').toString().trim().toLowerCase();
-      
-      const time1 = (r1.data.timeob || '').toString().trim().toLowerCase();
-      const time2 = (r2.data.timeob || '').toString().trim().toLowerCase();
+      if (!r1.data || !r2.data) continue;
 
-      const date1 = r1.date || '';
-      const date2 = r2.date || '';
-
-      if (date1 === date2 && name1 === name2 && name1 !== '') {
-        const wo1 = (r1.data.wo || '').toString().trim().toLowerCase();
-        const wo2 = (r2.data.wo || '').toString().trim().toLowerCase();
-        
-        const addr1 = (r1.data.address || '').toString().trim().toLowerCase();
-        const addr2 = (r2.data.address || '').toString().trim().toLowerCase();
-
-        const matchTime = (time1 === time2 && time1 !== '');
-        const matchWo = (wo1 === wo2 && wo1 !== '');
-        const matchAddr = (addr1 === addr2 && addr1 !== '');
-
-        if (matchTime || matchWo || matchAddr) {
+      // 1. If encrypted, compare ciphertexts directly
+      if (r1.data.ciphertext && r2.data.ciphertext) {
+        if (r1.data.ciphertext === r2.data.ciphertext) {
           duplicates.add(r1.id);
           duplicates.add(r2.id);
         }
+        continue;
+      }
+
+      // 2. If plaintext/decrypted, compare core schema fields (excluding serials)
+      let isIdentical = true;
+      let hasData = false;
+      state.schema.forEach(field => {
+        if (field.id !== 'annual_serial' && field.id !== 'monthly_sl_no') {
+          const val1 = (r1.data[field.id] || '').toString().trim().toLowerCase();
+          const val2 = (r2.data[field.id] || '').toString().trim().toLowerCase();
+          if (val1 !== '') hasData = true;
+          if (val1 !== val2) {
+            isIdentical = false;
+          }
+        }
+      });
+
+      if (isIdentical && hasData && (r1.date === r2.date)) {
+        duplicates.add(r1.id);
+        duplicates.add(r2.id);
       }
     }
   }
