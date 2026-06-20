@@ -7000,12 +7000,8 @@ async function renderCryptoVerificationList() {
       leftPre.style.border = '1px solid #30363d';
       leftPre.style.whiteSpace = 'pre-wrap';
       leftPre.style.wordBreak = 'break-all';
-      if (rec.encryptedData && rec.encryptedData.ciphertext) {
-        leftPre.textContent = rec.encryptedData.ciphertext;
-        leftPre.style.color = '#8b949e';
-      } else {
-        leftPre.textContent = JSON.stringify(rec.encryptedData || rec.data, null, 2);
-      }
+      leftPre.textContent = JSON.stringify(rec.encryptedData || rec.data);
+      leftPre.style.color = '#8b949e';
 
       leftHalf.appendChild(leftHeader);
       leftHalf.appendChild(leftPre);
