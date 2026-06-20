@@ -412,20 +412,20 @@ async function checkConnectivity() {
 
 function updateConnectivityUI() {
   if (state.isOnline) {
-    DOM.connectionBadge.className = 'badge online';
-    DOM.connectionText.textContent = 'Online';
-    DOM.syncNetworkWarning.className = 'alert-box alert-warning hidden';
-    DOM.saveSchemaBtn.disabled = !state.isAuthenticated;
+    if (DOM.connectionBadge) DOM.connectionBadge.className = 'badge online';
+    if (DOM.connectionText) DOM.connectionText.textContent = 'Online';
+    if (DOM.syncNetworkWarning) DOM.syncNetworkWarning.className = 'alert-box alert-warning hidden';
+    if (DOM.saveSchemaBtn) DOM.saveSchemaBtn.disabled = !state.isAuthenticated;
     
     // Enable/disable push button based on drafts count
     updatePushSelectedBtnState();
   } else {
-    DOM.connectionBadge.className = 'badge offline';
-    DOM.connectionText.textContent = 'Offline';
-    DOM.syncNetworkWarning.className = 'alert-box alert-danger';
-    DOM.syncWarningText.innerHTML = `⚠️ Offline: Reconnect to the internet or hosted server to push drafts to the database.`;
-    DOM.saveSchemaBtn.disabled = true;
-    DOM.pushSelectedBtn.disabled = true;
+    if (DOM.connectionBadge) DOM.connectionBadge.className = 'badge offline';
+    if (DOM.connectionText) DOM.connectionText.textContent = 'Offline';
+    if (DOM.syncNetworkWarning) DOM.syncNetworkWarning.className = 'alert-box alert-danger';
+    if (DOM.syncWarningText) DOM.syncWarningText.innerHTML = `⚠️ Offline: Reconnect to the internet or hosted server to push drafts to the database.`;
+    if (DOM.saveSchemaBtn) DOM.saveSchemaBtn.disabled = true;
+    if (DOM.pushSelectedBtn) DOM.pushSelectedBtn.disabled = true;
   }
 }
 

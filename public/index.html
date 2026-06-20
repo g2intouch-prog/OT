@@ -177,7 +177,12 @@
               <h2>Current Local Drafts</h2>
               <p class="card-subtitle" style="margin-bottom: 0;">Review, select, and push offline draft entries to the central database.</p>
             </div>
-            <span id="draft-summary-text" class="text-muted">No draft entries</span>
+            <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+              <div id="sync-network-warning" class="alert-box alert-danger" style="margin: 0;">
+                <span id="sync-warning-text">⚠️ Connected to server: Checking connection...</span>
+              </div>
+              <span id="draft-summary-text" class="text-muted">No draft entries</span>
+            </div>
           </div>
 
           <div class="sync-actions-toolbar mt-3">
