@@ -60,11 +60,16 @@ const dbProxy = {
     }
     
     if (normalizedText.startsWith("select * from records")) {
-      let sorted = [...memoryRecords];
-      if (normalizedText.includes("order by date desc")) {
-        sorted.sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
+      let filtered = [...memoryRecords];
+      if (normalizedText.includes("deleted = 1")) {
+        filtered = filtered.filter(r => r.deleted === 1);
+      } else {
+        filtered = filtered.filter(r => r.deleted === 0 || r.deleted === undefined || r.deleted === null);
       }
-      return { rows: sorted, rowCount: sorted.length };
+      if (normalizedText.includes("order by date desc")) {
+        filtered.sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
+      }
+      return { rows: filtered, rowCount: filtered.length };
     }
     
     if (normalizedText.startsWith("insert into records")) {
@@ -81,13 +86,29 @@ const dbProxy = {
         verified = params[1];
         data = params[2];
       }
-      const newRec = { id, created_at: new Date().toISOString(), verified, date, data };
+      const newRec = { id, created_at: new Date().toISOString(), verified, date, data, deleted: 0 };
       memoryRecords.push(newRec);
       return { rows: [newRec], rowCount: 1 };
     }
     
     if (normalizedText.startsWith("update records set")) {
-      if (normalizedText.includes("verified = $1")) {
+      if (normalizedText.includes("deleted = 1")) {
+        const id = parseInt(params[0]);
+        const rec = memoryRecords.find(r => r.id === id);
+        if (rec) {
+          rec.deleted = 1;
+          return { rows: [rec], rowCount: 1 };
+        }
+        return { rows: [], rowCount: 0 };
+      } else if (normalizedText.includes("deleted = 0")) {
+        const id = parseInt(params[0]);
+        const rec = memoryRecords.find(r => r.id === id);
+        if (rec) {
+          rec.deleted = 0;
+          return { rows: [rec], rowCount: 1 };
+        }
+        return { rows: [], rowCount: 0 };
+      } else if (normalizedText.includes("verified = $1")) {
         const verified = params[0];
         const id = parseInt(params[1]);
         const rec = memoryRecords.find(r => r.id === id);
@@ -245,6 +266,12 @@ async function initializeDatabase() {
         data TEXT
       )
     `);
+    
+    try {
+      await db.query("ALTER TABLE records ADD COLUMN deleted INTEGER DEFAULT 0");
+    } catch (colErr) {
+      // Column might already exist, safe to ignore
+    }
 
     const schemaRes = await db.query("SELECT value FROM config WHERE key = 'schema'");
     if (schemaRes.rowCount === 0) {
@@ -275,7 +302,7 @@ async function initializeDatabase() {
 
 // Recalculate and re-serialize all records sequentially (sorted by date and TimeOB)
 async function recalculateSerials() {
-  const { rows: records } = await db.query("SELECT * FROM records");
+  const { rows: records } = await db.query("SELECT * FROM records WHERE deleted = 0 OR deleted IS NULL");
 
   const parsedRecords = records.map(row => {
     let dataObj = {};
@@ -757,7 +784,7 @@ app.post('/api/schema', checkAuth, async (req, res) => {
 // Get all entries
 app.get('/api/entries', async (req, res) => {
   try {
-    const { rows } = await db.query("SELECT * FROM records ORDER BY date DESC, id DESC");
+    const { rows } = await db.query("SELECT * FROM records WHERE deleted = 0 OR deleted IS NULL ORDER BY date DESC, id DESC");
     const parsedRows = rows.map(row => ({
       ...row,
       data: typeof row.data === 'string' ? JSON.parse(row.data) : row.data
@@ -823,8 +850,56 @@ app.post('/api/entries/verify/:id', checkAuth, async (req, res) => {
   }
 });
 
-// Delete a record
+// Soft-delete a record (move to trash)
 app.post('/api/entries/delete/:id', checkAuth, async (req, res) => {
+  const id = req.params.id;
+
+  try {
+    const result = await db.query("UPDATE records SET deleted = 1 WHERE id = $1", [id]);
+    if (result.rowCount === 0) {
+      res.status(404).json({ error: 'Record not found' });
+    } else {
+      await recalculateSerials();
+      res.json({ success: true });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get all soft-deleted records (trash bin)
+app.get('/api/entries/trash', checkAuth, async (req, res) => {
+  try {
+    const { rows } = await db.query("SELECT * FROM records WHERE deleted = 1 ORDER BY date DESC, id DESC");
+    const parsedRows = rows.map(row => ({
+      ...row,
+      data: typeof row.data === 'string' ? JSON.parse(row.data) : row.data
+    }));
+    res.json(parsedRows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Restore a soft-deleted record
+app.post('/api/entries/restore/:id', checkAuth, async (req, res) => {
+  const id = req.params.id;
+
+  try {
+    const result = await db.query("UPDATE records SET deleted = 0 WHERE id = $1", [id]);
+    if (result.rowCount === 0) {
+      res.status(404).json({ error: 'Record not found' });
+    } else {
+      await recalculateSerials();
+      res.json({ success: true });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Permanently delete a record
+app.post('/api/entries/delete-permanent/:id', checkAuth, async (req, res) => {
   const id = req.params.id;
 
   try {
@@ -832,7 +907,6 @@ app.post('/api/entries/delete/:id', checkAuth, async (req, res) => {
     if (result.rowCount === 0) {
       res.status(404).json({ error: 'Record not found' });
     } else {
-      await recalculateSerials();
       res.json({ success: true });
     }
   } catch (err) {

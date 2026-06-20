@@ -6,6 +6,7 @@ const state = {
   schema: [],          // Active fields list
   drafts: [],          // Local drafts stored in localStorage
   deletedDrafts: [],   // Trash bin for deleted drafts
+  deletedDbRecords: [],// Soft-deleted database records fetched from server
   dbRecords: [],       // Records fetched from SQLite
   activeTab: 'data-entry',
   formCreatorSchema: [], // Working copy of schema inside Form Creator
@@ -639,6 +640,7 @@ function handleLogout() {
   state.isAuthenticated = false;
   state.authToken = null;
   state.userRole = null;
+  state.deletedDbRecords = [];
   sessionStorage.removeItem('authToken');
   updateAuthUI();
   resetSettingsRoleCards();
@@ -646,6 +648,7 @@ function handleLogout() {
   // Refresh views
   renderFormCreator();
   renderDBTable();
+  renderDeletedDraftsTable();
   resetTotpUI();
 }
 
@@ -1014,6 +1017,11 @@ async function fetchDatabaseRecords() {
       renderDBTable();
       populateYearFilters();
 
+      // Fetch deleted database records to keep Trash Bin synchronized
+      if (state.isAuthenticated) {
+        await fetchDeletedDbRecords();
+      }
+
       // Update serial numbers on data entry form once records are loaded
       const dateInput = document.getElementById('input-date');
       if (dateInput) {
@@ -1028,6 +1036,38 @@ async function fetchDatabaseRecords() {
     }
   } catch (err) {
     console.error('Error fetching entries', err);
+  }
+}
+
+async function fetchDeletedDbRecords() {
+  if (!state.isOnline || !state.isAuthenticated) return;
+  try {
+    const response = await fetch('/api/entries/trash', {
+      headers: {
+        'Authorization': `Bearer ${state.authToken}`
+      }
+    });
+    if (response.ok) {
+      state.deletedDbRecords = await response.json();
+      
+      // Decrypt deleted db records
+      if (window.SecurityEngine && window.SecurityEngine.isUnlocked()) {
+        for (const rec of state.deletedDbRecords) {
+          if (rec.data && rec.data.ciphertext && rec.data.iv) {
+            try {
+              const decText = await window.SecurityEngine.decryptPayload(rec.data.ciphertext, rec.data.iv);
+              rec.encryptedData = rec.data;
+              rec.data = JSON.parse(decText);
+            } catch (e) {
+              console.warn('Failed to decrypt deleted record', rec.id, e);
+            }
+          }
+        }
+      }
+      renderDeletedDraftsTable();
+    }
+  } catch (err) {
+    console.error('Error fetching deleted database records:', err);
   }
 }
 
@@ -1711,8 +1751,21 @@ function renderDeletedDraftsTable() {
   actionsTh.textContent = 'Actions';
   DOM.deletedDraftsTableHeader.appendChild(actionsTh);
 
-  const count = state.deletedDrafts.length;
-  DOM.deletedDraftsSummaryText.textContent = count > 0 ? `${count} deleted drafts in trash` : 'Trash bin is empty';
+  // Combine local drafts and database records
+  const localTrash = state.deletedDrafts.map((d, index) => ({
+    ...d,
+    type: 'draft',
+    index: index
+  }));
+  const dbTrash = (state.deletedDbRecords || []).map((r, index) => ({
+    ...r,
+    type: 'db',
+    index: index
+  }));
+  const combinedTrash = [...localTrash, ...dbTrash];
+  const count = combinedTrash.length;
+
+  DOM.deletedDraftsSummaryText.textContent = count > 0 ? `${count} items in trash` : 'Trash bin is empty';
 
   if (count === 0) {
     DOM.deletedDraftsTableBody.innerHTML = `
@@ -1724,19 +1777,27 @@ function renderDeletedDraftsTable() {
     return;
   }
 
-  state.deletedDrafts.forEach((draft, index) => {
+  combinedTrash.forEach((item) => {
     const tr = document.createElement('tr');
-    tr.dataset.localId = draft.localId;
+    if (item.type === 'draft') {
+      tr.dataset.localId = item.localId;
+    } else {
+      tr.dataset.dbId = item.id;
+    }
 
     // Checkbox selector
     const checkTd = document.createElement('td');
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
     checkbox.className = 'deleted-selector';
-    checkbox.checked = !!draft.selectedForAction;
+    checkbox.checked = !!item.selectedForAction;
     checkbox.addEventListener('change', (e) => {
-      state.deletedDrafts[index].selectedForAction = e.target.checked;
-      saveDeletedDraftsToStorage();
+      if (item.type === 'draft') {
+        state.deletedDrafts[item.index].selectedForAction = e.target.checked;
+        saveDeletedDraftsToStorage();
+      } else {
+        state.deletedDbRecords[item.index].selectedForAction = e.target.checked;
+      }
       updateDeletedCountBtnState();
     });
     checkTd.appendChild(checkbox);
@@ -1746,9 +1807,9 @@ function renderDeletedDraftsTable() {
     state.schema.forEach(field => {
       const td = document.createElement('td');
       if (field.id === 'date') {
-        td.textContent = formatDateDisplay(draft.date);
+        td.textContent = formatDateDisplay(item.date);
       } else {
-        td.textContent = formatDisplayValue(draft.data[field.id], field);
+        td.textContent = formatDisplayValue(item.data[field.id], field);
       }
       tr.appendChild(td);
     });
@@ -1763,13 +1824,31 @@ function renderDeletedDraftsTable() {
     restoreBtn.style.marginRight = '8px';
     restoreBtn.textContent = 'Restore';
     restoreBtn.addEventListener('click', async () => {
-      const restored = state.deletedDrafts.splice(index, 1)[0];
-      restored.verified = false;
-      state.drafts.push(restored);
-      await saveDraftsToStorage();
-      await saveDeletedDraftsToStorage();
-      renderSyncTable();
-      renderDeletedDraftsTable();
+      if (item.type === 'draft') {
+        const restored = state.deletedDrafts.splice(item.index, 1)[0];
+        restored.verified = false;
+        state.drafts.push(restored);
+        await saveDraftsToStorage();
+        await saveDeletedDraftsToStorage();
+        renderSyncTable();
+        renderDeletedDraftsTable();
+      } else {
+        try {
+          const response = await fetch(`/api/entries/restore/${item.id}`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${state.authToken}`
+            }
+          });
+          if (response.ok) {
+            await fetchDatabaseRecords();
+          } else {
+            alert('Failed to restore record');
+          }
+        } catch (e) {
+          alert('Network error restoring record');
+        }
+      }
     });
     actionTd.appendChild(restoreBtn);
 
@@ -1779,10 +1858,29 @@ function renderDeletedDraftsTable() {
     deleteBtn.style.color = 'var(--danger)';
     deleteBtn.textContent = 'Delete Forever';
     deleteBtn.addEventListener('click', async () => {
-      if (confirm('⚠️ WARNING: Are you sure you want to permanently delete this draft? This action cannot be undone!')) {
-        state.deletedDrafts.splice(index, 1);
-        await saveDeletedDraftsToStorage();
-        renderDeletedDraftsTable();
+      const entityName = item.type === 'draft' ? 'draft' : 'database record';
+      if (confirm(`⚠️ WARNING: Are you sure you want to permanently delete this ${entityName}? This action cannot be undone!`)) {
+        if (item.type === 'draft') {
+          state.deletedDrafts.splice(item.index, 1);
+          await saveDeletedDraftsToStorage();
+          renderDeletedDraftsTable();
+        } else {
+          try {
+            const response = await fetch(`/api/entries/delete-permanent/${item.id}`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${state.authToken}`
+              }
+            });
+            if (response.ok) {
+              await fetchDatabaseRecords();
+            } else {
+              alert('Failed to permanently delete record');
+            }
+          } catch (e) {
+            alert('Network error permanently deleting record');
+          }
+        }
       }
     });
     actionTd.appendChild(deleteBtn);
@@ -1795,7 +1893,9 @@ function renderDeletedDraftsTable() {
 }
 
 function updateDeletedCountBtnState() {
-  const selectedCount = state.deletedDrafts.filter(d => d.selectedForAction).length;
+  const localCount = state.deletedDrafts.filter(d => d.selectedForAction).length;
+  const dbCount = (state.deletedDbRecords || []).filter(d => d.selectedForAction).length;
+  const selectedCount = localCount + dbCount;
   DOM.restoreCountText.textContent = selectedCount;
   DOM.deletePermanentlyCountText.textContent = selectedCount;
 
@@ -1812,43 +1912,86 @@ function selectAllDeleted(val) {
   state.deletedDrafts.forEach(d => d.selectedForAction = val);
   saveDeletedDraftsToStorage();
   
+  if (state.deletedDbRecords) {
+    state.deletedDbRecords.forEach(d => d.selectedForAction = val);
+  }
+  
   document.querySelectorAll('.deleted-selector').forEach(cb => cb.checked = val);
   DOM.headerSelectAllDeleted.checked = val;
   updateDeletedCountBtnState();
 }
 
 async function restoreSelectedDeleted() {
-  const toRestore = state.deletedDrafts.filter(d => d.selectedForAction);
-  if (toRestore.length === 0) return;
+  const toRestoreLocal = state.deletedDrafts.filter(d => d.selectedForAction);
+  const toRestoreDb = (state.deletedDbRecords || []).filter(d => d.selectedForAction);
+  const totalCount = toRestoreLocal.length + toRestoreDb.length;
+  if (totalCount === 0) return;
 
-  state.deletedDrafts = state.deletedDrafts.filter(d => !d.selectedForAction);
-  toRestore.forEach(d => {
-    d.verified = false;
-    delete d.selectedForAction;
-    state.drafts.push(d);
-  });
+  if (toRestoreLocal.length > 0) {
+    state.deletedDrafts = state.deletedDrafts.filter(d => !d.selectedForAction);
+    toRestoreLocal.forEach(d => {
+      d.verified = false;
+      delete d.selectedForAction;
+      state.drafts.push(d);
+    });
+    await saveDraftsToStorage();
+    await saveDeletedDraftsToStorage();
+    renderSyncTable();
+  }
 
-  await saveDraftsToStorage();
-  await saveDeletedDraftsToStorage();
+  if (toRestoreDb.length > 0) {
+    for (const item of toRestoreDb) {
+      try {
+        await fetch(`/api/entries/restore/${item.id}`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${state.authToken}`
+          }
+        });
+      } catch (e) {
+        console.error('Failed to restore database record', item.id, e);
+      }
+    }
+    await fetchDatabaseRecords();
+  }
 
-  renderSyncTable();
   renderDeletedDraftsTable();
-  alert(`Restored ${toRestore.length} drafts back to Active Drafts.`);
+  alert(`Restored ${totalCount} items back to active entries.`);
 }
 
 async function deletePermanentlySelected() {
-  const toDelete = state.deletedDrafts.filter(d => d.selectedForAction);
-  if (toDelete.length === 0) return;
+  const toDeleteLocal = state.deletedDrafts.filter(d => d.selectedForAction);
+  const toDeleteDb = (state.deletedDbRecords || []).filter(d => d.selectedForAction);
+  const totalCount = toDeleteLocal.length + toDeleteDb.length;
+  if (totalCount === 0) return;
 
-  if (!confirm(`⚠️ WARNING: Are you absolutely sure you want to PERMANENTLY delete the ${toDelete.length} selected drafts? This action is irreversible!`)) {
+  if (!confirm(`⚠️ WARNING: Are you absolutely sure you want to PERMANENTLY delete the ${totalCount} selected items? This action is irreversible!`)) {
     return;
   }
 
-  state.deletedDrafts = state.deletedDrafts.filter(d => !d.selectedForAction);
-  await saveDeletedDraftsToStorage();
+  if (toDeleteLocal.length > 0) {
+    state.deletedDrafts = state.deletedDrafts.filter(d => !d.selectedForAction);
+    await saveDeletedDraftsToStorage();
+  }
+
+  if (toDeleteDb.length > 0) {
+    for (const item of toDeleteDb) {
+      try {
+        await fetch(`/api/entries/delete-permanent/${item.id}`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${state.authToken}`
+          }
+        });
+      } catch (e) {
+        console.error('Failed to permanently delete database record', item.id, e);
+      }
+    }
+    await fetchDatabaseRecords();
+  }
 
   renderDeletedDraftsTable();
-  alert(`Permanently deleted ${toDelete.length} drafts.`);
+  alert(`Permanently deleted ${totalCount} items.`);
 }
 
 async function pushSelectedDrafts() {
@@ -2201,17 +2344,6 @@ async function deleteRecord(rec, rowNum) {
     });
 
     if (response.ok) {
-      // Add deleted record to the Trash Bin
-      const trashItem = {
-        localId: Date.now(),
-        date: rec.date,
-        verified: false,
-        data: { ...rec.data }
-      };
-      state.deletedDrafts.push(trashItem);
-      await saveDeletedDraftsToStorage();
-      renderDeletedDraftsTable();
-
       fetchDatabaseRecords();
     } else {
       alert('Error deleting entry');
