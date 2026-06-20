@@ -79,64 +79,7 @@ async function bootstrapSession() {
   }
 }
 
-// 3. Intercept Data Entry Forms to encrypt plain text payload before syncing
+// 3. Initialize session when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
   bootstrapSession();
-
-  // Attach submit listener to the data entry form
-  const form = document.getElementById('data-entry-form');
-  if (form) {
-    form.addEventListener('submit', async (e) => {
-      // Check if cryptographic vault is unlocked
-      if (!window.SecurityEngine || !window.SecurityEngine.isUnlocked()) {
-        console.warn('Vault is locked. Session cannot save E2EE entries.');
-        return;
-      }
-
-      // Read form inputs
-      const formData = new FormData(form);
-      const plainPayload = {};
-      for (const [key, value] of formData.entries()) {
-        plainPayload[key] = value;
-      }
-
-      // Prevent default transmission if doing E2EE submission to db
-      e.preventDefault();
-      e.stopPropagation();
-
-      try {
-        // Encrypt the plain JSON string payload via Web Crypto AES-GCM
-        const plainString = JSON.stringify(plainPayload);
-        const encrypted = await window.SecurityEngine.encryptPayload(plainString);
-
-        console.log('Local encryption completed. Ciphertext size:', encrypted.ciphertext.length);
-
-        // Send encrypted payload to serverless endpoint
-        const token = sessionStorage.getItem('authToken');
-        const syncResponse = await fetch('/api/entries/push', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify([{
-            date: plainPayload.date || new Date().toISOString().split('T')[0],
-            ciphertext: encrypted.ciphertext,
-            iv: encrypted.iv
-          }])
-        });
-
-        if (syncResponse.ok) {
-          alert('Encrypted record successfully synced to server.');
-          form.reset();
-          // Trigger refresh if function exists
-          if (typeof fetchDatabaseRecords === 'function') {
-            fetchDatabaseRecords();
-          }
-        }
-      } catch (err) {
-        alert('Encryption or transmission failed: ' + err.message);
-      }
-    }, true); // Use capture phase to intercept before original app script
-  }
 });
