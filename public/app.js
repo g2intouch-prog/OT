@@ -1700,7 +1700,7 @@ function renderDBTable() {
     return;
   }
 
-  filteredRecords.forEach(rec => {
+  filteredRecords.forEach((rec, index) => {
     const tr = document.createElement('tr');
     const isDuplicate = duplicateIds.has(rec.id);
     if (isDuplicate) {
@@ -1770,7 +1770,7 @@ function renderDBTable() {
     deleteBtn.className = 'btn btn-link text-warning p-0';
     deleteBtn.textContent = 'Delete';
     deleteBtn.disabled = !state.isAuthenticated || !state.isOnline;
-    deleteBtn.addEventListener('click', () => deleteRecord(rec.id));
+    deleteBtn.addEventListener('click', () => deleteRecord(rec, index + 1));
     actionTd.appendChild(deleteBtn);
 
     tr.appendChild(actionTd);
@@ -1846,12 +1846,22 @@ async function toggleVerifyRecord(id, newStatus) {
   }
 }
 
-async function deleteRecord(id) {
+async function deleteRecord(rec, rowNum) {
   if (!state.isOnline || !state.isAuthenticated) return;
-  if (!confirm('Are you sure you want to permanently delete record #' + id + '?')) return;
+
+  let info = '';
+  if (state.schema.length > 0) {
+    const firstField = state.schema.find(f => f.id !== 'annual_serial' && f.id !== 'monthly_sl_no');
+    if (firstField && rec.data && rec.data[firstField.id]) {
+      info = `${getFieldDisplayTitle(firstField)}: ${rec.data[firstField.id]}`;
+    }
+  }
+
+  const displayMsg = `Are you sure you want to permanently delete this record?\n\nRow: ${rowNum}\nDate: ${rec.date || 'N/A'}${info ? '\n' + info : ''}`;
+  if (!confirm(displayMsg)) return;
 
   try {
-    const response = await fetch(`/api/entries/delete/${id}`, {
+    const response = await fetch(`/api/entries/delete/${rec.id}`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${state.authToken}`
