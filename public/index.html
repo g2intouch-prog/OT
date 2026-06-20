@@ -618,6 +618,25 @@
           </div>
         </div>
 
+        <!-- Encryption Password Card -->
+        <div class="panel-card mb-4" id="encryption-password-card">
+          <h2>🔐 Derive Encryption Key</h2>
+          <p class="card-subtitle">Enter an encryption password to generate a 256-bit AES-GCM key and unlock the local session vault.</p>
+          <form id="key-derivation-form">
+            <div class="dynamic-inputs-grid">
+              <div class="form-group">
+                <label for="encryption-password-input">Encryption Password</label>
+                <input type="password" id="encryption-password-input" class="form-control" placeholder="Enter encryption password..." required autocomplete="new-password">
+              </div>
+            </div>
+            <div class="form-actions mt-4">
+              <button type="submit" id="derive-key-btn" class="btn btn-primary">
+                <span>Generate Key & Unlock Vault</span>
+              </button>
+            </div>
+          </form>
+        </div>
+
         <!-- Admin Credentials Settings Card -->
         <div class="panel-card" id="admin-credentials-card">
           <h2>Admin Credentials Settings</h2>

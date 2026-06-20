@@ -113,6 +113,31 @@ const SecurityEngine = (function () {
     },
 
     /**
+     * Derives a 256-bit AES-GCM key from a user-entered password via SHA-256 and imports it into RAM.
+     * @param {string} password - User-entered encryption password.
+     */
+    async unlockVaultWithPassword(password) {
+      try {
+        const encoder = new TextEncoder();
+        const rawData = encoder.encode(password);
+        const hashBuffer = await window.crypto.subtle.digest('SHA-256', rawData);
+        
+        memoryOnlyKey = await window.crypto.subtle.importKey(
+          'raw',
+          hashBuffer,
+          { name: 'AES-GCM', length: 256 },
+          false, // extractable: false
+          ['encrypt', 'decrypt']
+        );
+        console.log('Vault loaded successfully in RAM using password-derived key.');
+        return true;
+      } catch (err) {
+        console.error('Failed to unlock vault with password:', err);
+        throw new Error('Cryptographic vault initialization failed.');
+      }
+    },
+
+    /**
      * Purges the encryption key from RAM.
      */
     lockVault() {

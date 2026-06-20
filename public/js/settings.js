@@ -1,6 +1,37 @@
 // Settings UI controller
 document.addEventListener('DOMContentLoaded', () => {
   initSettings();
+
+  const keyDerivationForm = document.getElementById('key-derivation-form');
+  if (keyDerivationForm) {
+    keyDerivationForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const pwdInput = document.getElementById('encryption-password-input');
+      if (!pwdInput) return;
+      const pwd = pwdInput.value;
+      if (!pwd) return;
+
+      try {
+        await window.SecurityEngine.unlockVaultWithPassword(pwd);
+        
+        // Update display fields
+        const displayKeyStatus = document.getElementById('display-key-status');
+        if (displayKeyStatus) {
+          displayKeyStatus.value = 'RAM VOLATILE LOCKED-IN';
+        }
+        
+        // Refresh tutorials / sandbox if loaded
+        if (typeof renderTutorials === 'function' && cachedShowTutorial) {
+          renderTutorials();
+        }
+
+        alert('Symmetric encryption key derived and vault unlocked successfully!');
+        pwdInput.value = '';
+      } catch (err) {
+        alert('Failed to derive encryption key: ' + err.message);
+      }
+    });
+  }
 });
 
 let cachedShowTutorial = true;

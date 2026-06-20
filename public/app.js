@@ -6933,7 +6933,14 @@ async function renderCryptoVerificationList() {
       leftPre.style.fontSize = '0.75rem';
       leftPre.style.overflowX = 'auto';
       leftPre.style.border = '1px solid #30363d';
-      leftPre.textContent = JSON.stringify(rec.encryptedData || rec.data, null, 2);
+      leftPre.style.whiteSpace = 'pre-wrap';
+      leftPre.style.wordBreak = 'break-all';
+      if (rec.encryptedData && rec.encryptedData.ciphertext) {
+        leftPre.textContent = rec.encryptedData.ciphertext;
+        leftPre.style.color = '#8b949e';
+      } else {
+        leftPre.textContent = JSON.stringify(rec.encryptedData || rec.data, null, 2);
+      }
 
       leftHalf.appendChild(leftHeader);
       leftHalf.appendChild(leftPre);
