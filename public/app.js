@@ -795,6 +795,84 @@ async function saveSchema() {
   }
 }
 
+// Client-side helper to recalculate serial numbers sequentially (sorted by date and time)
+function recalculateClientSerials() {
+  const records = state.dbRecords || [];
+  if (records.length === 0) return;
+
+  // Find schema fields for time
+  const timeField = state.schema.find(f => f.type === 'time' || f.id.toLowerCase().includes('time') || f.id.toLowerCase().includes('timeob'));
+  const timeFieldId = timeField ? timeField.id : 'timeob';
+
+  // Helper to convert 12h or 24h time string to minutes since midnight
+  function parseTimeToMinutes(timeStr) {
+    if (!timeStr) return 9999;
+    const cleanStr = timeStr.toString().trim();
+    
+    // Check if 12h format (e.g. "03:15 PM" or "12:05 AM")
+    const match12 = cleanStr.match(/^(\d{1,2}):(\d{2})\s*(AM|PM|am|pm)$/i);
+    if (match12) {
+      let hours = parseInt(match12[1]);
+      const minutes = parseInt(match12[2]);
+      const ampm = match12[3].toUpperCase();
+      if (ampm === 'PM' && hours < 12) hours += 12;
+      if (ampm === 'AM' && hours === 12) hours = 0;
+      return hours * 60 + minutes;
+    }
+
+    // Check if 24h format (e.g. "15:15" or "00:05")
+    const match24 = cleanStr.match(/^(\d{1,2}):(\d{2})$/);
+    if (match24) {
+      const hours = parseInt(match24[1]);
+      const minutes = parseInt(match24[2]);
+      return hours * 60 + minutes;
+    }
+
+    return 9999;
+  }
+
+  // Sort sequentially: 1st by date ascending, 2nd by time ascending, 3rd by DB ID ascending
+  records.sort((a, b) => {
+    const dateA = a.date || '';
+    const dateB = b.date || '';
+    const dateCompare = dateA.localeCompare(dateB);
+    if (dateCompare !== 0) return dateCompare;
+
+    const timeA = parseTimeToMinutes(a.data ? a.data[timeFieldId] : '');
+    const timeB = parseTimeToMinutes(b.data ? b.data[timeFieldId] : '');
+    if (timeA !== timeB) return timeA - timeB;
+
+    return a.id - b.id;
+  });
+
+  const annualCounters = {};
+  const monthlyCounters = {};
+
+  const annualField = state.schema.find(f => f.id === 'annual_serial' || f.title.toLowerCase().includes('annual'));
+  const monthlyField = state.schema.find(f => f.id === 'monthly_sl_no' || f.title.toLowerCase().includes('monthly'));
+
+  const annualFieldId = annualField ? annualField.id : 'annual_serial';
+  const monthlyFieldId = monthlyField ? monthlyField.id : 'monthly_sl_no';
+
+  for (const rec of records) {
+    if (!rec.date) continue;
+    const parts = rec.date.split('-');
+    if (parts.length !== 3) continue;
+    const year = parts[0];
+    const month = parts[1];
+    const yearMonth = `${year}-${month}`;
+
+    annualCounters[year] = (annualCounters[year] || 0) + 1;
+    monthlyCounters[yearMonth] = (monthlyCounters[yearMonth] || 0) + 1;
+
+    if (!rec.data) {
+      rec.data = {};
+    }
+    rec.data[annualFieldId] = annualCounters[year];
+    rec.data[monthlyFieldId] = monthlyCounters[yearMonth];
+  }
+}
+
 async function fetchDatabaseRecords() {
   if (!state.isOnline) return;
 
@@ -817,6 +895,9 @@ async function fetchDatabaseRecords() {
           }
         }
       }
+      
+      // Recalculate serial numbers client-side (after decryption)
+      recalculateClientSerials();
       
       renderDBTable();
       populateYearFilters();
