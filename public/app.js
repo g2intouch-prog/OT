@@ -5,6 +5,7 @@ const state = {
   authToken: null,
   schema: [],          // Active fields list
   drafts: [],          // Local drafts stored in localStorage
+  deletedDrafts: [],   // Trash bin for deleted drafts
   dbRecords: [],       // Records fetched from SQLite
   activeTab: 'data-entry',
   formCreatorSchema: [], // Working copy of schema inside Form Creator
@@ -34,6 +35,19 @@ const DOM = {
   draftsTableHeader: document.getElementById('drafts-table-header'),
   draftsTableBody: document.getElementById('drafts-table-body'),
   draftsCountBadge: document.getElementById('drafts-count-badge'),
+
+  // Trash Bin Selectors
+  deletedDraftsCard: document.getElementById('deleted-drafts-card'),
+  deletedDraftsSummaryText: document.getElementById('deleted-drafts-summary-text'),
+  deletedDraftsTableHeader: document.getElementById('deleted-drafts-table-header'),
+  deletedDraftsTableBody: document.getElementById('deleted-drafts-table-body'),
+  selectAllDeletedBtn: document.getElementById('select-all-deleted-btn'),
+  deselectAllDeletedBtn: document.getElementById('deselect-all-deleted-btn'),
+  restoreSelectedBtn: document.getElementById('restore-selected-btn'),
+  deletePermanentlyBtn: document.getElementById('delete-permanently-btn'),
+  headerSelectAllDeleted: document.getElementById('header-select-all-deleted'),
+  restoreCountText: document.getElementById('restore-count-text'),
+  deletePermanentlyCountText: document.getElementById('delete-permanently-count-text'),
   
   // Tab 2: Form Creator
   addFieldBtn: document.getElementById('add-field-btn'),
@@ -46,9 +60,9 @@ const DOM = {
   changeAdminPassword: document.getElementById('change-admin-password'),
   submitCredentialsBtn: document.getElementById('submit-credentials-btn'),
   
-  // Tab 3: Verify & Push
-  syncTableBody: document.getElementById('sync-table-body'),
-  syncTableHeader: document.getElementById('sync-table-header'),
+  // Tab 3: Verify & Push (now mapped to Data Entry drafts elements)
+  syncTableBody: document.getElementById('drafts-table-body'),
+  syncTableHeader: document.getElementById('drafts-table-header'),
   pushSelectedBtn: document.getElementById('push-selected-btn'),
   pushCountText: document.getElementById('push-count-text'),
   selectAllDraftsBtn: document.getElementById('select-all-drafts-btn'),
@@ -288,6 +302,58 @@ async function loadDraftsFromStorage() {
     state.drafts = [];
   }
   updateDraftCountBadges();
+  
+  // Load deleted drafts from storage
+  await loadDeletedDraftsFromStorage();
+  renderDeletedDraftsTable();
+}
+
+async function loadDeletedDraftsFromStorage() {
+  const storedEncrypted = localStorage.getItem('deleted_drafts_encrypted');
+  const storedPlaintext = localStorage.getItem('deleted_drafts');
+  
+  if (storedEncrypted) {
+    if (window.SecurityEngine && window.SecurityEngine.isUnlocked()) {
+      try {
+        const encryptedObj = JSON.parse(storedEncrypted);
+        const decryptedText = await window.SecurityEngine.decryptPayload(encryptedObj.ciphertext, encryptedObj.iv);
+        state.deletedDrafts = JSON.parse(decryptedText);
+      } catch (e) {
+        console.error('Failed to decrypt deleted drafts from storage:', e);
+        state.deletedDrafts = [];
+      }
+    } else {
+      state.deletedDrafts = [];
+    }
+  } else if (storedPlaintext) {
+    try {
+      state.deletedDrafts = JSON.parse(storedPlaintext);
+      if (window.SecurityEngine && window.SecurityEngine.isUnlocked()) {
+        await saveDeletedDraftsToStorage();
+      }
+    } catch (e) {
+      console.error('Failed to parse plaintext deleted drafts:', e);
+      state.deletedDrafts = [];
+    }
+  } else {
+    state.deletedDrafts = [];
+  }
+}
+
+async function saveDeletedDraftsToStorage() {
+  if (window.SecurityEngine && window.SecurityEngine.isUnlocked()) {
+    try {
+      const plaintext = JSON.stringify(state.deletedDrafts);
+      const encrypted = await window.SecurityEngine.encryptPayload(plaintext);
+      localStorage.setItem('deleted_drafts_encrypted', JSON.stringify(encrypted));
+      localStorage.removeItem('deleted_drafts');
+    } catch (e) {
+      console.error('Failed to encrypt and save deleted drafts:', e);
+    }
+  } else {
+    localStorage.setItem('deleted_drafts', JSON.stringify(state.deletedDrafts));
+    localStorage.removeItem('deleted_drafts_encrypted');
+  }
 }
 
 async function saveDraftsToStorage() {
@@ -1251,50 +1317,7 @@ function handleSaveDraft(e) {
 }
 
 function renderDraftsTable() {
-  // Clear headers & body
-  DOM.draftsTableHeader.innerHTML = '';
-  DOM.draftsTableBody.innerHTML = '';
-
-  if (state.schema.length === 0) return;
-
-  // Add Headers dynamically following schema ordering
-  state.schema.forEach(field => {
-    const th = document.createElement('th');
-    th.textContent = getFieldDisplayTitle(field);
-    DOM.draftsTableHeader.appendChild(th);
-  });
-
-  // Check empty drafts
-  if (state.drafts.length === 0) {
-    DOM.draftSummaryText.textContent = 'No draft entries';
-    DOM.draftsTableBody.innerHTML = `
-      <tr>
-        <td colspan="100%" class="text-center text-muted py-4">No drafts saved yet. Enter a row above to save a draft.</td>
-      </tr>
-    `;
-    return;
-  }
-
-  DOM.draftSummaryText.textContent = `${state.drafts.length} draft entries saved locally`;
-
-  // Add Rows (show last 5 drafts on data entry tab for overview)
-  const previewDrafts = [...state.drafts].reverse().slice(0, 5);
-  
-  previewDrafts.forEach(draft => {
-    const tr = document.createElement('tr');
-    
-    state.schema.forEach(field => {
-      const td = document.createElement('td');
-      if (field.id === 'date') {
-        td.textContent = formatDateDisplay(draft.date);
-      } else {
-        td.textContent = formatDisplayValue(draft.data[field.id], field);
-      }
-      tr.appendChild(td);
-    });
-
-    DOM.draftsTableBody.appendChild(tr);
-  });
+  renderSyncTable();
 }
 
 // -------------------------------------------------------------
@@ -1513,6 +1536,7 @@ function renderSyncTable() {
 
   // Render rows
   if (state.drafts.length === 0) {
+    DOM.draftSummaryText.textContent = 'No draft entries';
     DOM.syncTableBody.innerHTML = `
       <tr>
         <td colspan="100%" class="text-center text-muted py-4">No local drafts to push. Use the Data Entry view to add records.</td>
@@ -1521,6 +1545,8 @@ function renderSyncTable() {
     updatePushSelectedBtnState();
     return;
   }
+
+  DOM.draftSummaryText.textContent = `${state.drafts.length} draft entries saved locally`;
 
   state.drafts.forEach((draft, index) => {
     const tr = document.createElement('tr');
@@ -1566,12 +1592,15 @@ function renderSyncTable() {
     rejectBtn.className = 'btn btn-link text-danger p-0';
     rejectBtn.style.color = 'var(--danger)';
     rejectBtn.innerHTML = 'Reject';
-    rejectBtn.addEventListener('click', () => {
-      if (confirm('Are you sure you want to reject and delete this draft entry?')) {
-        state.drafts.splice(index, 1);
-        saveDraftsToStorage();
+    rejectBtn.addEventListener('click', async () => {
+      if (confirm('Are you sure you want to move this draft entry to the Trash Bin?')) {
+        const deletedItem = state.drafts.splice(index, 1)[0];
+        deletedItem.verified = false;
+        state.deletedDrafts.push(deletedItem);
+        await saveDraftsToStorage();
+        await saveDeletedDraftsToStorage();
         renderSyncTable();
-        renderDraftsTable();
+        renderDeletedDraftsTable();
         
         // Recalculate auto-generated serials
         const dateInput = document.getElementById('input-date');
@@ -1599,7 +1628,7 @@ function updatePushSelectedBtnState() {
     DOM.pushSelectedBtn.setAttribute('disabled', 'true');
   }
 
-  // Reject selected button
+  // Reject selected button (Move to Trash)
   if (DOM.rejectSelectedBtn && DOM.rejectCountText) {
     DOM.rejectCountText.textContent = verifiedCount;
     if (verifiedCount > 0) {
@@ -1610,21 +1639,31 @@ function updatePushSelectedBtnState() {
   }
 }
 
-function rejectSelectedDrafts() {
+async function rejectSelectedDrafts() {
   const toReject = state.drafts.filter(d => d.verified);
   if (toReject.length === 0) return;
 
-  if (!confirm(`Are you sure you want to reject and delete the ${toReject.length} selected draft entry/entries?`)) {
+  if (!confirm(`Are you sure you want to move the ${toReject.length} selected draft entry/entries to the Trash Bin?`)) {
     return;
   }
 
-  // Keep only the drafts that are NOT verified (not selected to push/reject)
-  state.drafts = state.drafts.filter(d => !d.verified);
-  saveDraftsToStorage();
+  const remainingDrafts = [];
+  state.drafts.forEach(d => {
+    if (d.verified) {
+      d.verified = false;
+      state.deletedDrafts.push(d);
+    } else {
+      remainingDrafts.push(d);
+    }
+  });
+
+  state.drafts = remainingDrafts;
+  await saveDraftsToStorage();
+  await saveDeletedDraftsToStorage();
   
   // Refresh views
   renderSyncTable();
-  renderDraftsTable();
+  renderDeletedDraftsTable();
   
   // Recalculate auto-generated serials
   const dateInput = document.getElementById('input-date');
@@ -1632,7 +1671,7 @@ function rejectSelectedDrafts() {
     autoFillDateDependentFields(dateInput.value);
   }
 
-  alert('Selected drafts rejected and deleted.');
+  alert('Selected drafts moved to Trash.');
 }
 
 function selectAllDrafts(val) {
@@ -1643,6 +1682,173 @@ function selectAllDrafts(val) {
   document.querySelectorAll('.draft-selector').forEach(cb => cb.checked = val);
   DOM.headerSelectAll.checked = val;
   updatePushSelectedBtnState();
+}
+
+// -------------------------------------------------------------
+// TRASH BIN: DELETED DRAFTS RENDERER & ACTIONS
+// -------------------------------------------------------------
+
+function renderDeletedDraftsTable() {
+  DOM.deletedDraftsTableHeader.innerHTML = '';
+  DOM.deletedDraftsTableBody.innerHTML = '';
+
+  if (state.schema.length === 0) return;
+
+  // Render headers
+  const selectTh = document.createElement('th');
+  selectTh.width = '40';
+  selectTh.appendChild(DOM.headerSelectAllDeleted);
+  DOM.deletedDraftsTableHeader.appendChild(selectTh);
+
+  state.schema.forEach(field => {
+    const th = document.createElement('th');
+    th.textContent = getFieldDisplayTitle(field);
+    DOM.deletedDraftsTableHeader.appendChild(th);
+  });
+
+  const actionsTh = document.createElement('th');
+  actionsTh.className = 'actions-col';
+  actionsTh.textContent = 'Actions';
+  DOM.deletedDraftsTableHeader.appendChild(actionsTh);
+
+  const count = state.deletedDrafts.length;
+  DOM.deletedDraftsSummaryText.textContent = count > 0 ? `${count} deleted drafts in trash` : 'Trash bin is empty';
+
+  if (count === 0) {
+    DOM.deletedDraftsTableBody.innerHTML = `
+      <tr>
+        <td colspan="100%" class="text-center text-muted py-4">Trash bin is empty.</td>
+      </tr>
+    `;
+    updateDeletedCountBtnState();
+    return;
+  }
+
+  state.deletedDrafts.forEach((draft, index) => {
+    const tr = document.createElement('tr');
+    tr.dataset.localId = draft.localId;
+
+    // Checkbox selector
+    const checkTd = document.createElement('td');
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.className = 'deleted-selector';
+    checkbox.checked = !!draft.selectedForAction;
+    checkbox.addEventListener('change', (e) => {
+      state.deletedDrafts[index].selectedForAction = e.target.checked;
+      saveDeletedDraftsToStorage();
+      updateDeletedCountBtnState();
+    });
+    checkTd.appendChild(checkbox);
+    tr.appendChild(checkTd);
+
+    // Fields
+    state.schema.forEach(field => {
+      const td = document.createElement('td');
+      if (field.id === 'date') {
+        td.textContent = formatDateDisplay(draft.date);
+      } else {
+        td.textContent = formatDisplayValue(draft.data[field.id], field);
+      }
+      tr.appendChild(td);
+    });
+
+    // Actions col
+    const actionTd = document.createElement('td');
+    actionTd.className = 'actions-col';
+
+    // Restore btn
+    const restoreBtn = document.createElement('button');
+    restoreBtn.className = 'btn btn-link text-success p-0';
+    restoreBtn.style.marginRight = '8px';
+    restoreBtn.textContent = 'Restore';
+    restoreBtn.addEventListener('click', async () => {
+      const restored = state.deletedDrafts.splice(index, 1)[0];
+      restored.verified = false;
+      state.drafts.push(restored);
+      await saveDraftsToStorage();
+      await saveDeletedDraftsToStorage();
+      renderSyncTable();
+      renderDeletedDraftsTable();
+    });
+    actionTd.appendChild(restoreBtn);
+
+    // Permanent delete btn
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'btn btn-link text-danger p-0';
+    deleteBtn.style.color = 'var(--danger)';
+    deleteBtn.textContent = 'Delete Forever';
+    deleteBtn.addEventListener('click', async () => {
+      if (confirm('⚠️ WARNING: Are you sure you want to permanently delete this draft? This action cannot be undone!')) {
+        state.deletedDrafts.splice(index, 1);
+        await saveDeletedDraftsToStorage();
+        renderDeletedDraftsTable();
+      }
+    });
+    actionTd.appendChild(deleteBtn);
+
+    tr.appendChild(actionTd);
+    DOM.deletedDraftsTableBody.appendChild(tr);
+  });
+
+  updateDeletedCountBtnState();
+}
+
+function updateDeletedCountBtnState() {
+  const selectedCount = state.deletedDrafts.filter(d => d.selectedForAction).length;
+  DOM.restoreCountText.textContent = selectedCount;
+  DOM.deletePermanentlyCountText.textContent = selectedCount;
+
+  if (selectedCount > 0) {
+    DOM.restoreSelectedBtn.removeAttribute('disabled');
+    DOM.deletePermanentlyBtn.removeAttribute('disabled');
+  } else {
+    DOM.restoreSelectedBtn.setAttribute('disabled', 'true');
+    DOM.deletePermanentlyBtn.setAttribute('disabled', 'true');
+  }
+}
+
+function selectAllDeleted(val) {
+  state.deletedDrafts.forEach(d => d.selectedForAction = val);
+  saveDeletedDraftsToStorage();
+  
+  document.querySelectorAll('.deleted-selector').forEach(cb => cb.checked = val);
+  DOM.headerSelectAllDeleted.checked = val;
+  updateDeletedCountBtnState();
+}
+
+async function restoreSelectedDeleted() {
+  const toRestore = state.deletedDrafts.filter(d => d.selectedForAction);
+  if (toRestore.length === 0) return;
+
+  state.deletedDrafts = state.deletedDrafts.filter(d => !d.selectedForAction);
+  toRestore.forEach(d => {
+    d.verified = false;
+    delete d.selectedForAction;
+    state.drafts.push(d);
+  });
+
+  await saveDraftsToStorage();
+  await saveDeletedDraftsToStorage();
+
+  renderSyncTable();
+  renderDeletedDraftsTable();
+  alert(`Restored ${toRestore.length} drafts back to Active Drafts.`);
+}
+
+async function deletePermanentlySelected() {
+  const toDelete = state.deletedDrafts.filter(d => d.selectedForAction);
+  if (toDelete.length === 0) return;
+
+  if (!confirm(`⚠️ WARNING: Are you absolutely sure you want to PERMANENTLY delete the ${toDelete.length} selected drafts? This action is irreversible!`)) {
+    return;
+  }
+
+  state.deletedDrafts = state.deletedDrafts.filter(d => !d.selectedForAction);
+  await saveDeletedDraftsToStorage();
+
+  renderDeletedDraftsTable();
+  alert(`Permanently deleted ${toDelete.length} drafts.`);
 }
 
 async function pushSelectedDrafts() {
@@ -1940,9 +2146,8 @@ async function toggleVerifyRecord(id, newStatus) {
           alert('Record reverted to local drafts successfully!');
           fetchDatabaseRecords();
           renderDraftsTable();
-          renderSyncTable();
-          // Switch to Verify & Push tab
-          switchToTab('sync-console');
+          // Switch to Data Entry tab
+          switchToTab('data-entry');
         } else {
           alert('Error reverting record: Failed to delete from server database.');
         }
@@ -2541,10 +2746,9 @@ function switchToTab(tabId) {
     
     if (tabId === 'form-creator') {
       renderFormCreator();
-    } else if (tabId === 'sync-console') {
-      renderSyncTable();
     } else if (tabId === 'db-viewer') {
       fetchDatabaseRecords();
+      renderDeletedDraftsTable();
     } else if (tabId === 'data-analysis') {
       initAnalyticsUI();
       if (state.isOnline) {
@@ -2689,6 +2893,25 @@ function setupEventListeners() {
   DOM.deselectAllDraftsBtn.addEventListener('click', () => selectAllDrafts(false));
   DOM.pushSelectedBtn.addEventListener('click', pushSelectedDrafts);
   safeAddListener(DOM.rejectSelectedBtn, 'click', rejectSelectedDrafts);
+
+  // Trash Bin Actions
+  if (DOM.headerSelectAllDeleted) {
+    DOM.headerSelectAllDeleted.addEventListener('change', (e) => {
+      selectAllDeleted(e.target.checked);
+    });
+  }
+  if (DOM.selectAllDeletedBtn) {
+    DOM.selectAllDeletedBtn.addEventListener('click', () => selectAllDeleted(true));
+  }
+  if (DOM.deselectAllDeletedBtn) {
+    DOM.deselectAllDeletedBtn.addEventListener('click', () => selectAllDeleted(false));
+  }
+  if (DOM.restoreSelectedBtn) {
+    DOM.restoreSelectedBtn.addEventListener('click', restoreSelectedDeleted);
+  }
+  if (DOM.deletePermanentlyBtn) {
+    DOM.deletePermanentlyBtn.addEventListener('click', deletePermanentlySelected);
+  }
 
   // DB Viewer filters
   DOM.filterMonth.addEventListener('change', renderDBTable);
@@ -4110,10 +4333,9 @@ function handleConfirmImport() {
 
   // Refresh tables
   renderDraftsTable();
-  renderSyncTable();
 
-  // Switch tab to Verify & Push
-  switchToTab('sync-console');
+  // Switch tab to Data Entry
+  switchToTab('data-entry');
 }
 
 // -------------------------------------------------------------

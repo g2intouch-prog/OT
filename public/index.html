@@ -90,11 +90,6 @@
           <span class="nav-icon">🛠️</span>
           <span class="nav-text">Form Creator</span>
         </button>
-        <button class="nav-item" data-tab="sync-console">
-          <span class="nav-icon">📤</span>
-          <span class="nav-text">Verify & Push</span>
-          <span id="drafts-count-badge" class="badge count-badge hidden">0</span>
-        </button>
         <button class="nav-item" data-tab="import-excel">
           <span class="nav-icon">📥</span>
           <span class="nav-text">Import Excel/CSV</span>
@@ -175,18 +170,39 @@
           </form>
         </div>
 
-        <!-- Local Drafts Preview -->
+        <!-- Local Drafts Preview / Sync Console -->
         <div id="drafts-preview-card" class="panel-card mt-4">
           <div class="card-header-flex">
-            <h2>Current Local Drafts</h2>
+            <div>
+              <h2>Current Local Drafts</h2>
+              <p class="card-subtitle" style="margin-bottom: 0;">Review, select, and push offline draft entries to the central database.</p>
+            </div>
             <span id="draft-summary-text" class="text-muted">No draft entries</span>
           </div>
+
+          <div class="sync-actions-toolbar mt-3">
+            <div class="checkbox-selection-group">
+              <button id="select-all-drafts-btn" class="btn btn-link py-1 px-2">Select All</button>
+              <button id="deselect-all-drafts-btn" class="btn btn-link py-1 px-2">Deselect All</button>
+            </div>
+            
+            <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+              <button id="push-selected-btn" class="btn btn-success" disabled>
+                <span>Push Selected (<span id="push-count-text">0</span>) to Database</span>
+              </button>
+              <button id="reject-selected-btn" class="btn btn-danger" disabled>
+                <span>Move Selected (<span id="reject-count-text">0</span>) to Trash</span>
+              </button>
+            </div>
+          </div>
           
-          <div class="table-responsive">
+          <div class="table-responsive mt-3">
             <table class="data-table" id="drafts-preview-table">
               <thead>
                 <tr id="drafts-table-header">
+                  <th width="40"><input type="checkbox" id="header-select-all"></th>
                   <!-- Dynamic headers based on schema -->
+                  <th class="actions-col">Actions</th>
                 </tr>
               </thead>
               <tbody id="drafts-table-body">
@@ -246,55 +262,6 @@
                 <span>Save Schema Configuration</span>
               </button>
             </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- TAB 3: VERIFY & PUSH -->
-      <section id="tab-sync-console" class="tab-panel">
-        <div class="panel-card">
-          <div class="card-header-flex">
-            <div>
-              <h2>Verify and Push to Database</h2>
-              <p class="card-subtitle">Review, select, and push offline draft entries to the central SQLite database.</p>
-            </div>
-            <div id="sync-network-warning" class="alert-box alert-danger">
-              <span id="sync-warning-text">⚠️ Connected to server: Checking connection...</span>
-            </div>
-          </div>
-
-          <div class="sync-actions-toolbar">
-            <div class="checkbox-selection-group">
-              <button id="select-all-drafts-btn" class="btn btn-link py-1 px-2">Select All</button>
-              <button id="deselect-all-drafts-btn" class="btn btn-link py-1 px-2">Deselect All</button>
-            </div>
-            
-            <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-              <button id="push-selected-btn" class="btn btn-success" disabled>
-                <span>Push Selected (<span id="push-count-text">0</span>) to Database</span>
-              </button>
-              <button id="reject-selected-btn" class="btn btn-danger" disabled>
-                <span>Reject Selected (<span id="reject-count-text">0</span>)</span>
-              </button>
-            </div>
-          </div>
-
-          <div class="table-responsive mt-3">
-            <table class="data-table">
-              <thead>
-                <tr id="sync-table-header">
-                  <th width="40"><input type="checkbox" id="header-select-all"></th>
-                  <th>Date</th>
-                  <!-- Dynamic schema headers will be added here -->
-                  <th class="actions-col">Actions</th>
-                </tr>
-              </thead>
-              <tbody id="sync-table-body">
-                <tr>
-                  <td colspan="100%" class="text-center text-muted py-4">No local drafts to push. Use the Data Entry view to add records.</td>
-                </tr>
-              </tbody>
-            </table>
           </div>
         </div>
       </section>
@@ -419,6 +386,49 @@
               <tbody id="db-table-body">
                 <tr>
                   <td colspan="100%" class="text-center text-muted py-4">No data loaded. Connect to the LAN database to view records.</td>
+                </tr>
+              </tbody>
+            </table>
+        </div>
+
+        <!-- Trash Bin / Deleted Drafts Card -->
+        <div id="deleted-drafts-card" class="panel-card mt-4">
+          <div class="card-header-flex">
+            <div>
+              <h2>🗑️ Trash Bin (Deleted Drafts)</h2>
+              <p class="card-subtitle" style="margin-bottom: 0;">Select deleted drafts to restore or permanently delete them.</p>
+            </div>
+            <span id="deleted-drafts-summary-text" class="text-muted">No deleted drafts</span>
+          </div>
+
+          <div class="sync-actions-toolbar mt-3">
+            <div class="checkbox-selection-group">
+              <button id="select-all-deleted-btn" class="btn btn-link py-1 px-2">Select All</button>
+              <button id="deselect-all-deleted-btn" class="btn btn-link py-1 px-2">Deselect All</button>
+            </div>
+            
+            <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+              <button id="restore-selected-btn" class="btn btn-success" disabled>
+                <span>Restore Selected (<span id="restore-count-text">0</span>)</span>
+              </button>
+              <button id="delete-permanently-btn" class="btn btn-danger" disabled>
+                <span>Delete Permanently (<span id="delete-permanently-count-text">0</span>)</span>
+              </button>
+            </div>
+          </div>
+          
+          <div class="table-responsive mt-3">
+            <table class="data-table" id="deleted-drafts-table">
+              <thead>
+                <tr id="deleted-drafts-table-header">
+                  <th width="40"><input type="checkbox" id="header-select-all-deleted"></th>
+                  <!-- Dynamic headers based on schema -->
+                  <th class="actions-col">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="deleted-drafts-table-body">
+                <tr>
+                  <td colspan="100%" class="text-center text-muted py-4">Trash bin is empty.</td>
                 </tr>
               </tbody>
             </table>
