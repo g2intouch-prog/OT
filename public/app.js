@@ -1386,6 +1386,12 @@ async function fetchDatabaseRecords() {
       renderDBTable();
       populateYearFilters();
 
+      // Update reports count badge
+      const reportsBadge = document.getElementById('reports-count-badge');
+      if (reportsBadge) {
+        reportsBadge.textContent = state.dbRecords.length;
+      }
+
       // Fetch deleted database records to keep Trash Bin synchronized
       if (state.isAuthenticated) {
         await fetchDeletedDbRecords();
