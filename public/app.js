@@ -1595,43 +1595,6 @@ function renderFormCreator() {
       const posLabel = document.createElement('span');
       posLabel.innerHTML = `Position: <span class="position-badge">${index + 1}</span>`;
       
-      const moveDiv = document.createElement('div');
-      moveDiv.style.display = 'flex';
-      moveDiv.style.gap = '8px';
-      
-      const upBtn = document.createElement('button');
-      upBtn.className = 'btn btn-secondary';
-      upBtn.style.padding = '4px 8px';
-      upBtn.style.fontSize = '0.75rem';
-      upBtn.textContent = '▲ Up';
-      upBtn.disabled = (index === 0);
-      upBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        const temp = state.formCreatorSchema[index];
-        state.formCreatorSchema[index] = state.formCreatorSchema[index - 1];
-        state.formCreatorSchema[index - 1] = temp;
-        state.formCreatorActiveIndex = index - 1;
-        renderFormCreator();
-      });
-      
-      const downBtn = document.createElement('button');
-      downBtn.className = 'btn btn-secondary';
-      downBtn.style.padding = '4px 8px';
-      downBtn.style.fontSize = '0.75rem';
-      downBtn.textContent = '▼ Down';
-      downBtn.disabled = (index === totalCount - 1);
-      downBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        const temp = state.formCreatorSchema[index];
-        state.formCreatorSchema[index] = state.formCreatorSchema[index + 1];
-        state.formCreatorSchema[index + 1] = temp;
-        state.formCreatorActiveIndex = index + 1;
-        renderFormCreator();
-      });
-      
-      moveDiv.appendChild(upBtn);
-      moveDiv.appendChild(downBtn);
-      
       const delBtn = document.createElement('button');
       delBtn.className = 'btn btn-danger';
       delBtn.style.padding = '4px 8px';
@@ -1646,7 +1609,6 @@ function renderFormCreator() {
       });
       
       actionsDiv.appendChild(posLabel);
-      actionsDiv.appendChild(moveDiv);
       actionsDiv.appendChild(delBtn);
       mobileContainer.appendChild(actionsDiv);
       
