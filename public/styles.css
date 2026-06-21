@@ -669,7 +669,7 @@ body {
 .report-filters {
   display: flex;
   gap: 8px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 .report-filters .form-select {
@@ -807,6 +807,10 @@ body {
 @media (max-width: 900px) {
   .mobile-only {
     display: inline-flex !important;
+  }
+
+  .report-filters {
+    flex-wrap: wrap;
   }
   
   /* Layout shifts */
