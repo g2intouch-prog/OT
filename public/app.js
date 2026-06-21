@@ -4970,7 +4970,7 @@ function renderImportPreview(rowDataList, mapping) {
       const mappedHeader = mapping[field.id];
       let val = mappedHeader !== undefined ? row[mappedHeader] : undefined;
 
-      if (val !== undefined && val !== null) {
+      if (val !== undefined && val !== null && val.toString().trim() !== '') {
         if (field.type === 'date') {
           if (typeof val === 'number') {
             val = convertExcelDate(val);
@@ -4978,6 +4978,8 @@ function renderImportPreview(rowDataList, mapping) {
             const isoDate = parseDateString(val);
             if (isoDate) {
               val = isoDate;
+            } else {
+              val = rowDate; // Fallback to current rowDate if parsing failed
             }
           }
         } else if (field.type === 'time') {

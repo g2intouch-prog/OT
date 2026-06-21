@@ -931,7 +931,12 @@ app.post('/api/entries/push', checkAuth, async (req, res) => {
   try {
     await db.query("BEGIN");
     for (const draft of drafts) {
-      const recordDate = draft.date || new Date().toISOString().split('T')[0];
+      let recordDate = draft.date;
+      if (!recordDate || typeof recordDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(recordDate.trim())) {
+        recordDate = new Date().toISOString().split('T')[0];
+      } else {
+        recordDate = recordDate.trim();
+      }
       const verified = draft.verified ? 1 : 0;
       
       let recordData;
