@@ -12,7 +12,7 @@ module.exports = async (req, res) => {
       return res.status(403).json({ action: 'SELF_DESTRUCT', error: 'Invalid or missing session.' });
     }
 
-    const user = await db.checkUserStatusAndRole(session.user_id);
+    const user = await db.getUserById(session.user_id);
     if (!user) {
       return res.status(403).json({ action: 'SELF_DESTRUCT', error: 'User does not exist.' });
     }
@@ -20,6 +20,9 @@ module.exports = async (req, res) => {
     if (user.status !== 'active') {
       return res.status(403).json({ action: 'SELF_DESTRUCT', error: 'Access Revoked' });
     }
+
+    // Check if user is using default master admin credentials
+    const isDefaultAdmin = (user.username === 'admin' && user.password === 'password');
 
     // Vault key is held strictly in Vercel env and only delivered to active sessions
     const vaultKey = process.env.TEAM_VAULT_KEY || 'dGhpcy1pcy1hLXNlY3JldC0zMi1ieXRlLWtleS0xMjM='; // Default 32-byte key for development if env is missing
@@ -31,6 +34,8 @@ module.exports = async (req, res) => {
       action: 'PROCEED',
       vaultKey,
       role: user.role,
+      username: user.username,
+      isDefaultAdmin,
       publicKey: user.public_key,
       encryptedPrivateKey: user.encrypted_private_key,
       wrappedVaultKey: user.wrapped_vault_key,

@@ -162,6 +162,7 @@ const DOM = {
   dbDuplicateAlert: document.getElementById('db-duplicate-alert'),
   clearDraftsBtn: document.getElementById('clear-drafts-btn'),
   clearDatabaseBtn: document.getElementById('clear-database-btn'),
+  clearUsersBtn: document.getElementById('clear-users-btn'),
 
   // Analytics Selectors
   analysisTimeframe: document.getElementById('analysis-timeframe'),
@@ -190,7 +191,25 @@ const DOM = {
   // Secure Credentials Selectors
   changeCurrentPassword: document.getElementById('change-current-password'),
   changeAdmin2fa: document.getElementById('change-admin-2fa'),
-  loginErrorText: document.getElementById('login-error-text')
+  loginErrorText: document.getElementById('login-error-text'),
+
+  // Header and Change Password Modal Selectors
+  userProfileHeader: document.getElementById('user-profile-header'),
+  loggedInUserName: document.getElementById('logged-in-user-name'),
+  headerChangePasswordBtn: document.getElementById('header-change-password-btn'),
+  changePasswordModal: document.getElementById('change-password-modal'),
+  closeChangePasswordBtn: document.getElementById('close-change-password-btn'),
+  cancelChangePasswordBtn: document.getElementById('cancel-change-password-btn'),
+  changeUserPasswordForm: document.getElementById('change-user-password-form'),
+  defaultAdminWarning: document.getElementById('default-admin-warning'),
+  changeUserUsername: document.getElementById('change-user-username'),
+  changeUserCurrentPassword: document.getElementById('change-user-current-password'),
+  changeUserNewPassword: document.getElementById('change-user-new-password'),
+  changeUserConfirmNewPassword: document.getElementById('change-user-confirm-new-password'),
+  changeUserTotp: document.getElementById('change-user-totp'),
+  confirmCredentialsCheckbox: document.getElementById('confirm-credentials-checkbox'),
+  submitChangePasswordBtn: document.getElementById('submit-change-password-btn'),
+  changePasswordModalTitle: document.getElementById('change-password-modal-title')
 };
 
 // Helper for finding elements inside selectors safely
@@ -721,6 +740,142 @@ function handleLogout() {
   resetTotpUI();
 }
 
+function openChangePasswordModal(isForced = false) {
+  if (!state.isAuthenticated) return;
+
+  if (DOM.changePasswordModal) {
+    DOM.changePasswordModal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+  }
+
+  // Set Username/User ID input field value
+  if (DOM.changeUserUsername) {
+    DOM.changeUserUsername.value = state.username || '';
+    if (state.userRole === 'admin') {
+      DOM.changeUserUsername.removeAttribute('readonly');
+      DOM.changeUserUsername.style.opacity = '1';
+      DOM.changeUserUsername.style.cursor = 'text';
+    } else {
+      DOM.changeUserUsername.setAttribute('readonly', 'true');
+      DOM.changeUserUsername.style.opacity = '0.7';
+      DOM.changeUserUsername.style.cursor = 'not-allowed';
+    }
+  }
+
+  // Reset fields
+  if (DOM.changeUserCurrentPassword) DOM.changeUserCurrentPassword.value = '';
+  if (DOM.changeUserNewPassword) DOM.changeUserNewPassword.value = '';
+  if (DOM.changeUserConfirmNewPassword) DOM.changeUserConfirmNewPassword.value = '';
+  if (DOM.changeUserTotp) DOM.changeUserTotp.value = '';
+  if (DOM.confirmCredentialsCheckbox) DOM.confirmCredentialsCheckbox.checked = false;
+  if (DOM.submitChangePasswordBtn) DOM.submitChangePasswordBtn.disabled = true;
+
+  // Setup title & warning
+  if (DOM.changePasswordModalTitle) {
+    DOM.changePasswordModalTitle.textContent = state.userRole === 'admin' ? '🔐 Change Admin Credentials' : '🔐 Change Password';
+  }
+
+  if (isForced || state.isDefaultAdmin) {
+    if (DOM.defaultAdminWarning) DOM.defaultAdminWarning.classList.remove('hidden');
+    // Hide Close/Cancel buttons in forced mode
+    if (DOM.closeChangePasswordBtn) DOM.closeChangePasswordBtn.classList.add('hidden');
+    if (DOM.cancelChangePasswordBtn) DOM.cancelChangePasswordBtn.classList.add('hidden');
+  } else {
+    if (DOM.defaultAdminWarning) DOM.defaultAdminWarning.classList.add('hidden');
+    if (DOM.closeChangePasswordBtn) DOM.closeChangePasswordBtn.classList.remove('hidden');
+    if (DOM.cancelChangePasswordBtn) DOM.cancelChangePasswordBtn.classList.remove('hidden');
+  }
+}
+
+function closeChangePasswordModal() {
+  if (state.isDefaultAdmin) {
+    alert("You must change your default admin credentials before using the application.");
+    return;
+  }
+  if (DOM.changePasswordModal) {
+    DOM.changePasswordModal.classList.remove('active');
+    document.body.style.overflow = '';
+  }
+}
+
+function validateChangePasswordForm() {
+  const currentPasswordVal = DOM.changeUserCurrentPassword ? DOM.changeUserCurrentPassword.value : '';
+  const newPasswordVal = DOM.changeUserNewPassword ? DOM.changeUserNewPassword.value : '';
+  const confirmNewPasswordVal = DOM.changeUserConfirmNewPassword ? DOM.changeUserConfirmNewPassword.value : '';
+  const checkboxChecked = DOM.confirmCredentialsCheckbox ? DOM.confirmCredentialsCheckbox.checked : false;
+  
+  let isValid = currentPasswordVal.length > 0 &&
+                newPasswordVal.length > 0 &&
+                newPasswordVal === confirmNewPasswordVal &&
+                checkboxChecked;
+                
+  if (DOM.submitChangePasswordBtn) {
+    DOM.submitChangePasswordBtn.disabled = !isValid;
+  }
+}
+
+async function handleChangePasswordSubmit(e) {
+  e.preventDefault();
+  if (!state.isAuthenticated || !state.isOnline) return;
+
+  const currentPassword = DOM.changeUserCurrentPassword.value;
+  const newUsername = DOM.changeUserUsername.value.trim();
+  const newPassword = DOM.changeUserNewPassword.value;
+  const confirmNewPassword = DOM.changeUserConfirmNewPassword.value;
+  const code = DOM.changeUserTotp.value.trim();
+
+  if (newPassword !== confirmNewPassword) {
+    alert("New passwords do not match.");
+    return;
+  }
+
+  if (!DOM.confirmCredentialsCheckbox.checked) {
+    alert("Please check the confirmation checkbox before submitting.");
+    return;
+  }
+
+  const isAdminUpdate = state.userRole === 'admin';
+  const url = isAdminUpdate ? '/api/settings/credentials' : '/api/settings/change-password';
+  
+  const requestBody = isAdminUpdate 
+    ? { currentPassword, newUsername, newPassword, code }
+    : { currentPassword, newPassword, code };
+
+  try {
+    DOM.submitChangePasswordBtn.disabled = true;
+    DOM.submitChangePasswordBtn.textContent = 'Updating...';
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${state.authToken}`
+      },
+      body: JSON.stringify(requestBody)
+    });
+
+    if (response.ok) {
+      alert(isAdminUpdate ? 'Admin credentials updated successfully! Please log in again.' : 'Password updated successfully! Please log in again.');
+      
+      if (isAdminUpdate && state.username === 'admin' && newUsername !== 'admin') {
+        alert("Consider Revoking the old ID");
+      }
+
+      state.isDefaultAdmin = false;
+      closeChangePasswordModal();
+      handleLogout();
+    } else {
+      const err = await response.json();
+      alert('Error updating credentials: ' + (err.error || 'Unknown error'));
+    }
+  } catch (err) {
+    alert('Network error updating credentials.');
+  } finally {
+    DOM.submitChangePasswordBtn.disabled = false;
+    DOM.submitChangePasswordBtn.textContent = 'Update Credentials';
+  }
+}
+
 async function handleUpdateCredentials(e) {
   e.preventDefault();
   if (!state.isOnline || !state.isAuthenticated) return;
@@ -837,6 +992,13 @@ function updateAuthUI() {
     DOM.authBtnText.textContent = 'Logout';
     if (authBtnIcon) authBtnIcon.textContent = '🔓';
 
+    if (DOM.userProfileHeader) {
+      DOM.userProfileHeader.classList.remove('hidden');
+      if (DOM.loggedInUserName) {
+        DOM.loggedInUserName.textContent = state.username || 'user';
+      }
+    }
+
     let roleName = 'User';
     if (state.userRole === 'admin') roleName = 'Admin';
     else if (state.userRole === 'viewer') roleName = 'Viewer';
@@ -847,12 +1009,17 @@ function updateAuthUI() {
     DOM.saveSchemaBtn.removeAttribute('disabled');
     DOM.submitCredentialsBtn.removeAttribute('disabled');
     if (DOM.clearDatabaseBtn) DOM.clearDatabaseBtn.removeAttribute('disabled');
+    if (DOM.clearUsersBtn) DOM.clearUsersBtn.removeAttribute('disabled');
     if (DOM.localBackupExportBtn) DOM.localBackupExportBtn.removeAttribute('disabled');
     if (DOM.localBackupRestoreBtn) DOM.localBackupRestoreBtn.removeAttribute('disabled');
   } else {
     if (guestPrompt) guestPrompt.style.display = 'block';
     if (formCard) formCard.style.display = 'none';
     if (draftsCard) draftsCard.style.display = 'none';
+
+    if (DOM.userProfileHeader) {
+      DOM.userProfileHeader.classList.add('hidden');
+    }
 
     DOM.authBtn.className = 'btn btn-secondary';
     DOM.authBtn.title = 'Login';
@@ -865,6 +1032,7 @@ function updateAuthUI() {
     DOM.saveSchemaBtn.setAttribute('disabled', 'true');
     DOM.submitCredentialsBtn.setAttribute('disabled', 'true');
     if (DOM.clearDatabaseBtn) DOM.clearDatabaseBtn.setAttribute('disabled', 'true');
+    if (DOM.clearUsersBtn) DOM.clearUsersBtn.setAttribute('disabled', 'true');
     if (DOM.localBackupExportBtn) DOM.localBackupExportBtn.setAttribute('disabled', 'true');
     if (DOM.localBackupRestoreBtn) DOM.localBackupRestoreBtn.setAttribute('disabled', 'true');
     
@@ -888,8 +1056,15 @@ async function fetchUserProfile(loginPassword = null) {
     if (res.ok) {
       const data = await res.json();
       state.userRole = data.role;
+      state.username = data.username;
+      state.isDefaultAdmin = data.isDefaultAdmin;
       updateAuthUI();
       updateSettingsRoleCards(data.role);
+
+      if (state.isDefaultAdmin) {
+        // Automatically pop up the password change modal in forced mode
+        openChangePasswordModal(true);
+      }
 
       // E2EE Asymmetric Key Unwrapping
       const pwd = loginPassword || sessionStorage.getItem('encryptionPassword');
@@ -2820,6 +2995,80 @@ async function handleClearDatabase() {
   }
 }
 
+async function handleClearUsers() {
+  if (!state.isOnline) {
+    alert('Offline: Check your connectivity to clear user accounts.');
+    return;
+  }
+  
+  if (!state.isAuthenticated) {
+    openLoginModal();
+    return;
+  }
+
+  if (!confirm('Are you sure you want to permanently delete ALL user accounts except the master admin? This action is irreversible.')) {
+    return;
+  }
+
+  if (!confirm('FINAL WARNING: All other users will be immediately logged out and deleted. Are you absolutely certain?')) {
+    return;
+  }
+
+  // Check 2FA
+  let code = '';
+  try {
+    const statusRes = await fetch('/api/settings/totp/status', {
+      headers: { 'Authorization': `Bearer ${state.authToken}` }
+    });
+    if (statusRes.ok) {
+      const statusData = await statusRes.json();
+      if (statusData.enabled) {
+        code = prompt('Enter 6-digit 2FA Authenticator Code to confirm clearing user accounts:');
+        if (code === null) return;
+        if (!code.trim()) {
+          alert('2FA Code is required.');
+          return;
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Failed to verify 2FA for users clearing:', err);
+  }
+
+  try {
+    DOM.clearUsersBtn.disabled = true;
+    DOM.clearUsersBtn.textContent = 'Clearing Users...';
+
+    const response = await fetch('/api/admin/clear-users', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${state.authToken}`
+      },
+      body: JSON.stringify({ code })
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      alert(`User accounts cleared successfully! Cleared ${data.clearedCount || 0} user(s).`);
+      
+      // Reload team accounts in view
+      if (typeof loadTeamAccounts === 'function') {
+        loadTeamAccounts();
+      }
+    } else {
+      const err = await response.json();
+      alert('Error clearing users: ' + (err.error || 'Unknown error'));
+    }
+  } catch (err) {
+    alert('Network error. Failed to clear user accounts.');
+  } finally {
+    DOM.clearUsersBtn.disabled = false;
+    DOM.clearUsersBtn.textContent = 'Clear All Users';
+    updateAuthUI();
+  }
+}
+
 async function handleLocalBackupExport() {
   if (!state.isOnline) {
     alert("Offline: Check your connectivity to export a database backup.");
@@ -3344,6 +3593,33 @@ function setupEventListeners() {
   DOM.saveSchemaBtn.addEventListener('click', saveSchema);
   if (DOM.changeCredentialsForm) DOM.changeCredentialsForm.addEventListener('submit', handleUpdateCredentials);
 
+  // Change Password Modal Events
+  if (DOM.headerChangePasswordBtn) {
+    DOM.headerChangePasswordBtn.addEventListener('click', () => openChangePasswordModal(false));
+  }
+  if (DOM.closeChangePasswordBtn) {
+    DOM.closeChangePasswordBtn.addEventListener('click', closeChangePasswordModal);
+  }
+  if (DOM.cancelChangePasswordBtn) {
+    DOM.cancelChangePasswordBtn.addEventListener('click', closeChangePasswordModal);
+  }
+  if (DOM.changePasswordModal) {
+    DOM.changePasswordModal.addEventListener('click', (e) => {
+      if (e.target === DOM.changePasswordModal) {
+        closeChangePasswordModal();
+      }
+    });
+  }
+
+  if (DOM.changeUserCurrentPassword) DOM.changeUserCurrentPassword.addEventListener('input', validateChangePasswordForm);
+  if (DOM.changeUserNewPassword) DOM.changeUserNewPassword.addEventListener('input', validateChangePasswordForm);
+  if (DOM.changeUserConfirmNewPassword) DOM.changeUserConfirmNewPassword.addEventListener('input', validateChangePasswordForm);
+  if (DOM.confirmCredentialsCheckbox) DOM.confirmCredentialsCheckbox.addEventListener('change', validateChangePasswordForm);
+
+  if (DOM.changeUserPasswordForm) {
+    DOM.changeUserPasswordForm.addEventListener('submit', handleChangePasswordSubmit);
+  }
+
 
   // Theme Toggle
   if (DOM.themeToggleBtn) DOM.themeToggleBtn.addEventListener('click', toggleTheme);
@@ -3456,6 +3732,7 @@ function setupEventListeners() {
   // Danger Zone Actions
   safeAddListener(DOM.clearDraftsBtn, 'click', handleClearDrafts);
   safeAddListener(DOM.clearDatabaseBtn, 'click', handleClearDatabase);
+  safeAddListener(DOM.clearUsersBtn, 'click', handleClearUsers);
 
   // Local Backup & Restore Actions
   safeAddListener(DOM.localBackupExportBtn, 'click', handleLocalBackupExport);

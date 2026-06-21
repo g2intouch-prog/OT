@@ -698,6 +698,40 @@ app.post('/api/admin/promote', checkAuth, async (req, res) => {
   }
 });
 
+// Admin clear all users route
+app.post('/api/admin/clear-users', checkAuth, async (req, res) => {
+  const { code } = req.body;
+  try {
+    const session = await userDb.verifyUserSession(req);
+    if (!session) {
+      return res.status(401).json({ error: 'Unauthorized.' });
+    }
+    
+    // Check 2FA
+    const { rows: totpRows } = await db.query("SELECT value FROM config WHERE key = 'totp_enabled'");
+    const isTotpEnabled = totpRows.length > 0 ? totpRows[0].value === '1' : false;
+
+    if (isTotpEnabled) {
+      if (!code) {
+        return res.status(400).json({ error: '2FA Authenticator Code is required to clear user accounts.' });
+      }
+      const { rows: secretRows } = await db.query("SELECT value FROM config WHERE key = 'totp_secret'");
+      if (secretRows.length === 0) {
+        return res.status(500).json({ error: '2FA secret not found.' });
+      }
+      const isValid = verifyTOTP(secretRows[0].value, code);
+      if (!isValid) {
+        return res.status(400).json({ error: 'Invalid 2FA Authenticator Code.' });
+      }
+    }
+    
+    const clearedCount = await userDb.clearAllUsersExceptMaster(session.user_id);
+    res.json({ success: true, clearedCount });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Admin save wrapped key for a user route
 app.post('/api/admin/save-wrapped-key', checkAuth, async (req, res) => {
   const { userId, wrappedVaultKey } = req.body;
@@ -716,7 +750,7 @@ app.post('/api/admin/save-wrapped-key', checkAuth, async (req, res) => {
   }
 });
 
-// Update credentials route
+// Update credentials route (Admin only, can change admin User ID and Password)
 app.post('/api/settings/credentials', checkAuth, async (req, res) => {
   const { currentPassword, newUsername, newPassword, code } = req.body;
 
@@ -725,9 +759,17 @@ app.post('/api/settings/credentials', checkAuth, async (req, res) => {
   }
 
   try {
-    const { rows: totpRows } = await db.query("SELECT value FROM config WHERE key = 'totp_enabled'");
-    const isTotpEnabled = totpRows.length > 0 ? totpRows[0].value === '1' : false;
+    const adminCheck = await userDb.checkUserStatusAndRole(req.session.user_id);
+    if (!adminCheck || adminCheck.role !== 'admin') {
+      return res.status(403).json({ error: 'Forbidden: Only administrators can update admin credentials.' });
+    }
 
+    const user = await userDb.getUserById(req.session.user_id);
+    if (!user) {
+      return res.status(400).json({ error: 'User not found.' });
+    }
+
+    const isTotpEnabled = user.totp_enabled === 1 || user.totp_enabled === true;
     if (!isTotpEnabled) {
       return res.status(400).json({ error: 'Two-Factor Authentication (2FA) must be enabled before you can change your admin credentials.' });
     }
@@ -736,23 +778,25 @@ app.post('/api/settings/credentials', checkAuth, async (req, res) => {
       return res.status(400).json({ error: '2FA verification code is required.' });
     }
 
-    const { rows: secretRows } = await db.query("SELECT value FROM config WHERE key = 'totp_secret'");
-    if (secretRows.length === 0) {
-      return res.status(500).json({ error: '2FA secret not found. Please re-enable 2FA.' });
-    }
-
-    const isValid = verifyTOTP(secretRows[0].value, code);
+    const isValid = verifyTOTP(user.totp_secret, code);
     if (!isValid) {
       return res.status(400).json({ error: 'Invalid 2FA code.' });
     }
 
-    const { rows: passRows } = await db.query("SELECT value FROM config WHERE key = 'admin_pass'");
-    const dbPass = passRows.length > 0 ? passRows[0].value : 'password';
-    if (currentPassword !== dbPass) {
+    if (currentPassword !== user.password) {
       return res.status(400).json({ error: 'Incorrect current password.' });
     }
 
     await db.query("BEGIN");
+    if (process.env.POSTGRES_URL) {
+      await db.query("UPDATE users SET username = $1, password = $2 WHERE id = $3", [newUsername.trim(), newPassword, user.id]);
+    } else {
+      const inMemUser = require('./lib/db').inMemoryDb.users.find(u => u.id === user.id);
+      if (inMemUser) {
+        inMemUser.username = newUsername.trim();
+        inMemUser.password = newPassword;
+      }
+    }
     await db.query("INSERT INTO config (key, value) VALUES ('admin_user', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", [newUsername.trim()]);
     await db.query("INSERT INTO config (key, value) VALUES ('admin_pass', $2) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", [newPassword]);
     await db.query("COMMIT");
@@ -760,6 +804,59 @@ app.post('/api/settings/credentials', checkAuth, async (req, res) => {
   } catch (e) {
     await db.query("ROLLBACK");
     res.status(500).json({ error: 'Failed to update credentials: ' + e.message });
+  }
+});
+
+// Change password for any user
+app.post('/api/settings/change-password', checkAuth, async (req, res) => {
+  const { currentPassword, newPassword, code } = req.body;
+
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ error: 'Current password and new Password are required.' });
+  }
+
+  try {
+    const user = await userDb.getUserById(req.session.user_id);
+    if (!user) {
+      return res.status(400).json({ error: 'User not found.' });
+    }
+
+    const isTotpEnabled = user.totp_enabled === 1 || user.totp_enabled === true;
+    if (!isTotpEnabled) {
+      return res.status(400).json({ error: 'Two-Factor Authentication (2FA) must be enabled before you can change your password.' });
+    }
+
+    if (!code) {
+      return res.status(400).json({ error: '2FA verification code is required.' });
+    }
+
+    const isValid = verifyTOTP(user.totp_secret, code);
+    if (!isValid) {
+      return res.status(400).json({ error: 'Invalid 2FA code.' });
+    }
+
+    if (currentPassword !== user.password) {
+      return res.status(400).json({ error: 'Incorrect current password.' });
+    }
+
+    if (process.env.POSTGRES_URL) {
+      await db.query("UPDATE users SET password = $1 WHERE id = $2", [newPassword, user.id]);
+      if (user.id === 'usr-admin-s') {
+        await db.query("INSERT INTO config (key, value) VALUES ('admin_pass', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", [newPassword]);
+      }
+    } else {
+      const inMemUser = require('./lib/db').inMemoryDb.users.find(u => u.id === user.id);
+      if (inMemUser) {
+        inMemUser.password = newPassword;
+      }
+      if (user.id === 'usr-admin-s') {
+        await db.query("INSERT INTO config (key, value) VALUES ('admin_pass', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", [newPassword]);
+      }
+    }
+
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to update password: ' + e.message });
   }
 });
 

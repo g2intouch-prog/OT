@@ -55,6 +55,12 @@
     </div>
     
     <div class="header-controls">
+      <!-- User Profile Ribbon Info -->
+      <div id="user-profile-header" class="hidden" style="display: flex; align-items: center; gap: 8px; color: var(--text-muted); font-size: 0.85rem; margin-right: 12px;">
+        <span>Logged in as: <strong id="logged-in-user-name" style="color: var(--text);">guest</strong></span>
+        <button id="header-change-password-btn" class="btn btn-icon-only" title="Change Password" style="padding: 4px 8px; font-size: 0.9rem;" aria-label="Change Password">🔑</button>
+      </div>
+
       <!-- Theme Toggle Button -->
       <button id="theme-toggle-btn" class="btn btn-icon-only" aria-label="Toggle Theme" style="margin-right: 8px;">
         <span id="theme-toggle-icon">☀</span>
@@ -782,6 +788,9 @@
             <button type="button" id="clear-database-btn" class="btn btn-danger" disabled>
               <span>Clear Postgres Database</span>
             </button>
+            <button type="button" id="clear-users-btn" class="btn btn-danger" style="background-color: #8b1c1c; border-color: #8b1c1c;">
+              <span>Clear All Users</span>
+            </button>
           </div>
         </div>
       </section>
@@ -973,6 +982,66 @@
           <div class="modal-actions mt-4">
             <button type="button" id="cancel-edit-btn" class="btn btn-secondary">Cancel</button>
             <button type="submit" id="submit-edit-btn" class="btn btn-primary">Save Changes</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Change Password Modal (For all users) -->
+  <div id="change-password-modal" class="modal-overlay">
+    <div class="modal-card" style="max-width: 450px; width: 95%;">
+      <div class="modal-header">
+        <h2 id="change-password-modal-title">🔐 Change Password</h2>
+        <button type="button" id="close-change-password-btn" class="modal-close-x">&times;</button>
+      </div>
+      <div class="modal-body" style="padding: 20px;">
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px; background: rgba(56, 139, 253, 0.15); border: 1px solid var(--accent-color); padding: 10px; border-radius: 6px;">
+          <span style="font-size: 1.25rem;">🔑</span>
+          <span style="font-size: 0.8rem; line-height: 1.4; color: var(--text-muted);">Change password regularly for secure uses.</span>
+        </div>
+        
+        <form id="change-user-password-form">
+          <!-- Default admin warning -->
+          <div id="default-admin-warning" class="alert-box alert-danger hidden" style="margin-bottom: 16px; font-size: 0.85rem;">
+            ⚠️ <strong>Security Action Required:</strong> You are logged in with default credentials. You must update your ID and Password to proceed.
+          </div>
+
+          <div class="form-group" id="change-password-id-field" style="margin-bottom: 12px;">
+            <label for="change-user-username">User ID</label>
+            <input type="text" id="change-user-username" class="form-control" placeholder="admin">
+          </div>
+          
+          <div class="form-group" style="margin-bottom: 12px;">
+            <label for="change-user-current-password">Current Password</label>
+            <input type="password" id="change-user-current-password" class="form-control" placeholder="Enter current password" required autocomplete="current-password">
+          </div>
+          
+          <div class="form-group" style="margin-bottom: 12px;">
+            <label for="change-user-new-password">New Password</label>
+            <input type="password" id="change-user-new-password" class="form-control" placeholder="Enter new password" required autocomplete="new-password">
+          </div>
+          
+          <div class="form-group" style="margin-bottom: 12px;">
+            <label for="change-user-confirm-new-password">Confirm New Password</label>
+            <input type="password" id="change-user-confirm-new-password" class="form-control" placeholder="Re-enter new password" required autocomplete="new-password">
+          </div>
+          
+          <div class="form-group" id="change-user-totp-group" style="margin-bottom: 16px;">
+            <label for="change-user-totp">Enter TOTP (2FA Code)</label>
+            <input type="text" id="change-user-totp" class="form-control text-center" placeholder="000000" pattern="[0-9]{6}" inputmode="numeric" maxlength="6" style="font-size: 1.1rem; letter-spacing: 4px; font-weight: 700; padding: 6px 10px;" autocomplete="one-time-code">
+          </div>
+          
+          <div class="form-group" style="display: flex; align-items: flex-start; gap: 8px; margin-bottom: 16px;">
+            <input type="checkbox" id="confirm-credentials-checkbox" style="margin-top: 3px; cursor: pointer;">
+            <label for="confirm-credentials-checkbox" style="font-size: 0.8rem; color: var(--text-muted); cursor: pointer; user-select: none;">
+              I understand that this action cannot be undone and will update my login credentials.
+            </label>
+          </div>
+          
+          <div class="modal-actions" style="margin-top: 20px;">
+            <button type="button" id="cancel-change-password-btn" class="btn btn-secondary">Cancel</button>
+            <button type="submit" id="submit-change-password-btn" class="btn btn-primary" disabled>Update Credentials</button>
           </div>
         </form>
       </div>
