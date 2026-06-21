@@ -740,15 +740,15 @@
 
         <!-- TOTP Authentication Settings Card -->
         <div class="panel-card mt-4" id="two-factor-settings-card">
-          <h2>TOTP Authentication</h2>
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: nowrap; width: 100%; margin-bottom: 8px;">
+            <h2 style="margin: 0;">TOTP Authentication</h2>
+            <p style="margin: 0; white-space: nowrap; font-size: 0.9rem;">Status: <strong id="totp-status-badge" class="text-warning">Checking...</strong></p>
+          </div>
           <p class="card-subtitle font-sans">Enhance account security by requiring a 6-digit verification code from a TOTP app (like Google Authenticator) during login.</p>
           
-          <div id="totp-status-container" class="mt-3" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: nowrap; gap: 12px;">
-            <p style="margin: 0; white-space: nowrap;">Status: <strong id="totp-status-badge" class="text-warning">Checking...</strong></p>
-            <div id="totp-actions" style="display: flex; align-items: center; gap: 8px; flex-shrink: 0; width: auto;">
-              <input type="text" id="totp-disable-inline-code" class="form-control hidden" placeholder="TOTP" style="width: 80px; font-weight: bold; text-align: center; padding: 8px;" pattern="[0-9]{6}" maxlength="6" inputmode="numeric">
-              <button type="button" id="totp-toggle-btn" class="btn btn-primary" style="padding: 8px 12px; font-size: 0.85rem; white-space: nowrap;">Enable TOTP</button>
-            </div>
+          <div id="totp-actions" class="mt-3" style="display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; width: 100%;">
+            <input type="text" id="totp-disable-inline-code" class="form-control hidden" placeholder="TOTP" style="width: 80px; font-weight: bold; text-align: center; padding: 8px;" pattern="[0-9]{6}" maxlength="6" inputmode="numeric">
+            <button type="button" id="totp-toggle-btn" class="btn btn-primary" style="padding: 8px 12px; font-size: 0.85rem; white-space: nowrap;">Enable TOTP</button>
           </div>
         </div>
 

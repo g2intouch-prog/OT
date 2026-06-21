@@ -3390,6 +3390,9 @@ function setupEventListeners() {
   }
 
   // Danger Zone Actions
+  safeAddListener(DOM.clearDraftsBtn, 'click', handleClearDrafts);
+  safeAddListener(DOM.clearDatabaseBtn, 'click', handleClearDatabase);
+
   // Local Backup & Restore Actions
   safeAddListener(DOM.localBackupExportBtn, 'click', handleLocalBackupExport);
   safeAddListener(DOM.localBackupRestoreBtn, 'click', () => {
