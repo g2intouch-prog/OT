@@ -235,7 +235,9 @@ function generateSecret(length = 16) {
 }
 
 // Enable JSON body parsing
-app.use(express.json());
+// Enable JSON body parsing with increased size limit to support large Excel/CSV batch syncs
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // Serve service worker without caching so browser can detect updates immediately
 app.get('/sw.js', (req, res) => {
