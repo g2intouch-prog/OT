@@ -141,7 +141,7 @@ const dbProxy = {
       return { rows: [], rowCount: 0 };
     }
 
-    if (normalizedText.startsWith("delete from records")) {
+    if (normalizedText.startsWith("delete from records") || normalizedText.startsWith("truncate")) {
       memoryRecords.length = 0;
       return { rows: [], rowCount: 1 };
     }
@@ -974,13 +974,19 @@ app.post('/api/settings/totp/verify-action', checkAuth, async (req, res) => {
 // Reset database and serial sequence (Postgres SQL syntax)
 async function executeClearDatabase(res) {
   try {
-    await db.query("BEGIN");
-    await db.query("DELETE FROM records");
-    await db.query("ALTER SEQUENCE records_id_seq RESTART WITH 1");
-    await db.query("COMMIT");
+    if (process.env.POSTGRES_URL) {
+      // Use atomic TRUNCATE with RESTART IDENTITY to clear records and reset sequences
+      await db.query("TRUNCATE TABLE records RESTART IDENTITY CASCADE");
+      try {
+        await db.query("TRUNCATE TABLE encrypted_records RESTART IDENTITY CASCADE");
+      } catch (e) {
+        // Safe to ignore if encrypted_records table does not exist
+      }
+    } else {
+      await db.query("DELETE FROM records");
+    }
     res.json({ success: true });
   } catch (err) {
-    await db.query("ROLLBACK");
     res.status(500).json({ error: err.message });
   }
 }
