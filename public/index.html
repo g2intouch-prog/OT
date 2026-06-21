@@ -1103,8 +1103,13 @@
   <div id="audit-modal" class="modal-overlay">
     <div class="modal-card" style="max-width: 950px; width: 95%; max-height: 90vh; display: flex; flex-direction: column;">
       <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; border-bottom: 1px solid var(--panel-border); flex-wrap: wrap; gap: 12px;">
-        <div style="display: flex; align-items: baseline; gap: 15px; flex-wrap: wrap;">
+        <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
           <h2 style="margin: 0; font-size: 1.4rem;">🔍 Database Anomaly Audit</h2>
+          <div id="audit-year-selector" style="display: flex; align-items: center; gap: 8px; background: rgba(255, 255, 255, 0.05); padding: 4px 10px; border-radius: 4px; border: 1px solid var(--panel-border);">
+            <button type="button" id="audit-prev-year-btn" class="btn btn-link p-0" style="color: var(--accent-color); cursor: pointer; font-size: 0.9rem; font-weight: bold; min-width: auto; text-decoration: none;">◀</button>
+            <span id="audit-current-year-text" style="font-weight: bold; font-size: 0.9rem; min-width: 45px; text-align: center;">All</span>
+            <button type="button" id="audit-next-year-btn" class="btn btn-link p-0" style="color: var(--accent-color); cursor: pointer; font-size: 0.9rem; font-weight: bold; min-width: auto; text-decoration: none;">▶</button>
+          </div>
           <span style="font-size: 0.85rem; color: var(--text-muted); font-weight: normal;">Scans blank cells, placeholders (* or ?), and type-mismatches.</span>
         </div>
         <button type="button" id="close-audit-modal-btn" class="modal-close-x">&times;</button>

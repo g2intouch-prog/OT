@@ -218,7 +218,10 @@ const DOM = {
   closeAuditModalBtn: document.getElementById('close-audit-modal-btn'),
   cancelAuditBtn: document.getElementById('cancel-audit-btn'),
   auditTableBody: document.getElementById('audit-table-body'),
-  saveAuditChangesBtn: document.getElementById('save-audit-changes-btn')
+  saveAuditChangesBtn: document.getElementById('save-audit-changes-btn'),
+  auditPrevYearBtn: document.getElementById('audit-prev-year-btn'),
+  auditCurrentYearText: document.getElementById('audit-current-year-text'),
+  auditNextYearBtn: document.getElementById('audit-next-year-btn')
 };
 
 // Helper for finding elements inside selectors safely
@@ -2836,20 +2839,41 @@ function renderDBTable() {
 }
 
 let auditAnomalies = [];
+let activeAuditYear = '';
+
+function getAvailableYears() {
+  const years = [];
+  if (DOM.filterYear) {
+    Array.from(DOM.filterYear.options).forEach(opt => {
+      if (opt.value !== 'all' && opt.value !== '') {
+        years.push(opt.value);
+      }
+    });
+  }
+  // Sort years chronologically
+  years.sort((a, b) => parseInt(a) - parseInt(b));
+  
+  // If no years found, fallback to current year
+  if (years.length === 0) {
+    years.push(new Date().getFullYear().toString());
+  }
+  return years;
+}
+
+function updateAuditYearSelectorUI() {
+  if (DOM.auditCurrentYearText) {
+    DOM.auditCurrentYearText.textContent = activeAuditYear;
+  }
+}
 
 function runDatabaseAuditScan() {
   auditAnomalies = [];
   if (!state.dbRecords || state.dbRecords.length === 0) return;
 
-  const selectedMonth = DOM.filterMonth ? DOM.filterMonth.value : 'all';
-  const selectedYear = DOM.filterYear ? DOM.filterYear.value : 'all';
-
   const filteredRecords = state.dbRecords.filter(rec => {
     if (!rec.date) return false;
-    const [yr, mo] = rec.date.split('-');
-    const matchMonth = (selectedMonth === 'all' || mo === selectedMonth);
-    const matchYear = (selectedYear === 'all' || yr === selectedYear);
-    return matchMonth && matchYear;
+    const [yr] = rec.date.split('-');
+    return yr === activeAuditYear;
   });
 
   // Let's compute column statistics to find "not at par" values
@@ -3142,7 +3166,16 @@ function openAuditModal() {
     openLoginModal();
     return;
   }
-  
+
+  const years = getAvailableYears();
+  const selectedYear = DOM.filterYear ? DOM.filterYear.value : 'all';
+  if (selectedYear !== 'all' && years.includes(selectedYear)) {
+    activeAuditYear = selectedYear;
+  } else {
+    activeAuditYear = years[years.length - 1];
+  }
+
+  updateAuditYearSelectorUI();
   runDatabaseAuditScan();
   renderAuditTable();
   
@@ -4073,6 +4106,38 @@ function setupEventListeners() {
   if (DOM.closeAuditModalBtn) DOM.closeAuditModalBtn.addEventListener('click', closeAuditModal);
   if (DOM.cancelAuditBtn) DOM.cancelAuditBtn.addEventListener('click', closeAuditModal);
   if (DOM.saveAuditChangesBtn) DOM.saveAuditChangesBtn.addEventListener('click', saveAuditedCorrections);
+  if (DOM.auditPrevYearBtn) {
+    DOM.auditPrevYearBtn.addEventListener('click', () => {
+      const years = getAvailableYears();
+      const idx = years.indexOf(activeAuditYear);
+      if (idx > 0) {
+        activeAuditYear = years[idx - 1];
+        if (DOM.filterYear) {
+          DOM.filterYear.value = activeAuditYear;
+          renderDBTable();
+        }
+        updateAuditYearSelectorUI();
+        runDatabaseAuditScan();
+        renderAuditTable();
+      }
+    });
+  }
+  if (DOM.auditNextYearBtn) {
+    DOM.auditNextYearBtn.addEventListener('click', () => {
+      const years = getAvailableYears();
+      const idx = years.indexOf(activeAuditYear);
+      if (idx !== -1 && idx < years.length - 1) {
+        activeAuditYear = years[idx + 1];
+        if (DOM.filterYear) {
+          DOM.filterYear.value = activeAuditYear;
+          renderDBTable();
+        }
+        updateAuditYearSelectorUI();
+        runDatabaseAuditScan();
+        renderAuditTable();
+      }
+    });
+  }
 
   // Print Preview Actions
   if (DOM.printPreviewBtn) DOM.printPreviewBtn.addEventListener('click', openPrintModal);
