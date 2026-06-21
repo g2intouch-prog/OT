@@ -24,6 +24,7 @@
   <meta name="description" content="A cloud-based data logger web application. Work offline, store drafts locally, and verify/push to Postgres database.">
   <link rel="manifest" href="/manifest.json">
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="apple-touch-icon" href="/icon-192.png">
   <meta name="theme-color" content="#0d1117">
   
   <!-- Google Fonts - Inter -->
@@ -100,7 +101,7 @@
         </button>
         <button class="nav-item" data-tab="data-analysis">
           <span class="nav-icon">📈</span>
-          <span class="nav-text">Analysis</span>
+          <span class="nav-text">Analytics</span>
         </button>
         <button class="nav-item" data-tab="settings">
           <span class="nav-icon">⚙️</span>
@@ -185,18 +186,13 @@
             </div>
           </div>
 
-          <div class="sync-actions-toolbar mt-3">
-            <div class="checkbox-selection-group">
-              <button id="select-all-drafts-btn" class="btn btn-link py-1 px-2">Select All</button>
-              <button id="deselect-all-drafts-btn" class="btn btn-link py-1 px-2">Deselect All</button>
-            </div>
-            
-            <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-              <button id="push-selected-btn" class="btn btn-success" disabled>
-                <span>Push Selected (<span id="push-count-text">0</span>) to Database</span>
+          <div class="sync-actions-toolbar mt-3" style="justify-content: flex-end; padding: 8px 12px;">
+            <div style="display: flex; gap: 8px; width: 100%; justify-content: flex-end;">
+              <button id="push-selected-btn" class="btn btn-success" disabled style="padding: 6px 12px; font-size: 0.8rem; white-space: nowrap; flex: 1; max-width: 180px;">
+                <span>Push (<span id="push-count-text">0</span>)</span>
               </button>
-              <button id="reject-selected-btn" class="btn btn-danger" disabled>
-                <span>Move Selected (<span id="reject-count-text">0</span>) to Trash</span>
+              <button id="reject-selected-btn" class="btn btn-danger" disabled style="padding: 6px 12px; font-size: 0.8rem; white-space: nowrap; flex: 1; max-width: 180px;">
+                <span>Trash (<span id="reject-count-text">0</span>)</span>
               </button>
             </div>
           </div>
@@ -234,18 +230,22 @@
           </div>
 
           <div class="form-creator-wrapper">
-            <div class="creator-toolbar">
-              <button id="add-field-btn" class="btn btn-secondary">
-                <span>➕ Add Field</span>
+            <div class="creator-toolbar" style="display: flex; gap: 8px; width: 100%; justify-content: space-between; align-items: center; flex-wrap: nowrap; border-bottom: 1px solid var(--panel-border); padding-bottom: 12px; margin-bottom: 16px;">
+              <button id="add-field-btn" class="btn btn-secondary" style="padding: 6px 10px; font-size: 0.8rem; flex: 1; white-space: nowrap;">
+                <span>➕ Add</span>
               </button>
-              <button id="load-headers-btn" class="btn btn-secondary">
-                <span>📂 Load Schema from Excel Headers</span>
+              <button id="load-headers-btn" class="btn btn-secondary" style="padding: 6px 10px; font-size: 0.8rem; flex: 1; white-space: nowrap;">
+                <span>📂 Load</span>
+              </button>
+              <button id="reset-creator-btn" class="btn btn-link" style="padding: 6px 10px; font-size: 0.8rem; flex: 1; white-space: nowrap; text-align: center; color: var(--text-muted);">Reset</button>
+              <button id="save-schema-btn" class="btn btn-primary" disabled style="padding: 6px 10px; font-size: 0.8rem; flex: 1; white-space: nowrap;">
+                <span>Save</span>
               </button>
               <input type="file" id="headers-excel-file" accept=".xlsx, .xls, .csv" style="display: none;">
-              <button id="reset-creator-btn" class="btn btn-link">Reset to Default</button>
             </div>
 
-            <div class="fields-list-container">
+            <!-- Desktop View: Table -->
+            <div class="fields-list-container table-responsive">
               <table class="data-table">
                 <thead>
                   <tr>
@@ -262,10 +262,25 @@
               </table>
             </div>
 
-            <div class="form-actions mt-4">
-              <button id="save-schema-btn" class="btn btn-primary" disabled>
-                <span>Save Schema Configuration</span>
-              </button>
+            <!-- Mobile View: Single Field Card with Nav Arrows -->
+            <div id="fields-list-mobile-card" class="mobile-only-block" style="background: rgba(13, 17, 23, 0.4); border: 1px solid var(--panel-border); border-radius: 8px; padding: 16px; margin: 16px 0;">
+              <!-- Top Header (Indicator only) -->
+              <div style="display: flex; justify-content: center; align-items: center; border-bottom: 1px solid var(--panel-border); padding-bottom: 12px; margin-bottom: 16px;">
+                <div style="font-weight: bold; font-size: 0.85rem; color: var(--accent-color);">
+                  Editing Field <span id="creator-current-field-index-top">0</span> of <span id="creator-total-fields-count-top">0</span>
+                </div>
+              </div>
+              <div id="mobile-field-editor-container" style="display: flex; flex-direction: column; gap: 12px; text-align: left;">
+                <!-- Dynamically populated card inputs -->
+              </div>
+              <!-- Bottom Footer (Navigation Control) -->
+              <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--panel-border); padding-top: 12px; margin-top: 16px;">
+                <button type="button" id="creator-prev-field-btn" class="btn btn-secondary py-2 px-3" style="font-size: 0.9rem; flex: 1; margin-right: 8px;">◀ Prev</button>
+                <div style="font-weight: bold; font-size: 0.85rem; color: var(--accent-color); flex: 0.8; text-align: center; white-space: nowrap;">
+                  Field <span id="creator-current-field-index">0</span> / <span id="creator-total-fields-count">0</span>
+                </div>
+                <button type="button" id="creator-next-field-btn" class="btn btn-secondary py-2 px-3" style="font-size: 0.9rem; flex: 1; margin-left: 8px;">Next ▶</button>
+              </div>
             </div>
           </div>
         </div>
@@ -390,7 +405,7 @@
               </thead>
               <tbody id="db-table-body">
                 <tr>
-                  <td colspan="100%" class="text-center text-muted py-4">No data loaded. Connect to the LAN database to view records.</td>
+                  <td colspan="100%" class="text-center text-muted py-4">No data loaded. Connect to the database to view records.</td>
                 </tr>
               </tbody>
             </table>
@@ -406,18 +421,13 @@
             <span id="deleted-drafts-summary-text" class="text-muted">No deleted drafts</span>
           </div>
 
-          <div class="sync-actions-toolbar mt-3">
-            <div class="checkbox-selection-group">
-              <button id="select-all-deleted-btn" class="btn btn-link py-1 px-2">Select All</button>
-              <button id="deselect-all-deleted-btn" class="btn btn-link py-1 px-2">Deselect All</button>
-            </div>
-            
-            <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-              <button id="restore-selected-btn" class="btn btn-success" disabled>
-                <span>Restore Selected (<span id="restore-count-text">0</span>)</span>
+          <div class="sync-actions-toolbar mt-3" style="justify-content: flex-end; padding: 8px 12px;">
+            <div style="display: flex; gap: 8px; width: 100%; justify-content: flex-end;">
+              <button id="restore-selected-btn" class="btn btn-success" disabled style="padding: 6px 12px; font-size: 0.8rem; white-space: nowrap; flex: 1; max-width: 180px;">
+                <span>Restore (<span id="restore-count-text">0</span>)</span>
               </button>
-              <button id="delete-permanently-btn" class="btn btn-danger" disabled>
-                <span>Delete Permanently (<span id="delete-permanently-count-text">0</span>)</span>
+              <button id="delete-permanently-btn" class="btn btn-danger" disabled style="padding: 6px 12px; font-size: 0.8rem; white-space: nowrap; flex: 1; max-width: 180px;">
+                <span>Delete (<span id="delete-permanently-count-text">0</span>)</span>
               </button>
             </div>
           </div>
@@ -597,7 +607,8 @@
           <h2>Live Team Status Panel (Admin Operations)</h2>
           <p class="card-subtitle">Change member authorizations. Changing status to 'revoked' will trigger an instant SELF_DESTRUCT instruction to purge volatile session variables and local caches on their device.</p>
           
-          <div class="table-responsive">
+          <h3 style="font-size: 1rem; margin-bottom: 10px; color: var(--success);">Active Team Members</h3>
+          <div class="table-responsive" style="margin-bottom: 20px;">
             <table class="data-table">
               <thead>
                 <tr>
@@ -610,6 +621,25 @@
               <tbody id="team-table-body">
                 <tr>
                   <td colspan="4" class="text-center py-4 text-muted">Loading team accounts...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 style="font-size: 1rem; margin-bottom: 10px; color: var(--danger);">Suspended / Revoked Accounts</h3>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Username/Email</th>
+                  <th>Role</th>
+                  <th>Current Status</th>
+                  <th class="actions-col">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="revoked-team-table-body">
+                <tr>
+                  <td colspan="4" class="text-center py-4 text-muted">No suspended accounts.</td>
                 </tr>
               </tbody>
             </table>
@@ -713,11 +743,11 @@
           <h2>TOTP Authentication</h2>
           <p class="card-subtitle font-sans">Enhance account security by requiring a 6-digit verification code from a TOTP app (like Google Authenticator) during login.</p>
           
-          <div id="totp-status-container" class="mt-3" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;">
-            <p style="margin: 0;">Status: <strong id="totp-status-badge" class="text-warning">Checking...</strong></p>
-            <div id="totp-actions" style="display: flex; align-items: center; gap: 12px;">
-              <input type="text" id="totp-disable-inline-code" class="form-control hidden" placeholder="Enter TOTP to disable" style="width: 180px; font-weight: bold; text-align: center;" pattern="[0-9]{6}" maxlength="6" inputmode="numeric">
-              <button type="button" id="totp-toggle-btn" class="btn btn-primary" style="min-width: 150px;">Enable TOTP</button>
+          <div id="totp-status-container" class="mt-3" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: nowrap; gap: 12px;">
+            <p style="margin: 0; white-space: nowrap;">Status: <strong id="totp-status-badge" class="text-warning">Checking...</strong></p>
+            <div id="totp-actions" style="display: flex; align-items: center; gap: 8px; flex-shrink: 0; width: auto;">
+              <input type="text" id="totp-disable-inline-code" class="form-control hidden" placeholder="TOTP" style="width: 80px; font-weight: bold; text-align: center; padding: 8px;" pattern="[0-9]{6}" maxlength="6" inputmode="numeric">
+              <button type="button" id="totp-toggle-btn" class="btn btn-primary" style="padding: 8px 12px; font-size: 0.85rem; white-space: nowrap;">Enable TOTP</button>
             </div>
           </div>
         </div>
@@ -809,6 +839,12 @@
             
             <!-- Right side game arena -->
             <div style="background-color: #0d1117; border: 2px solid var(--panel-border); border-radius: 8px; overflow: hidden; position: relative; width: 450px; height: 450px; flex-shrink: 0; box-shadow: var(--shadow);">
+              <!-- Scoreboard display inside the game window -->
+              <div id="game-scoreboard" style="position: absolute; top: 12px; left: 12px; display: none; gap: 16px; background: rgba(0, 0, 0, 0.8); padding: 6px 12px; border-radius: 4px; font-family: monospace; font-size: 0.85rem; color: #ff7b00; z-index: 15; border: 1px solid var(--panel-border); font-weight: bold; pointer-events: none; backdrop-filter: blur(4px);">
+                <div>SCORE: <span id="game-score">0</span></div>
+                <div>HI-SCORE: <span id="game-highscore">0</span></div>
+              </div>
+              
               <!-- Game Container for Canvas-based games or Memory Match Grid -->
               <div id="game-arena" style="width: 100%; height: 100%; position: relative;">
                 <canvas id="game-canvas" width="450" height="450" style="display: block; background: #0d1117;"></canvas>

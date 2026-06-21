@@ -1469,3 +1469,24 @@ body.light-mode .top-addresses-list li {
   padding-top: 12px;
 }
 
+/* Form Creator inputs scaling */
+.fields-list-container td input.form-control,
+.fields-list-container td select.form-select {
+  min-width: 100px !important;
+  max-width: 100% !important;
+}
+
+/* Display overrides for Form Creator single card navigation */
+.mobile-only-block {
+  display: none !important;
+}
+
+@media (max-width: 600px) {
+  .mobile-only-block {
+    display: block !important;
+  }
+  .fields-list-container {
+    display: none !important;
+  }
+}
+

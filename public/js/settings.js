@@ -307,33 +307,78 @@ async function loadTeamAccounts() {
 
     const { users } = await res.json();
     tbody.innerHTML = '';
+    
+    const revokedTbody = document.getElementById('revoked-team-table-body');
+    if (revokedTbody) revokedTbody.innerHTML = '';
 
-    users.forEach(user => {
-      const tr = document.createElement('tr');
-      
-      const isRevoked = user.status === 'revoked';
-      const statusBadge = isRevoked 
-        ? `<span style="color: var(--danger); font-weight: bold; background: var(--danger-glow); padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(218,54,55,0.2)">REVOKED</span>`
-        : `<span style="color: var(--success); font-weight: bold; background: var(--success-glow); padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(46,164,79,0.2)">ACTIVE</span>`;
+    const activeUsers = users.filter(u => u.status !== 'revoked');
+    const revokedUsers = users.filter(u => u.status === 'revoked');
 
-      // Admin cannot toggle their own account
-      const selfToken = sessionStorage.getItem('authToken');
-      const isSelf = user.id === 'usr-admin'; // In mock structure or check username match
+    if (activeUsers.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-muted">No active team members.</td></tr>';
+    } else {
+      activeUsers.forEach(user => {
+        const tr = document.createElement('tr');
+        const statusBadge = `<span style="color: var(--success); font-weight: bold; background: var(--success-glow); padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(46,164,79,0.2)">ACTIVE</span>`;
+        const isSelf = user.id === 'usr-admin';
 
-      const actionButton = isSelf 
-        ? `<span class="text-muted">Master Root Account</span>`
-        : isRevoked
-          ? `<button onclick="toggleUserStatus('${user.id}', 'active')" class="btn btn-success" style="padding: 4px 10px; font-size: 0.75rem;">Reactivate</button>`
+        const actionButton = isSelf 
+          ? `<span class="text-muted">Master Root Account</span>`
           : `<button onclick="toggleUserStatus('${user.id}', 'revoked')" class="btn btn-danger" style="padding: 4px 10px; font-size: 0.75rem;">Revoke Access</button>`;
 
-      tr.innerHTML = `
-        <td style="font-weight: 500;">${user.username}</td>
-        <td><span class="position-badge">${user.role.toUpperCase()}</span></td>
-        <td>${statusBadge}</td>
-        <td class="actions-col">${actionButton}</td>
-      `;
-      tbody.appendChild(tr);
-    });
+        tr.innerHTML = `
+          <td style="font-weight: 500; display: flex; align-items: center; gap: 8px;">
+            <span class="status-dot" style="
+              display: inline-block;
+              width: 8px;
+              height: 8px;
+              border-radius: 50%;
+              background-color: ${user.online ? '#2ea44f' : '#8b949e'};
+              box-shadow: ${user.online ? '0 0 8px #2ea44f' : 'none'};
+              flex-shrink: 0;
+            "></span>
+            <span>${user.username}</span>
+            ${user.online ? '<span style="font-size: 0.7rem; color: #2ea44f; background: rgba(46,164,79,0.1); padding: 1px 4px; border-radius: 3px; font-weight: normal; margin-left: 4px;">Online</span>' : ''}
+          </td>
+          <td><span class="position-badge">${user.role.toUpperCase()}</span></td>
+          <td>${statusBadge}</td>
+          <td class="actions-col">${actionButton}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    if (revokedTbody) {
+      if (revokedUsers.length === 0) {
+        revokedTbody.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-muted">No suspended accounts.</td></tr>';
+      } else {
+        revokedUsers.forEach(user => {
+          const tr = document.createElement('tr');
+          const statusBadge = `<span style="color: var(--danger); font-weight: bold; background: var(--danger-glow); padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(218,54,55,0.2)">REVOKED</span>`;
+          const actionButton = `<button onclick="toggleUserStatus('${user.id}', 'active')" class="btn btn-success" style="padding: 4px 10px; font-size: 0.75rem;">Reactivate</button>`;
+
+          tr.innerHTML = `
+            <td style="font-weight: 500; display: flex; align-items: center; gap: 8px;">
+              <span class="status-dot" style="
+                display: inline-block;
+                width: 8px;
+                height: 8px;
+                border-radius: 50%;
+                background-color: ${user.online ? '#2ea44f' : '#8b949e'};
+                box-shadow: ${user.online ? '0 0 8px #2ea44f' : 'none'};
+                flex-shrink: 0;
+              "></span>
+              <span>${user.username}</span>
+              ${user.online ? '<span style="font-size: 0.7rem; color: #2ea44f; background: rgba(46,164,79,0.1); padding: 1px 4px; border-radius: 3px; font-weight: normal; margin-left: 4px;">Online</span>' : ''}
+            </td>
+            <td><span class="position-badge">${user.role.toUpperCase()}</span></td>
+            <td>${statusBadge}</td>
+            <td class="actions-col">${actionButton}</td>
+          `;
+          revokedTbody.appendChild(tr);
+        });
+      }
+    }
 
   } catch (err) {
     console.error('Failed to load team details:', err);

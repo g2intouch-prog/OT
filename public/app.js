@@ -10,6 +10,7 @@ const state = {
   dbRecords: [],       // Records fetched from SQLite
   activeTab: 'data-entry',
   formCreatorSchema: [], // Working copy of schema inside Form Creator
+  formCreatorActiveIndex: 0,
   lanUrl: ''
 };
 
@@ -553,7 +554,7 @@ async function handleLogin(e) {
         DOM.loginError.classList.remove('hidden');
       }
     } catch (err) {
-      alert('Network error verifying 2FA. Ensure LAN is connected.');
+      alert('Network error verifying 2FA. Check your connectivity.');
     }
     return;
   }
@@ -632,7 +633,7 @@ async function handleLogin(e) {
       DOM.loginError.classList.remove('hidden');
     }
   } catch (err) {
-    alert('Network error authenticating. Ensure LAN is connected.');
+    alert('Network error authenticating. Check your connectivity.');
   }
 }
 
@@ -701,7 +702,7 @@ async function handleUpdateCredentials(e) {
       alert('Error updating credentials: ' + (err.error || 'Unknown error'));
     }
   } catch (err) {
-    alert('Network error updating credentials. Ensure LAN server is reachable.');
+    alert('Network error updating credentials. Check your connectivity.');
   } finally {
     DOM.submitCredentialsBtn.disabled = false;
     DOM.submitCredentialsBtn.textContent = 'Update Credentials';
@@ -711,12 +712,41 @@ async function handleUpdateCredentials(e) {
 function updateAuthUI() {
   const authBtnIcon = DOM.authBtn.querySelector('.btn-icon');
   
-  // Show/hide nav items based on authentication
+  // Show/hide nav items based on authentication and roles
   DOM.navItems.forEach(item => {
-    if (item.dataset.tab === 'data-entry' || item.dataset.tab === 'break-game') {
-      item.style.display = 'flex';
+    const tab = item.dataset.tab;
+    if (!state.isAuthenticated) {
+      // Guest mode
+      if (tab === 'data-entry' || tab === 'break-game') {
+        item.style.display = 'flex';
+      } else {
+        item.style.display = 'none';
+      }
     } else {
-      item.style.display = state.isAuthenticated ? 'flex' : 'none';
+      // Authenticated mode
+      if (state.userRole === 'admin') {
+        item.style.display = 'flex';
+      } else if (state.userRole === 'viewer') {
+        // Viewers see ONLY Reports and Analytics
+        if (tab === 'db-viewer' || tab === 'data-analysis') {
+          item.style.display = 'flex';
+        } else {
+          item.style.display = 'none';
+        }
+      } else if (state.userRole === 'user') {
+        // Dataentry users see ONLY Data Entry and Quick Break
+        if (tab === 'data-entry' || tab === 'break-game') {
+          item.style.display = 'flex';
+        } else {
+          item.style.display = 'none';
+        }
+      } else {
+        if (tab === 'data-entry' || tab === 'break-game') {
+          item.style.display = 'flex';
+        } else {
+          item.style.display = 'none';
+        }
+      }
     }
   });
 
@@ -739,7 +769,9 @@ function updateAuthUI() {
     DOM.authBtnText.textContent = 'Logout';
     if (authBtnIcon) authBtnIcon.textContent = '🔓';
 
-    const roleName = state.userRole === 'admin' ? 'Admin' : 'User';
+    let roleName = 'User';
+    if (state.userRole === 'admin') roleName = 'Admin';
+    else if (state.userRole === 'viewer') roleName = 'Viewer';
     DOM.sessionStatusDisplay.className = 'status-logged-in';
     DOM.sessionStatusDisplay.textContent = `${roleName} Mode`;
 
@@ -864,7 +896,7 @@ async function fetchSchema() {
       localStorage.setItem('cached_schema', JSON.stringify(schema));
     }
   } catch (err) {
-    console.warn('Could not fetch schema from LAN. Falling back to cached schema.');
+    console.warn('Could not fetch schema from server. Falling back to cached schema.');
     const cached = localStorage.getItem('cached_schema');
     if (cached) {
       state.schema = JSON.parse(cached);
@@ -906,7 +938,7 @@ async function saveSchema() {
       alert('Error saving schema: ' + (err.error || 'Unknown error'));
     }
   } catch (err) {
-    alert('Failed to connect to LAN server to save schema.');
+    alert('Failed to save schema. Check your connectivity.');
   }
 }
 
@@ -1526,6 +1558,222 @@ function renderFormCreator() {
 
     DOM.fieldsListBody.appendChild(tr);
   });
+
+  // Mobile Single-Field Card UI Synchronization
+  const totalCount = state.formCreatorSchema.length;
+  const totalFieldsSpan = document.getElementById('creator-total-fields-count');
+  if (totalFieldsSpan) totalFieldsSpan.textContent = totalCount;
+  const totalFieldsSpanTop = document.getElementById('creator-total-fields-count-top');
+  if (totalFieldsSpanTop) totalFieldsSpanTop.textContent = totalCount;
+
+  if (state.formCreatorActiveIndex === undefined || state.formCreatorActiveIndex >= totalCount) {
+    state.formCreatorActiveIndex = 0;
+  }
+  
+  const currentIdxSpan = document.getElementById('creator-current-field-index');
+  if (currentIdxSpan) currentIdxSpan.textContent = totalCount > 0 ? (state.formCreatorActiveIndex + 1) : 0;
+  const currentIdxSpanTop = document.getElementById('creator-current-field-index-top');
+  if (currentIdxSpanTop) currentIdxSpanTop.textContent = totalCount > 0 ? (state.formCreatorActiveIndex + 1) : 0;
+
+  const prevBtn = document.getElementById('creator-prev-field-btn');
+  const nextBtnEl = document.getElementById('creator-next-field-btn');
+  if (prevBtn) prevBtn.disabled = (state.formCreatorActiveIndex === 0);
+  if (nextBtnEl) nextBtnEl.disabled = (state.formCreatorActiveIndex >= totalCount - 1);
+
+  const mobileContainer = document.getElementById('mobile-field-editor-container');
+  if (mobileContainer) {
+    mobileContainer.innerHTML = '';
+    if (totalCount > 0) {
+      const field = state.formCreatorSchema[state.formCreatorActiveIndex];
+      const index = state.formCreatorActiveIndex;
+      
+      const actionsDiv = document.createElement('div');
+      actionsDiv.style.display = 'flex';
+      actionsDiv.style.justifyContent = 'space-between';
+      actionsDiv.style.alignItems = 'center';
+      
+      const posLabel = document.createElement('span');
+      posLabel.innerHTML = `Position: <span class="position-badge">${index + 1}</span>`;
+      
+      const moveDiv = document.createElement('div');
+      moveDiv.style.display = 'flex';
+      moveDiv.style.gap = '8px';
+      
+      const upBtn = document.createElement('button');
+      upBtn.className = 'btn btn-secondary';
+      upBtn.style.padding = '4px 8px';
+      upBtn.style.fontSize = '0.75rem';
+      upBtn.textContent = '▲ Up';
+      upBtn.disabled = (index === 0);
+      upBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const temp = state.formCreatorSchema[index];
+        state.formCreatorSchema[index] = state.formCreatorSchema[index - 1];
+        state.formCreatorSchema[index - 1] = temp;
+        state.formCreatorActiveIndex = index - 1;
+        renderFormCreator();
+      });
+      
+      const downBtn = document.createElement('button');
+      downBtn.className = 'btn btn-secondary';
+      downBtn.style.padding = '4px 8px';
+      downBtn.style.fontSize = '0.75rem';
+      downBtn.textContent = '▼ Down';
+      downBtn.disabled = (index === totalCount - 1);
+      downBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const temp = state.formCreatorSchema[index];
+        state.formCreatorSchema[index] = state.formCreatorSchema[index + 1];
+        state.formCreatorSchema[index + 1] = temp;
+        state.formCreatorActiveIndex = index + 1;
+        renderFormCreator();
+      });
+      
+      moveDiv.appendChild(upBtn);
+      moveDiv.appendChild(downBtn);
+      
+      const delBtn = document.createElement('button');
+      delBtn.className = 'btn btn-danger';
+      delBtn.style.padding = '4px 8px';
+      delBtn.style.fontSize = '0.75rem';
+      delBtn.textContent = '🗑️ Delete';
+      delBtn.disabled = (field.id === 'date');
+      delBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        state.formCreatorSchema.splice(index, 1);
+        if (state.formCreatorActiveIndex > 0) state.formCreatorActiveIndex--;
+        renderFormCreator();
+      });
+      
+      actionsDiv.appendChild(posLabel);
+      actionsDiv.appendChild(moveDiv);
+      actionsDiv.appendChild(delBtn);
+      mobileContainer.appendChild(actionsDiv);
+      
+      const titleGroup = document.createElement('div');
+      titleGroup.className = 'form-group';
+      const titleLabel = document.createElement('label');
+      titleLabel.textContent = 'Field Title (Display Name)';
+      const titleInput = document.createElement('input');
+      titleInput.type = 'text';
+      titleInput.className = 'form-control';
+      titleInput.value = field.title;
+      titleInput.disabled = (field.id === 'date');
+      titleInput.addEventListener('input', (e) => {
+        state.formCreatorSchema[index].title = e.target.value;
+      });
+      titleGroup.appendChild(titleLabel);
+      titleGroup.appendChild(titleInput);
+      mobileContainer.appendChild(titleGroup);
+
+      if (field.type === 'select') {
+        const optionsGroup = document.createElement('div');
+        optionsGroup.className = 'form-group';
+        const optionsLabel = document.createElement('label');
+        optionsLabel.textContent = 'Options (comma-separated)';
+        const optionsInput = document.createElement('input');
+        optionsInput.type = 'text';
+        optionsInput.className = 'form-control';
+        optionsInput.placeholder = 'e.g. Yes, No, N/A';
+        optionsInput.value = field.options ? field.options.join(', ') : '';
+        optionsInput.addEventListener('input', (e) => {
+          state.formCreatorSchema[index].options = e.target.value
+            .split(',')
+            .map(s => s.trim())
+            .filter(s => s.length > 0);
+        });
+        optionsGroup.appendChild(optionsLabel);
+        optionsGroup.appendChild(optionsInput);
+        mobileContainer.appendChild(optionsGroup);
+      }
+      
+      const typeGroup = document.createElement('div');
+      typeGroup.className = 'form-group';
+      const typeLabel = document.createElement('label');
+      typeLabel.textContent = 'Data Type';
+      const typeSelect = document.createElement('select');
+      typeSelect.className = 'form-select';
+      typeSelect.disabled = (field.id === 'date');
+      
+      const types = [
+        { value: 'text', text: 'Plain Text' },
+        { value: 'number', text: 'Number' },
+        { value: 'date', text: 'Date' },
+        { value: 'time', text: 'Time' },
+        { value: 'select', text: 'Dropdown List' }
+      ];
+      types.forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = t.value;
+        opt.textContent = t.text;
+        if (field.type === t.value) opt.selected = true;
+        typeSelect.appendChild(opt);
+      });
+      typeSelect.addEventListener('change', (e) => {
+        state.formCreatorSchema[index].type = e.target.value;
+        if (e.target.value === 'select' && !state.formCreatorSchema[index].options) {
+          state.formCreatorSchema[index].options = ['Option 1', 'Option 2'];
+        }
+        renderFormCreator();
+      });
+      typeGroup.appendChild(typeLabel);
+      typeGroup.appendChild(typeSelect);
+      mobileContainer.appendChild(typeGroup);
+      
+      if (field.type === 'time') {
+        const formatGroup = document.createElement('div');
+        formatGroup.style.display = 'flex';
+        formatGroup.style.alignItems = 'center';
+        formatGroup.style.gap = '8px';
+        formatGroup.style.marginTop = '4px';
+        
+        const formatCheckbox = document.createElement('input');
+        formatCheckbox.type = 'checkbox';
+        formatCheckbox.id = `mobile-time-format-${field.id}`;
+        formatCheckbox.checked = field.timeFormat === '12h';
+        formatCheckbox.addEventListener('change', (e) => {
+          state.formCreatorSchema[index].timeFormat = e.target.checked ? '12h' : '24h';
+        });
+        
+        const formatLabel = document.createElement('label');
+        formatLabel.setAttribute('for', `mobile-time-format-${field.id}`);
+        formatLabel.textContent = 'Enable 12-hour format AM/PM';
+        formatLabel.style.fontSize = '0.8rem';
+        formatLabel.style.marginBottom = '0';
+        
+        formatGroup.appendChild(formatCheckbox);
+        formatGroup.appendChild(formatLabel);
+        mobileContainer.appendChild(formatGroup);
+      }
+      
+      const voiceGroup = document.createElement('div');
+      voiceGroup.style.display = 'flex';
+      voiceGroup.style.alignItems = 'center';
+      voiceGroup.style.gap = '8px';
+      voiceGroup.style.marginTop = '4px';
+      
+      const voiceCheckbox = document.createElement('input');
+      voiceCheckbox.type = 'checkbox';
+      voiceCheckbox.id = `mobile-voice-${field.id}`;
+      voiceCheckbox.checked = !!field.voiceEnabled;
+      voiceCheckbox.disabled = (field.id === 'date' || field.type === 'date');
+      voiceCheckbox.addEventListener('change', (e) => {
+        state.formCreatorSchema[index].voiceEnabled = e.target.checked;
+      });
+      
+      const voiceLabel = document.createElement('label');
+      voiceLabel.setAttribute('for', `mobile-voice-${field.id}`);
+      voiceLabel.textContent = 'Enable Voice Input helper';
+      voiceLabel.style.fontSize = '0.8rem';
+      voiceLabel.style.marginBottom = '0';
+      
+      voiceGroup.appendChild(voiceCheckbox);
+      voiceGroup.appendChild(voiceLabel);
+      mobileContainer.appendChild(voiceGroup);
+    } else {
+      mobileContainer.innerHTML = '<p class="text-center text-muted">No fields defined yet. Click Add Field above.</p>';
+    }
+  }
 }
 
 function addNewField() {
@@ -1660,7 +1908,8 @@ function renderSyncTable() {
 
 function updatePushSelectedBtnState() {
   const verifiedCount = state.drafts.filter(d => d.verified).length;
-  DOM.pushCountText.textContent = verifiedCount;
+  const countEl = document.getElementById('push-count-text');
+  if (countEl) countEl.textContent = verifiedCount;
   
   if (state.isOnline && verifiedCount > 0) {
     DOM.pushSelectedBtn.removeAttribute('disabled');
@@ -1669,8 +1918,9 @@ function updatePushSelectedBtnState() {
   }
 
   // Reject selected button (Move to Trash)
-  if (DOM.rejectSelectedBtn && DOM.rejectCountText) {
-    DOM.rejectCountText.textContent = verifiedCount;
+  if (DOM.rejectSelectedBtn) {
+    const rejectCountEl = document.getElementById('reject-count-text');
+    if (rejectCountEl) rejectCountEl.textContent = verifiedCount;
     if (verifiedCount > 0) {
       DOM.rejectSelectedBtn.removeAttribute('disabled');
     } else {
@@ -1996,7 +2246,7 @@ async function deletePermanentlySelected() {
 
 async function pushSelectedDrafts() {
   if (!state.isOnline) {
-    alert('You are currently offline. Please reconnect to the LAN server to push.');
+    alert('You are currently offline. Check your connectivity.');
     return;
   }
   
@@ -2009,7 +2259,7 @@ async function pushSelectedDrafts() {
   if (toPush.length === 0) return;
 
   DOM.pushSelectedBtn.disabled = true;
-  DOM.pushSelectedBtn.textContent = 'Pushing...';
+  DOM.pushSelectedBtn.innerHTML = '<span>Pushing...</span>';
 
   try {
     // Encrypt drafts on-the-fly before transmission
@@ -2029,7 +2279,7 @@ async function pushSelectedDrafts() {
           console.error('Failed to encrypt draft on push:', encErr);
           alert('Failed to encrypt one or more drafts. Sync aborted.');
           DOM.pushSelectedBtn.disabled = false;
-          DOM.pushSelectedBtn.textContent = 'Push Selected';
+          DOM.pushSelectedBtn.innerHTML = `<span>Push (<span id="push-count-text">${toPush.length}</span>)</span>`;
           return;
         }
       } else {
@@ -2063,9 +2313,9 @@ async function pushSelectedDrafts() {
       alert('Error pushing drafts: ' + (err.error || 'Server error'));
     }
   } catch (err) {
-    alert('Failed to connect to LAN server during push.');
+    alert('Failed to connect to the server. Check your connectivity.');
   } finally {
-    DOM.pushSelectedBtn.textContent = `Push Selected (0) to Database`;
+    DOM.pushSelectedBtn.innerHTML = '<span>Push (<span id="push-count-text">0</span>)</span>';
     updatePushSelectedBtnState();
   }
 }
@@ -2419,7 +2669,7 @@ async function handleClearDrafts() {
 
 async function handleClearDatabase() {
   if (!state.isOnline) {
-    alert('Offline: Reconnect to the LAN host to clear database records.');
+    alert('Offline: Check your connectivity to clear database records.');
     return;
   }
   
@@ -2496,7 +2746,7 @@ async function handleClearDatabase() {
 
 async function handleLocalBackupExport() {
   if (!state.isOnline) {
-    alert("Offline: Reconnect to the LAN host to export a database backup.");
+    alert("Offline: Check your connectivity to export a database backup.");
     return;
   }
   
@@ -2581,7 +2831,7 @@ async function handleLocalBackupRestore(e) {
   if (!file) return;
 
   if (!state.isOnline) {
-    alert("Offline: Reconnect to the LAN host to restore database records.");
+    alert("Offline: Check your connectivity to restore database records.");
     DOM.localBackupRestoreFile.value = '';
     return;
   }
@@ -2865,9 +3115,9 @@ function formatDisplayValue(val, field) {
 function switchToTab(tabId) {
   // Security Enforcement: Limit access to tabs by role
   if (state.isAuthenticated) {
-    if (state.userRole === 'user' && tabId !== 'data-entry') {
+    if (state.userRole === 'user' && tabId !== 'data-entry' && tabId !== 'break-game') {
       tabId = 'data-entry';
-    } else if (state.userRole === 'viewer' && tabId !== 'db-viewer') {
+    } else if (state.userRole === 'viewer' && tabId !== 'db-viewer' && tabId !== 'data-analysis') {
       tabId = 'db-viewer';
     }
   } else {
@@ -3032,8 +3282,8 @@ function setupEventListeners() {
   DOM.headerSelectAll.addEventListener('change', (e) => {
     selectAllDrafts(e.target.checked);
   });
-  DOM.selectAllDraftsBtn.addEventListener('click', () => selectAllDrafts(true));
-  DOM.deselectAllDraftsBtn.addEventListener('click', () => selectAllDrafts(false));
+  safeAddListener(DOM.selectAllDraftsBtn, 'click', () => selectAllDrafts(true));
+  safeAddListener(DOM.deselectAllDraftsBtn, 'click', () => selectAllDrafts(false));
   DOM.pushSelectedBtn.addEventListener('click', pushSelectedDrafts);
   safeAddListener(DOM.rejectSelectedBtn, 'click', rejectSelectedDrafts);
 
@@ -3146,6 +3396,28 @@ function setupEventListeners() {
   if (DOM.analysisMonth) DOM.analysisMonth.addEventListener('change', renderAnalytics);
   if (DOM.analysisFromDate) DOM.analysisFromDate.addEventListener('change', renderAnalytics);
   if (DOM.analysisToDate) DOM.analysisToDate.addEventListener('change', renderAnalytics);
+
+  // Form Creator Mobile Nav Actions
+  const prevFieldBtn = document.getElementById('creator-prev-field-btn');
+  const nextFieldBtn = document.getElementById('creator-next-field-btn');
+  if (prevFieldBtn) {
+    prevFieldBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (state.formCreatorActiveIndex > 0) {
+        state.formCreatorActiveIndex--;
+        renderFormCreator();
+      }
+    });
+  }
+  if (nextFieldBtn) {
+    nextFieldBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (state.formCreatorActiveIndex < state.formCreatorSchema.length - 1) {
+        state.formCreatorActiveIndex++;
+        renderFormCreator();
+      }
+    });
+  }
 
   // Edit Modal Event Listeners
   if (DOM.closeEditModalBtn) DOM.closeEditModalBtn.addEventListener('click', closeEditModal);
@@ -3949,7 +4221,7 @@ async function handleVerifyAndPrint() {
       await fetchDatabaseRecords();
       alert('All unverified records in the report have been verified!');
     } catch (err) {
-      alert('Network error verifying entries. Reconnect to LAN server.');
+      alert('Network error verifying entries. Check your connectivity.');
       DOM.verifyPrintBtn.disabled = false;
       DOM.verifyPrintBtn.textContent = 'Verify and Print';
       return;
@@ -5402,7 +5674,6 @@ function updateGameOverlayUI() {
       }
     }
   } else {
-    // Show overlay to prompt starting the break session
     if (overlay) overlay.style.display = 'flex';
     if (canvas) canvas.style.display = 'none';
     if (mmGrid) mmGrid.style.display = 'none';
@@ -5414,8 +5685,18 @@ function updateGameOverlayUI() {
   // Sync scores display
   const scoreDisplay = document.getElementById('game-score');
   const hsDisplay = document.getElementById('game-highscore');
-  if (scoreDisplay) scoreDisplay.textContent = '0';
+  if (scoreDisplay) scoreDisplay.textContent = gameScore;
   if (hsDisplay) hsDisplay.textContent = gameHighScores[activeGame] || 0;
+
+  // Toggle visibility of the game scoreboard
+  const scoreboard = document.getElementById('game-scoreboard');
+  if (scoreboard) {
+    if (isBreakActive && !['weather', 'news', 'stocks'].includes(activeGame)) {
+      scoreboard.style.display = 'flex';
+    } else {
+      scoreboard.style.display = 'none';
+    }
+  }
 }
 
 function drawInitialCanvasScreen() {
@@ -7252,52 +7533,100 @@ async function loadTeamAccounts() {
     const { users } = await res.json();
     window.teamUsersCache = users;
     tbody.innerHTML = '';
+    
+    const revokedTbody = document.getElementById('revoked-team-table-body');
+    if (revokedTbody) revokedTbody.innerHTML = '';
 
-    users.forEach(user => {
-      const tr = document.createElement('tr');
-      const isRevoked = user.status === 'revoked';
-      const statusBadge = isRevoked 
-        ? `<span style="color: var(--danger); font-weight: bold; background: var(--danger-glow); padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(218,54,55,0.2)">REVOKED</span>`
-        : `<span style="color: var(--success); font-weight: bold; background: var(--success-glow); padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(46,164,79,0.2)">ACTIVE</span>`;
+    const activeUsers = users.filter(u => u.status !== 'revoked');
+    const revokedUsers = users.filter(u => u.status === 'revoked');
 
-      const isSelf = user.username === 'admin@vault.team' || user.id === 'usr-admin';
-      const isAdminRole = user.role === 'admin';
-
-      let promoteButton = '';
-      if (!isSelf) {
-        if (user.role === 'admin') {
-          promoteButton = `
-            <button onclick="promoteUser('${user.id}', 'user')" class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.75rem; margin-right: 8px;">Demote to User</button>
-            <button onclick="promoteUser('${user.id}', 'viewer')" class="btn btn-primary" style="padding: 4px 10px; font-size: 0.75rem; margin-right: 8px;">Make Viewer</button>
-          `;
-        } else if (user.role === 'user') {
-          promoteButton = `
-            <button onclick="promoteUser('${user.id}', 'admin')" class="btn btn-success" style="padding: 4px 10px; font-size: 0.75rem; margin-right: 8px;">Promote to Admin</button>
-            <button onclick="promoteUser('${user.id}', 'viewer')" class="btn btn-primary" style="padding: 4px 10px; font-size: 0.75rem; margin-right: 8px;">Make Viewer</button>
-          `;
-        } else if (user.role === 'viewer') {
-          promoteButton = `
-            <button onclick="promoteUser('${user.id}', 'admin')" class="btn btn-success" style="padding: 4px 10px; font-size: 0.75rem; margin-right: 8px;">Promote to Admin</button>
-            <button onclick="promoteUser('${user.id}', 'user')" class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.75rem; margin-right: 8px;">Make User</button>
-          `;
+    if (activeUsers.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-muted">No active team members.</td></tr>';
+    } else {
+      activeUsers.forEach(user => {
+        const tr = document.createElement('tr');
+        const statusBadge = `<span style="color: var(--success); font-weight: bold; background: var(--success-glow); padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(46,164,79,0.2)">ACTIVE</span>`;
+        const isSelf = user.username === 'admin@vault.team' || user.id === 'usr-admin';
+        
+        let promoteButton = '';
+        if (!isSelf) {
+          if (user.role === 'admin') {
+            promoteButton = `
+              <button onclick="promoteUser('${user.id}', 'user')" class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.75rem; margin-right: 8px;">Demote to User</button>
+              <button onclick="promoteUser('${user.id}', 'viewer')" class="btn btn-primary" style="padding: 4px 10px; font-size: 0.75rem; margin-right: 8px;">Make Viewer</button>
+            `;
+          } else if (user.role === 'user') {
+            promoteButton = `
+              <button onclick="promoteUser('${user.id}', 'admin')" class="btn btn-success" style="padding: 4px 10px; font-size: 0.75rem; margin-right: 8px;">Promote to Admin</button>
+              <button onclick="promoteUser('${user.id}', 'viewer')" class="btn btn-primary" style="padding: 4px 10px; font-size: 0.75rem; margin-right: 8px;">Make Viewer</button>
+            `;
+          } else if (user.role === 'viewer') {
+            promoteButton = `
+              <button onclick="promoteUser('${user.id}', 'admin')" class="btn btn-success" style="padding: 4px 10px; font-size: 0.75rem; margin-right: 8px;">Promote to Admin</button>
+              <button onclick="promoteUser('${user.id}', 'user')" class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.75rem; margin-right: 8px;">Make User</button>
+            `;
+          }
         }
+
+        const actionButton = isSelf 
+          ? `<span class="text-muted">Master Root Account</span>`
+          : `${promoteButton}<button onclick="toggleUserStatus('${user.id}', 'revoked')" class="btn btn-danger" style="padding: 4px 10px; font-size: 0.75rem;">Revoke Access</button>`;
+
+        tr.innerHTML = `
+          <td style="font-weight: 500; display: flex; align-items: center; gap: 8px;">
+            <span class="status-dot" style="
+              display: inline-block;
+              width: 8px;
+              height: 8px;
+              border-radius: 50%;
+              background-color: ${user.online ? '#2ea44f' : '#8b949e'};
+              box-shadow: ${user.online ? '0 0 8px #2ea44f' : 'none'};
+              flex-shrink: 0;
+            "></span>
+            <span>${user.username}</span>
+            ${user.online ? '<span style="font-size: 0.7rem; color: #2ea44f; background: rgba(46,164,79,0.1); padding: 1px 4px; border-radius: 3px; font-weight: normal; margin-left: 4px;">Online</span>' : ''}
+          </td>
+          <td><span class="position-badge">${user.role.toUpperCase()}</span></td>
+          <td>${statusBadge}</td>
+          <td class="actions-col">${actionButton}</td>
+        `;
+        tr.style.animation = 'fadeIn 0.3s ease-in-out';
+        tbody.appendChild(tr);
+      });
+    }
+
+    if (revokedTbody) {
+      if (revokedUsers.length === 0) {
+        revokedTbody.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-muted">No suspended accounts.</td></tr>';
+      } else {
+        revokedUsers.forEach(user => {
+          const tr = document.createElement('tr');
+          const statusBadge = `<span style="color: var(--danger); font-weight: bold; background: var(--danger-glow); padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(218,54,55,0.2)">REVOKED</span>`;
+          const actionButton = `<button onclick="toggleUserStatus('${user.id}', 'active')" class="btn btn-success" style="padding: 4px 10px; font-size: 0.75rem;">Reactivate</button>`;
+
+          tr.innerHTML = `
+            <td style="font-weight: 500; display: flex; align-items: center; gap: 8px;">
+              <span class="status-dot" style="
+                display: inline-block;
+                width: 8px;
+                height: 8px;
+                border-radius: 50%;
+                background-color: ${user.online ? '#2ea44f' : '#8b949e'};
+                box-shadow: ${user.online ? '0 0 8px #2ea44f' : 'none'};
+                flex-shrink: 0;
+              "></span>
+              <span>${user.username}</span>
+              ${user.online ? '<span style="font-size: 0.7rem; color: #2ea44f; background: rgba(46,164,79,0.1); padding: 1px 4px; border-radius: 3px; font-weight: normal; margin-left: 4px;">Online</span>' : ''}
+            </td>
+            <td><span class="position-badge">${user.role.toUpperCase()}</span></td>
+            <td>${statusBadge}</td>
+            <td class="actions-col">${actionButton}</td>
+          `;
+          tr.style.animation = 'fadeIn 0.3s ease-in-out';
+          revokedTbody.appendChild(tr);
+        });
       }
-
-      const actionButton = isSelf 
-        ? `<span class="text-muted">Master Root Account</span>`
-        : (isRevoked
-          ? `<button onclick="toggleUserStatus('${user.id}', 'active')" class="btn btn-success" style="padding: 4px 10px; font-size: 0.75rem;">Reactivate</button>`
-          : `${promoteButton}<button onclick="toggleUserStatus('${user.id}', 'revoked')" class="btn btn-danger" style="padding: 4px 10px; font-size: 0.75rem;">Revoke Access</button>`);
-
-      tr.innerHTML = `
-        <td style="font-weight: 500;">${user.username}</td>
-        <td><span class="position-badge">${user.role.toUpperCase()}</span></td>
-        <td>${statusBadge}</td>
-        <td class="actions-col">${actionButton}</td>
-      `;
-      tr.style.animation = 'fadeIn 0.3s ease-in-out';
-      tbody.appendChild(tr);
-    });
+    }
 
   } catch (err) {
     console.error('Failed to load team details:', err);
