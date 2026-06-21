@@ -210,7 +210,15 @@ const DOM = {
   confirmCredentialsCheckbox: document.getElementById('confirm-credentials-checkbox'),
   submitChangePasswordBtn: document.getElementById('submit-change-password-btn'),
   changePasswordModalTitle: document.getElementById('change-password-modal-title'),
-  adminCreateUserBtn: document.getElementById('admin-create-user-btn')
+  adminCreateUserBtn: document.getElementById('admin-create-user-btn'),
+
+  // Audit Selectors
+  auditDbBtn: document.getElementById('audit-db-btn'),
+  auditModal: document.getElementById('audit-modal'),
+  closeAuditModalBtn: document.getElementById('close-audit-modal-btn'),
+  cancelAuditBtn: document.getElementById('cancel-audit-btn'),
+  auditTableBody: document.getElementById('audit-table-body'),
+  saveAuditChangesBtn: document.getElementById('save-audit-changes-btn')
 };
 
 // Helper for finding elements inside selectors safely
@@ -2827,6 +2835,319 @@ function renderDBTable() {
   });
 }
 
+let auditAnomalies = [];
+
+function runDatabaseAuditScan() {
+  auditAnomalies = [];
+  if (!state.dbRecords || state.dbRecords.length === 0) return;
+
+  // Let's compute column statistics to find "not at par" values
+  const columnStats = {};
+  state.schema.forEach(field => {
+    columnStats[field.id] = {
+      totalNonEmpty: 0,
+      numericCount: 0,
+      values: []
+    };
+  });
+
+  // First pass: collect statistics
+  state.dbRecords.forEach(rec => {
+    state.schema.forEach(field => {
+      const val = rec.data ? rec.data[field.id] : undefined;
+      if (val !== undefined && val !== null) {
+        const valStr = String(val).trim();
+        if (valStr !== "" && !valStr.includes('?') && !valStr.includes('*')) {
+          columnStats[field.id].totalNonEmpty++;
+          columnStats[field.id].values.push(valStr);
+          if (!isNaN(Number(valStr))) {
+            columnStats[field.id].numericCount++;
+          }
+        }
+      }
+    });
+  });
+
+  // Determine dominant types for columns
+  state.schema.forEach(field => {
+    const stats = columnStats[field.id];
+    stats.isDominantNumeric = stats.totalNonEmpty > 0 && (stats.numericCount / stats.totalNonEmpty) >= 0.8;
+  });
+
+  // Second pass: detect anomalies
+  state.dbRecords.forEach(rec => {
+    state.schema.forEach(field => {
+      const val = rec.data ? rec.data[field.id] : undefined;
+      const valStr = (val === undefined || val === null) ? "" : String(val).trim();
+
+      let isAnomaly = false;
+      let issue = "";
+      let suggestion = "";
+
+      // Rule 1: Blank cells
+      if (valStr === "") {
+        isAnomaly = true;
+        issue = "Blank Cell";
+        suggestion = "Provide missing value";
+      }
+      // Rule 2: Placeholder "?"
+      else if (valStr.includes('?')) {
+        isAnomaly = true;
+        issue = "Contains '?' placeholder";
+        suggestion = "Review and enter actual value";
+      }
+      // Rule 3: Placeholder "*"
+      else if (valStr.includes('*')) {
+        isAnomaly = true;
+        issue = "Contains '*' placeholder";
+        suggestion = "Review and enter actual value";
+      }
+      // Rule 4: Schema Type Mismatch or dominant column type mismatch ("not at par")
+      else {
+        // Check schema-defined type mismatch
+        if (field.type === 'number' && isNaN(Number(valStr))) {
+          isAnomaly = true;
+          issue = "Type Mismatch: Expected number";
+          suggestion = "Enter a valid numeric value";
+        } else if (field.type === 'date' && !/^\d{4}-\d{2}-\d{2}$/.test(valStr)) {
+          isAnomaly = true;
+          issue = "Type Mismatch: Expected date (YYYY-MM-DD)";
+          suggestion = "Enter date in YYYY-MM-DD format";
+        }
+        // Column-level statistical "not at par" anomaly
+        else if (columnStats[field.id].isDominantNumeric && isNaN(Number(valStr))) {
+          isAnomaly = true;
+          issue = "Not at par: Column is mostly numeric";
+          suggestion = "Convert to pure number";
+        }
+      }
+
+      if (isAnomaly) {
+        auditAnomalies.push({
+          recordId: rec.id,
+          date: rec.date || "",
+          field: field,
+          val: valStr,
+          issue: issue,
+          suggestion: suggestion,
+          record: rec
+        });
+      }
+    });
+  });
+}
+
+function renderAuditTable() {
+  if (!DOM.auditTableBody) return;
+
+  DOM.auditTableBody.innerHTML = '';
+
+  if (auditAnomalies.length === 0) {
+    DOM.auditTableBody.innerHTML = `
+      <tr>
+        <td colspan="6" class="text-center py-4 text-muted">No anomalies detected. Your database is clean!</td>
+      </tr>
+    `;
+    if (DOM.saveAuditChangesBtn) DOM.saveAuditChangesBtn.disabled = true;
+    return;
+  }
+
+  // Pre-fill save button status as disabled initially until user changes an input
+  if (DOM.saveAuditChangesBtn) DOM.saveAuditChangesBtn.disabled = true;
+
+  auditAnomalies.forEach((anomaly, index) => {
+    const tr = document.createElement('tr');
+    
+    // Record ID
+    const tdId = document.createElement('td');
+    tdId.textContent = anomaly.recordId;
+    tr.appendChild(tdId);
+
+    // Date
+    const tdDate = document.createElement('td');
+    tdDate.textContent = anomaly.date;
+    tr.appendChild(tdDate);
+
+    // Field Title
+    const tdField = document.createElement('td');
+    tdField.textContent = getFieldDisplayTitle(anomaly.field);
+    tr.appendChild(tdField);
+
+    // Detected Value
+    const tdVal = document.createElement('td');
+    tdVal.style.fontFamily = 'monospace';
+    tdVal.textContent = anomaly.val === "" ? "(blank)" : anomaly.val;
+    if (anomaly.val === "") {
+      tdVal.style.color = '#d29922'; // warn color
+    }
+    tr.appendChild(tdVal);
+
+    // Issue / Suggestion
+    const tdIssue = document.createElement('td');
+    tdIssue.innerHTML = `<span style="color: #f85149; font-weight: bold;">${anomaly.issue}</span><br><small class="text-muted">${anomaly.suggestion}</small>`;
+    tr.appendChild(tdIssue);
+
+    // Corrective Input
+    const tdInput = document.createElement('td');
+    let inputHtml = '';
+    if (anomaly.field.type === 'number') {
+      inputHtml = `<input type="number" step="any" class="form-input audit-correction-input" data-index="${index}" value="${!isNaN(Number(anomaly.val)) ? anomaly.val : ''}" style="padding: 4px 8px; width: 100%;">`;
+    } else if (anomaly.field.type === 'date') {
+      inputHtml = `<input type="date" class="form-input audit-correction-input" data-index="${index}" value="${anomaly.val}" style="padding: 4px 8px; width: 100%;">`;
+    } else {
+      inputHtml = `<input type="text" class="form-input audit-correction-input" data-index="${index}" value="${anomaly.val}" style="padding: 4px 8px; width: 100%;">`;
+    }
+    tdInput.innerHTML = inputHtml;
+    tr.appendChild(tdInput);
+
+    DOM.auditTableBody.appendChild(tr);
+  });
+
+  // Track changes to enable/disable Save button
+  const inputs = DOM.auditTableBody.querySelectorAll('.audit-correction-input');
+  inputs.forEach(input => {
+    input.addEventListener('input', () => {
+      // Check if at least one value is different from original
+      let anyChange = false;
+      inputs.forEach(inp => {
+        const idx = parseInt(inp.dataset.index);
+        const originalVal = auditAnomalies[idx].val;
+        if (inp.value !== originalVal) {
+          anyChange = true;
+        }
+      });
+      if (DOM.saveAuditChangesBtn) DOM.saveAuditChangesBtn.disabled = !anyChange;
+    });
+  });
+}
+
+async function saveAuditedCorrections() {
+  if (!state.isOnline) {
+    alert('You are currently offline. Cannot save corrections.');
+    return;
+  }
+  if (!state.isAuthenticated) {
+    alert('Admin login required to save audit changes.');
+    openLoginModal();
+    return;
+  }
+
+  const inputs = DOM.auditTableBody.querySelectorAll('.audit-correction-input');
+  
+  // Group changes by record ID
+  const updatesByRecord = {};
+  
+  inputs.forEach(inp => {
+    const idx = parseInt(inp.dataset.index);
+    const anomaly = auditAnomalies[idx];
+    const originalVal = anomaly.val;
+    const newVal = inp.value;
+
+    if (newVal !== originalVal) {
+      const recId = anomaly.recordId;
+      if (!updatesByRecord[recId]) {
+        // Deep copy the original data object
+        updatesByRecord[recId] = {
+          record: anomaly.record,
+          updatedData: JSON.parse(JSON.stringify(anomaly.record.data))
+        };
+      }
+      updatesByRecord[recId].updatedData[anomaly.field.id] = newVal;
+    }
+  });
+
+  const recordIdsToUpdate = Object.keys(updatesByRecord);
+  if (recordIdsToUpdate.length === 0) return;
+
+  if (DOM.saveAuditChangesBtn) {
+    DOM.saveAuditChangesBtn.disabled = true;
+    DOM.saveAuditChangesBtn.textContent = 'Saving Corrections...';
+  }
+
+  try {
+    let successCount = 0;
+    
+    for (const recId of recordIdsToUpdate) {
+      const { record, updatedData } = updatesByRecord[recId];
+      let targetDate = record.date;
+      if (updatedData.date) {
+        targetDate = updatedData.date;
+      }
+
+      // Handle E2EE encryption if active
+      let payload = updatedData;
+      if (window.SecurityEngine && window.SecurityEngine.isUnlocked()) {
+        try {
+          const plainString = JSON.stringify(updatedData);
+          const encrypted = await window.SecurityEngine.encryptPayload(plainString);
+          payload = {
+            ciphertext: encrypted.ciphertext,
+            iv: encrypted.iv
+          };
+        } catch (encErr) {
+          console.error(`Failed to encrypt record ID ${recId} during audit save:`, encErr);
+          alert(`Encryption failed for record ID ${recId}. Save aborted.`);
+          throw encErr;
+        }
+      }
+
+      const response = await fetch(`/api/entries/update/${recId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${state.authToken}`
+        },
+        body: JSON.stringify({
+          date: targetDate,
+          data: payload
+        })
+      });
+
+      if (response.ok) {
+        successCount++;
+      } else {
+        const err = await response.json();
+        console.error(`Failed to update record ID ${recId}:`, err.error);
+      }
+    }
+
+    alert(`Successfully updated ${successCount} of ${recordIdsToUpdate.length} record(s).`);
+    closeAuditModal();
+    await fetchDatabaseRecords();
+  } catch (err) {
+    console.error('Error saving audit corrections:', err);
+    alert('An error occurred while saving corrections.');
+  } finally {
+    if (DOM.saveAuditChangesBtn) {
+      DOM.saveAuditChangesBtn.disabled = false;
+      DOM.saveAuditChangesBtn.textContent = 'Save Audited Corrections';
+    }
+  }
+}
+
+function openAuditModal() {
+  if (!state.isAuthenticated) {
+    alert('Admin login required to perform database audit.');
+    openLoginModal();
+    return;
+  }
+  
+  runDatabaseAuditScan();
+  renderAuditTable();
+  
+  if (DOM.auditModal) {
+    DOM.auditModal.classList.add('active');
+  }
+  document.body.style.overflow = 'hidden';
+}
+
+function closeAuditModal() {
+  if (DOM.auditModal) {
+    DOM.auditModal.classList.remove('active');
+  }
+  document.body.style.overflow = '';
+}
+
 async function toggleVerifyRecord(id, newStatus) {
   if (!state.isOnline || !state.isAuthenticated) return;
 
@@ -3736,6 +4057,12 @@ function setupEventListeners() {
   if (DOM.filterSort) DOM.filterSort.addEventListener('change', renderDBTable);
   DOM.refreshDbBtn.addEventListener('click', fetchDatabaseRecords);
 
+  // Audit Actions
+  if (DOM.auditDbBtn) DOM.auditDbBtn.addEventListener('click', openAuditModal);
+  if (DOM.closeAuditModalBtn) DOM.closeAuditModalBtn.addEventListener('click', closeAuditModal);
+  if (DOM.cancelAuditBtn) DOM.cancelAuditBtn.addEventListener('click', closeAuditModal);
+  if (DOM.saveAuditChangesBtn) DOM.saveAuditChangesBtn.addEventListener('click', saveAuditedCorrections);
+
   // Print Preview Actions
   if (DOM.printPreviewBtn) DOM.printPreviewBtn.addEventListener('click', openPrintModal);
   if (DOM.closePrintModalBtn) DOM.closePrintModalBtn.addEventListener('click', closePrintModal);
@@ -4204,6 +4531,25 @@ async function handleEditSubmit(e) {
       submitBtn.disabled = true;
       submitBtn.textContent = 'Saving...';
 
+      // Handle E2EE encryption if active
+      let payload = updatedData;
+      if (window.SecurityEngine && window.SecurityEngine.isUnlocked()) {
+        try {
+          const plainString = JSON.stringify(updatedData);
+          const encrypted = await window.SecurityEngine.encryptPayload(plainString);
+          payload = {
+            ciphertext: encrypted.ciphertext,
+            iv: encrypted.iv
+          };
+        } catch (encErr) {
+          console.error('Failed to encrypt record during edit save:', encErr);
+          alert('Failed to encrypt record data. Save aborted.');
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Save Changes';
+          return;
+        }
+      }
+
       const response = await fetch(`/api/entries/update/${item.id}`, {
         method: 'POST',
         headers: {
@@ -4212,7 +4558,7 @@ async function handleEditSubmit(e) {
         },
         body: JSON.stringify({
           date: targetDate,
-          data: updatedData
+          data: payload
         })
       });
 
