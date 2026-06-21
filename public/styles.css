@@ -677,6 +677,11 @@ body {
   min-width: 140px;
 }
 
+.report-filters .btn {
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
 .reports-summary-cards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
