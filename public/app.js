@@ -2564,6 +2564,14 @@ async function pushSelectedDrafts() {
     // Encrypt drafts on-the-fly before transmission
     const encryptedToPush = [];
     for (const draft of toPush) {
+      let draftDate = draft.date;
+      if (!draftDate || typeof draftDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(draftDate.trim())) {
+        draftDate = new Date().toISOString().split('T')[0];
+      } else {
+        draftDate = draftDate.trim();
+      }
+      draft.date = draftDate;
+
       if (window.SecurityEngine && window.SecurityEngine.isUnlocked()) {
         try {
           const plainString = JSON.stringify(draft.data);
