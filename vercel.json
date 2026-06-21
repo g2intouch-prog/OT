@@ -36,6 +36,14 @@
       "dest": "public/favicon.svg"
     },
     {
+      "src": "/icon-192.png",
+      "dest": "public/icon-192.png"
+    },
+    {
+      "src": "/icon-512.png",
+      "dest": "public/icon-512.png"
+    },
+    {
       "src": "/manifest.json",
       "dest": "public/manifest.json"
     },

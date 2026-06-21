@@ -256,6 +256,11 @@ document.addEventListener('DOMContentLoaded', () => {
       fetchSchema().then(() => {
         renderDataEntryForm();
         renderDraftsTable();
+        if (state.isOnline) {
+          fetchDatabaseRecords();
+        } else {
+          renderDBTable();
+        }
       }).catch(err => console.error("Error in fetchSchema chain:", err));
     }).catch(err => console.error("Error in checkConnectivity chain:", err));
 

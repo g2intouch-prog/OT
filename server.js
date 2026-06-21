@@ -366,10 +366,17 @@ async function recalculateSerials() {
   await db.query("BEGIN");
   try {
     for (const rec of parsedRecords) {
-      await db.query(
-        "UPDATE records SET date = $1, data = $2 WHERE id = $3",
-        [rec.date, JSON.stringify(rec.data), rec.id]
-      );
+      const original = records.find(r => r.id === rec.id);
+      if (original) {
+        const origDataStr = typeof original.data === 'string' ? original.data : JSON.stringify(original.data);
+        const newDataStr = JSON.stringify(rec.data);
+        if (origDataStr !== newDataStr || original.date !== rec.date) {
+          await db.query(
+            "UPDATE records SET date = $1, data = $2 WHERE id = $3",
+            [rec.date, newDataStr, rec.id]
+          );
+        }
+      }
     }
     await db.query("COMMIT");
   } catch (err) {
