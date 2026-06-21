@@ -307,9 +307,14 @@ async function recalculateSerials() {
   const parsedRecords = records.map(row => {
     let dataObj = {};
     try {
-      dataObj = typeof row.data === 'string' ? JSON.parse(row.data) : row.data;
+      if (row.data) {
+        dataObj = typeof row.data === 'string' ? JSON.parse(row.data) : row.data;
+      }
     } catch (e) {
       console.error('Error parsing data for row', row.id, e);
+    }
+    if (!dataObj || typeof dataObj !== 'object') {
+      dataObj = {};
     }
     return {
       id: row.id,
@@ -319,20 +324,33 @@ async function recalculateSerials() {
     };
   });
 
-  // Helper to convert 12h time string (e.g. "03:15 PM" or "12:05 AM") to minutes since midnight
+  // Helper to convert 12h or 24h time string to minutes since midnight
   function parseTimeToMinutes(timeStr) {
     if (!timeStr) return 9999;
-    const match = timeStr.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM|am|pm)$/i);
-    if (!match) return 9999;
+    const cleanStr = timeStr.toString().trim();
+    
+    // Check 12h format
+    const match = cleanStr.match(/^(\d{1,2}):(\d{2})\s*(AM|PM|am|pm)$/i);
+    if (match) {
+      let hours = parseInt(match[1]);
+      const minutes = parseInt(match[2]);
+      const ampm = match[3].toUpperCase();
 
-    let hours = parseInt(match[1]);
-    const minutes = parseInt(match[2]);
-    const ampm = match[3].toUpperCase();
+      if (ampm === 'PM' && hours < 12) hours += 12;
+      if (ampm === 'AM' && hours === 12) hours = 0;
 
-    if (ampm === 'PM' && hours < 12) hours += 12;
-    if (ampm === 'AM' && hours === 12) hours = 0;
+      return hours * 60 + minutes;
+    }
 
-    return hours * 60 + minutes;
+    // Check 24h format
+    const match24 = cleanStr.match(/^(\d{1,2}):(\d{2})$/);
+    if (match24) {
+      const hours = parseInt(match24[1]);
+      const minutes = parseInt(match24[2]);
+      return hours * 60 + minutes;
+    }
+
+    return 9999;
   }
 
   // Sort: 1st by date ascending, 2nd by time of birth ascending

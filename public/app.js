@@ -2608,10 +2608,19 @@ async function pushSelectedDrafts() {
       renderDraftsTable();
       fetchDatabaseRecords();
     } else {
-      const err = await response.json();
-      alert('Error pushing drafts: ' + (err.error || 'Server error'));
+      let errMsg = 'Server error';
+      try {
+        const err = await response.json();
+        errMsg = err.error || errMsg;
+      } catch (parseErr) {
+        try {
+          errMsg = await response.text();
+        } catch (textErr) {}
+      }
+      alert('Error pushing drafts: ' + errMsg);
     }
   } catch (err) {
+    console.error('Push error:', err);
     alert('Failed to connect to the server. Check your connectivity.');
   } finally {
     DOM.pushSelectedBtn.innerHTML = '<span>Push (<span id="push-count-text">0</span>)</span>';
