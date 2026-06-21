@@ -798,7 +798,7 @@ app.post('/api/settings/credentials', checkAuth, async (req, res) => {
       }
     }
     await db.query("INSERT INTO config (key, value) VALUES ('admin_user', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", [newUsername.trim()]);
-    await db.query("INSERT INTO config (key, value) VALUES ('admin_pass', $2) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", [newPassword]);
+    await db.query("INSERT INTO config (key, value) VALUES ('admin_pass', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", [newPassword]);
     await db.query("COMMIT");
     res.json({ success: true });
   } catch (e) {
