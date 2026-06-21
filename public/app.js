@@ -251,18 +251,48 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize Speech Recognition API
     initSpeechRecognition();
 
+    // Restore active tab position on refresh
+    const savedTab = sessionStorage.getItem('activeTab');
+
     // Initial Check Connectivity and Fetch Schema
     checkConnectivity().then(() => {
       fetchSchema().then(() => {
         renderDataEntryForm();
         renderDraftsTable();
-        if (state.isOnline) {
-          fetchDatabaseRecords();
+        
+        // Restore tab position or fallback to default
+        if (savedTab) {
+          switchToTab(savedTab);
         } else {
-          renderDBTable();
+          switchToTab('data-entry');
         }
       }).catch(err => console.error("Error in fetchSchema chain:", err));
     }).catch(err => console.error("Error in checkConnectivity chain:", err));
+
+    // Restore temporary login state if browser was reloaded during 2FA entry
+    const tempToken = sessionStorage.getItem('loginTempToken');
+    const tempPassword = sessionStorage.getItem('loginTempPassword');
+    const tempUsername = sessionStorage.getItem('loginTempUsername');
+    const modalState = sessionStorage.getItem('loginModalOpen');
+    
+    if (tempToken && tempPassword && modalState === 'otp') {
+      state.loginTempToken = tempToken;
+      state.loginTempPassword = tempPassword;
+      if (DOM.loginUsername && tempUsername) DOM.loginUsername.value = tempUsername;
+      
+      openLoginModal(true);
+      
+      const credentialsSec = document.getElementById('login-credentials-section');
+      if (credentialsSec) credentialsSec.classList.add('hidden');
+      if (DOM.loginOtpSection) DOM.loginOtpSection.classList.remove('hidden');
+      if (DOM.loginOtp) {
+        DOM.loginOtp.value = '';
+        DOM.loginOtp.focus();
+        DOM.loginOtp.setAttribute('required', 'true');
+      }
+      const submitBtn = document.getElementById('submit-login-btn');
+      if (submitBtn) submitBtn.textContent = 'Verify 2FA';
+    }
 
     // Start periodic LAN server connectivity check (every 5 seconds)
     setInterval(checkConnectivity, 5000);
@@ -442,10 +472,16 @@ function updateConnectivityUI() {
 // AUTHENTICATION
 // -------------------------------------------------------------
 
-async function openLoginModal() {
-  DOM.loginUsername.value = '';
-  DOM.loginPassword.value = '';
-  state.loginTempToken = null;
+async function openLoginModal(isRestore = false) {
+  if (!isRestore) {
+    DOM.loginUsername.value = '';
+    DOM.loginPassword.value = '';
+    state.loginTempToken = null;
+    sessionStorage.removeItem('loginTempToken');
+    sessionStorage.removeItem('loginTempPassword');
+    sessionStorage.removeItem('loginTempUsername');
+    sessionStorage.removeItem('loginModalOpen');
+  }
   state.authModalMode = 'login'; // Reset to login mode
 
   const credentialsSec = document.getElementById('login-credentials-section');
@@ -477,6 +513,14 @@ async function openLoginModal() {
 function closeLoginModal() {
   DOM.authModal.classList.remove('active');
   document.body.style.overflow = '';
+  
+  // Clear temp state
+  state.loginTempToken = null;
+  state.loginTempPassword = null;
+  sessionStorage.removeItem('loginTempToken');
+  sessionStorage.removeItem('loginTempPassword');
+  sessionStorage.removeItem('loginTempUsername');
+  sessionStorage.removeItem('loginModalOpen');
 }
 
 async function handleLogin(e) {
@@ -548,6 +592,12 @@ async function handleLogin(e) {
         
         await fetchUserProfile(state.loginTempPassword);
         state.loginTempPassword = null;
+        
+        sessionStorage.removeItem('loginTempToken');
+        sessionStorage.removeItem('loginTempPassword');
+        sessionStorage.removeItem('loginTempUsername');
+        sessionStorage.removeItem('loginModalOpen');
+        
         closeLoginModal();
         
         renderFormCreator();
@@ -582,6 +632,8 @@ async function handleLogin(e) {
       if (data.requireTotpSetup) {
         // Enforce mandatory TOTP Setup Wizard
         state.loginTempToken = data.tempToken;
+        sessionStorage.setItem('loginTempToken', data.tempToken);
+        sessionStorage.setItem('loginModalOpen', 'totp-setup');
         try {
           const setupRes = await fetch('/api/login/totp-setup', {
             method: 'POST',
@@ -609,6 +661,11 @@ async function handleLogin(e) {
         // Switch to OTP step
         state.loginTempPassword = password;
         state.loginTempToken = data.tempToken;
+        sessionStorage.setItem('loginTempPassword', password);
+        sessionStorage.setItem('loginTempToken', data.tempToken);
+        sessionStorage.setItem('loginTempUsername', username);
+        sessionStorage.setItem('loginModalOpen', 'otp');
+
         const credentialsSec = document.getElementById('login-credentials-section');
         if (credentialsSec) credentialsSec.classList.add('hidden');
         if (DOM.loginOtpSection) DOM.loginOtpSection.classList.remove('hidden');
@@ -624,6 +681,11 @@ async function handleLogin(e) {
         state.isAuthenticated = true;
         state.authToken = data.token;
         sessionStorage.setItem('authToken', data.token);
+        
+        sessionStorage.removeItem('loginTempToken');
+        sessionStorage.removeItem('loginTempPassword');
+        sessionStorage.removeItem('loginTempUsername');
+        sessionStorage.removeItem('loginModalOpen');
         
         await fetchUserProfile(password);
         closeLoginModal();
@@ -648,6 +710,7 @@ function handleLogout() {
   state.userRole = null;
   state.deletedDbRecords = [];
   sessionStorage.removeItem('authToken');
+  sessionStorage.removeItem('activeTab');
   updateAuthUI();
   resetSettingsRoleCards();
   
@@ -3149,6 +3212,7 @@ function switchToTab(tabId) {
     if (panel) panel.classList.add('active');
     
     state.activeTab = tabId;
+    sessionStorage.setItem('activeTab', tabId);
     
     if (tabId === 'form-creator') {
       renderFormCreator();

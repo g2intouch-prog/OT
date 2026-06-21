@@ -1495,3 +1495,9 @@ body.light-mode .top-addresses-list li {
   }
 }
 
+#totp-disable-inline-code::placeholder {
+  color: var(--text-muted);
+  opacity: 0.35;
+  letter-spacing: 6px;
+}
+
