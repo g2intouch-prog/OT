@@ -613,7 +613,10 @@
           <h2>Live Team Status Panel (Admin Operations)</h2>
           <p class="card-subtitle">Change member authorizations. Changing status to 'revoked' will trigger an instant SELF_DESTRUCT instruction to purge volatile session variables and local caches on their device.</p>
           
-          <h3 style="font-size: 1rem; margin-bottom: 10px; color: var(--success);">Active Team Members</h3>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <h3 style="font-size: 1rem; margin: 0; color: var(--success);">Active Team Members</h3>
+            <button id="admin-create-user-btn" class="btn btn-primary" style="padding: 6px 12px; font-size: 0.8rem;">➕ Create Team Account</button>
+          </div>
           <div class="table-responsive" style="margin-bottom: 20px;">
             <table class="data-table">
               <thead>

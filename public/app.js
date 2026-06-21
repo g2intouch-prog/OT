@@ -209,7 +209,8 @@ const DOM = {
   changeUserTotp: document.getElementById('change-user-totp'),
   confirmCredentialsCheckbox: document.getElementById('confirm-credentials-checkbox'),
   submitChangePasswordBtn: document.getElementById('submit-change-password-btn'),
-  changePasswordModalTitle: document.getElementById('change-password-modal-title')
+  changePasswordModalTitle: document.getElementById('change-password-modal-title'),
+  adminCreateUserBtn: document.getElementById('admin-create-user-btn')
 };
 
 // Helper for finding elements inside selectors safely
@@ -520,9 +521,48 @@ async function openLoginModal(isRestore = false) {
 
   if (title) title.textContent = 'Account Authentication';
   if (subtitle) subtitle.textContent = 'Log in or register to manage data entry schemas and synchronize encrypted records.';
-  if (toggleText) toggleText.textContent = "Don't have an account? ";
-  if (toggleLink) toggleLink.textContent = 'Register here';
+  if (toggleText) {
+    toggleText.style.display = '';
+    toggleText.textContent = "Don't have an account? ";
+  }
+  if (toggleLink) {
+    toggleLink.style.display = '';
+    toggleLink.textContent = 'Register here';
+  }
   if (submitBtn) submitBtn.textContent = 'Login';
+  
+  DOM.loginError.classList.add('hidden');
+  DOM.authModal.classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+
+function openAdminRegisterModal() {
+  if (!state.isAuthenticated || state.userRole !== 'admin') return;
+  state.authModalMode = 'register';
+  
+  const credentialsSec = document.getElementById('login-credentials-section');
+  if (credentialsSec) credentialsSec.classList.remove('hidden');
+  
+  if (DOM.loginOtpSection) DOM.loginOtpSection.classList.add('hidden');
+  if (DOM.loginOtp) {
+    DOM.loginOtp.value = '';
+    DOM.loginOtp.removeAttribute('required');
+  }
+
+  DOM.loginUsername.value = '';
+  DOM.loginPassword.value = '';
+
+  const title = document.getElementById('auth-modal-title');
+  const subtitle = document.getElementById('login-modal-subtitle');
+  const toggleText = document.getElementById('auth-toggle-text');
+  const toggleLink = document.getElementById('auth-toggle-link');
+  const submitBtn = document.getElementById('submit-login-btn');
+
+  if (title) title.textContent = 'Create New Team Account';
+  if (subtitle) subtitle.textContent = 'Register a new user account under admin authorization.';
+  if (toggleText) toggleText.style.display = 'none';
+  if (toggleLink) toggleLink.style.display = 'none';
+  if (submitBtn) submitBtn.textContent = 'Create Account';
   
   DOM.loginError.classList.add('hidden');
   DOM.authModal.classList.add('active');
@@ -571,10 +611,18 @@ async function handleLogin(e) {
       });
 
       if (response.ok) {
-        alert('Registration successful! Please log in now.');
-        // Toggle back to login mode
-        const toggleLink = document.getElementById('auth-toggle-link');
-        if (toggleLink) toggleLink.click();
+        if (state.isAuthenticated && state.userRole === 'admin') {
+          alert('Registration successful! Consider Revoking the old ID');
+          closeLoginModal();
+          if (typeof loadTeamAccounts === 'function') {
+            await loadTeamAccounts();
+          }
+        } else {
+          alert('Registration successful! Please log in now.');
+          // Toggle back to login mode
+          const toggleLink = document.getElementById('auth-toggle-link');
+          if (toggleLink) toggleLink.click();
+        }
       } else {
         const err = await response.json();
         if (DOM.loginErrorText) DOM.loginErrorText.textContent = err.error || 'Registration failed.';
@@ -3733,6 +3781,7 @@ function setupEventListeners() {
   safeAddListener(DOM.clearDraftsBtn, 'click', handleClearDrafts);
   safeAddListener(DOM.clearDatabaseBtn, 'click', handleClearDatabase);
   safeAddListener(DOM.clearUsersBtn, 'click', handleClearUsers);
+  safeAddListener(DOM.adminCreateUserBtn, 'click', openAdminRegisterModal);
 
   // Local Backup & Restore Actions
   safeAddListener(DOM.localBackupExportBtn, 'click', handleLocalBackupExport);
@@ -8029,6 +8078,7 @@ async function toggleUserStatus(targetUserId, newStatus) {
           }
         }
       }
+      alert(`User status successfully changed to ${newStatus}! Consider Revoking the old ID`);
       await loadTeamAccounts();
     } else {
       const err = await res.json();
@@ -8073,7 +8123,7 @@ async function promoteUser(targetUserId, newRole) {
           }
         }
       }
-      alert(`User role successfully changed to ${newRole}!`);
+      alert(`User role successfully changed to ${newRole}! Consider Revoking the old ID`);
       await loadTeamAccounts();
     } else {
       const err = await res.json();
