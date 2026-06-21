@@ -1028,19 +1028,65 @@ async function fetchDatabaseRecords() {
     if (response.ok) {
       state.dbRecords = await response.json();
       
-      // Decrypt all database records inline if key is loaded in memory
+      // Decrypt database records inline if key is loaded in memory
       if (window.SecurityEngine && window.SecurityEngine.isUnlocked()) {
-        await Promise.all(state.dbRecords.map(async (rec) => {
+        const selectedMonth = DOM.filterMonth ? DOM.filterMonth.value : 'all';
+        const selectedYear = DOM.filterYear ? DOM.filterYear.value : 'all';
+        
+        const priorityRecords = [];
+        const otherRecords = [];
+        
+        for (const rec of state.dbRecords) {
           if (rec.data && rec.data.ciphertext && rec.data.iv) {
+            if (!rec.date) {
+              otherRecords.push(rec);
+              continue;
+            }
+            const [yr, mo] = rec.date.split('-');
+            const matchMonth = (selectedMonth === 'all' || mo === selectedMonth);
+            const matchYear = (selectedYear === 'all' || yr === selectedYear);
+            if (matchMonth && matchYear) {
+              priorityRecords.push(rec);
+            } else {
+              otherRecords.push(rec);
+            }
+          }
+        }
+        
+        // 1. Decrypt priority records first in parallel
+        if (priorityRecords.length > 0) {
+          await Promise.all(priorityRecords.map(async (rec) => {
             try {
               const decText = await window.SecurityEngine.decryptPayload(rec.data.ciphertext, rec.data.iv);
               rec.encryptedData = rec.data;
               rec.data = JSON.parse(decText);
             } catch (e) {
-              console.warn('Failed to decrypt record', rec.id, e);
+              console.warn('Failed to decrypt priority record', rec.id, e);
             }
-          }
-        }));
+          }));
+          
+          // Render immediately once priority records are decrypted
+          recalculateClientSerials();
+          renderDBTable();
+          populateYearFilters();
+        }
+        
+        // 2. Decrypt remaining records in parallel in the background
+        if (otherRecords.length > 0) {
+          Promise.all(otherRecords.map(async (rec) => {
+            try {
+              const decText = await window.SecurityEngine.decryptPayload(rec.data.ciphertext, rec.data.iv);
+              rec.encryptedData = rec.data;
+              rec.data = JSON.parse(decText);
+            } catch (e) {
+              console.warn('Failed to decrypt background record', rec.id, e);
+            }
+          })).then(() => {
+            recalculateClientSerials();
+            // Re-render if the user switched filter, or just update the table quietly
+            renderDBTable();
+          });
+        }
       }
       
       // Recalculate serial numbers client-side (after decryption)
