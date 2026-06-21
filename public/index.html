@@ -1101,17 +1101,16 @@
 
   <!-- Audit Modal -->
   <div id="audit-modal" class="modal-overlay">
-    <div class="modal-card" style="max-width: 950px; width: 95%;">
-      <div class="modal-header">
-        <h2>🔍 Database Anomaly Audit</h2>
+    <div class="modal-card" style="max-width: 950px; width: 95%; max-height: 90vh; display: flex; flex-direction: column;">
+      <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; border-bottom: 1px solid var(--panel-border); flex-wrap: wrap; gap: 12px;">
+        <div style="display: flex; align-items: baseline; gap: 15px; flex-wrap: wrap;">
+          <h2 style="margin: 0; font-size: 1.4rem;">🔍 Database Anomaly Audit</h2>
+          <span style="font-size: 0.85rem; color: var(--text-muted); font-weight: normal;">Scans blank cells, placeholders (* or ?), and type-mismatches.</span>
+        </div>
         <button type="button" id="close-audit-modal-btn" class="modal-close-x">&times;</button>
       </div>
-      <div class="modal-body" style="padding: 20px;">
-        <p class="modal-subtitle" style="margin-bottom: 16px;">
-          The audit scan analyzes database records to find blank cells, placeholder values (like stars * or question marks ?), and values that do not match expected types. Review and update them directly below.
-        </p>
-
-        <div class="table-responsive" style="max-height: 450px; overflow-y: auto;">
+      <div class="modal-body" style="padding: 20px; display: flex; flex-direction: column; overflow: hidden; flex: 1;">
+        <div class="table-responsive" style="flex: 1; overflow-y: auto; margin-bottom: 15px;">
           <table class="data-table">
             <thead>
               <tr>
@@ -1131,7 +1130,7 @@
           </table>
         </div>
 
-        <div class="modal-actions" style="margin-top: 20px; border-top: 1px solid var(--panel-border); padding-top: 15px;">
+        <div class="modal-actions" style="border-top: 1px solid var(--panel-border); padding-top: 15px; display: flex; justify-content: flex-end; gap: 10px; margin-top: auto;">
           <button type="button" id="cancel-audit-btn" class="btn btn-secondary">Close Audit</button>
           <button type="button" id="save-audit-changes-btn" class="btn btn-success" disabled>Save Audited Corrections</button>
         </div>

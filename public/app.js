@@ -2841,6 +2841,17 @@ function runDatabaseAuditScan() {
   auditAnomalies = [];
   if (!state.dbRecords || state.dbRecords.length === 0) return;
 
+  const selectedMonth = DOM.filterMonth ? DOM.filterMonth.value : 'all';
+  const selectedYear = DOM.filterYear ? DOM.filterYear.value : 'all';
+
+  const filteredRecords = state.dbRecords.filter(rec => {
+    if (!rec.date) return false;
+    const [yr, mo] = rec.date.split('-');
+    const matchMonth = (selectedMonth === 'all' || mo === selectedMonth);
+    const matchYear = (selectedYear === 'all' || yr === selectedYear);
+    return matchMonth && matchYear;
+  });
+
   // Let's compute column statistics to find "not at par" values
   const columnStats = {};
   state.schema.forEach(field => {
@@ -2852,7 +2863,7 @@ function runDatabaseAuditScan() {
   });
 
   // First pass: collect statistics
-  state.dbRecords.forEach(rec => {
+  filteredRecords.forEach(rec => {
     state.schema.forEach(field => {
       const val = rec.data ? rec.data[field.id] : undefined;
       if (val !== undefined && val !== null) {
@@ -2875,7 +2886,7 @@ function runDatabaseAuditScan() {
   });
 
   // Second pass: detect anomalies
-  state.dbRecords.forEach(rec => {
+  filteredRecords.forEach(rec => {
     state.schema.forEach(field => {
       const val = rec.data ? rec.data[field.id] : undefined;
       const valStr = (val === undefined || val === null) ? "" : String(val).trim();
