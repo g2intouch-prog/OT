@@ -1030,7 +1030,7 @@ async function fetchDatabaseRecords() {
       
       // Decrypt all database records inline if key is loaded in memory
       if (window.SecurityEngine && window.SecurityEngine.isUnlocked()) {
-        for (const rec of state.dbRecords) {
+        await Promise.all(state.dbRecords.map(async (rec) => {
           if (rec.data && rec.data.ciphertext && rec.data.iv) {
             try {
               const decText = await window.SecurityEngine.decryptPayload(rec.data.ciphertext, rec.data.iv);
@@ -1040,7 +1040,7 @@ async function fetchDatabaseRecords() {
               console.warn('Failed to decrypt record', rec.id, e);
             }
           }
-        }
+        }));
       }
       
       // Recalculate serial numbers client-side (after decryption)
@@ -1084,7 +1084,7 @@ async function fetchDeletedDbRecords() {
       
       // Decrypt deleted db records
       if (window.SecurityEngine && window.SecurityEngine.isUnlocked()) {
-        for (const rec of state.deletedDbRecords) {
+        await Promise.all(state.deletedDbRecords.map(async (rec) => {
           if (rec.data && rec.data.ciphertext && rec.data.iv) {
             try {
               const decText = await window.SecurityEngine.decryptPayload(rec.data.ciphertext, rec.data.iv);
@@ -1094,7 +1094,7 @@ async function fetchDeletedDbRecords() {
               console.warn('Failed to decrypt deleted record', rec.id, e);
             }
           }
-        }
+        }));
       }
       renderDeletedDraftsTable();
     }
