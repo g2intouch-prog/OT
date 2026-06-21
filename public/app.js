@@ -1326,7 +1326,7 @@ async function fetchDatabaseRecords() {
   if (!state.isOnline) return;
 
   try {
-    const response = await fetch('/api/entries');
+    const response = await fetch('/api/entries?_t=' + Date.now());
     if (response.ok) {
       state.dbRecords = await response.json();
       
@@ -1428,7 +1428,7 @@ async function fetchDatabaseRecords() {
 async function fetchDeletedDbRecords() {
   if (!state.isOnline || !state.isAuthenticated) return;
   try {
-    const response = await fetch('/api/entries/trash', {
+    const response = await fetch('/api/entries/trash?_t=' + Date.now(), {
       headers: {
         'Authorization': `Bearer ${state.authToken}`
       }
