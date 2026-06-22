@@ -440,9 +440,6 @@ async function saveDeletedDraftsToStorage() {
     } catch (e) {
       console.error('Failed to encrypt and save deleted drafts:', e);
     }
-  } else {
-    localStorage.setItem('deleted_drafts', JSON.stringify(state.deletedDrafts));
-    localStorage.removeItem('deleted_drafts_encrypted');
   }
 }
 
@@ -456,9 +453,6 @@ async function saveDraftsToStorage() {
     } catch (e) {
       console.error('Failed to encrypt and save local drafts:', e);
     }
-  } else {
-    localStorage.setItem('drafts', JSON.stringify(state.drafts));
-    localStorage.removeItem('drafts_encrypted');
   }
   updateDraftCountBadges();
 }
@@ -827,6 +821,9 @@ async function handleLogin(e) {
 }
 
 function handleLogout() {
+  if (window.SecurityEngine) {
+    window.SecurityEngine.lockVault();
+  }
   state.isAuthenticated = false;
   state.authToken = null;
   state.userRole = null;
@@ -1317,42 +1314,7 @@ async function fetchUserProfile(loginPassword = null) {
           try {
             privateKey = await window.SecurityEngine.decryptPrivateKey(encPrivObj.ciphertext, encPrivObj.iv, kek);
           } catch (decErr) {
-            console.warn("Failed to decrypt private key with PBKDF2 KEK, trying SHA-256 fallback...", decErr);
-            if (loginPassword) {
-              const encoder = new TextEncoder();
-              const rawData = encoder.encode(loginPassword);
-              const hashBuffer = await window.crypto.subtle.digest('SHA-256', rawData);
-              const oldKek = window.SecurityEngine.uint8ArrayToBase64(new Uint8Array(hashBuffer));
-              
-              privateKey = await window.SecurityEngine.decryptPrivateKey(encPrivObj.ciphertext, encPrivObj.iv, oldKek);
-              
-              // Store the old KEK in sessionStorage so refresh works
-              sessionStorage.setItem('encryptionKek', oldKek);
-              
-              // Attempt a background migration to PBKDF2
-              try {
-                const newEncPrivate = await window.SecurityEngine.encryptPrivateKey(privateKey, kek);
-                const token = sessionStorage.getItem('authToken');
-                await fetch('/api/settings/change-password', {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                  },
-                  body: JSON.stringify({
-                    currentPassword: loginPassword,
-                    newPassword: loginPassword,
-                    encryptedPrivateKey: JSON.stringify(newEncPrivate),
-                    salt: data.salt
-                  })
-                });
-                console.log("Successfully migrated E2EE private key to PBKDF2.");
-              } catch (migErr) {
-                console.warn("Silent PBKDF2 migration skipped/failed:", migErr);
-              }
-            } else {
-              throw decErr;
-            }
+            throw decErr;
           }
 
           await window.SecurityEngine.unwrapVaultKey(data.wrappedVaultKey, privateKey, data.role === 'admin');
