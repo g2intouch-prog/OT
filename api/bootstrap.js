@@ -32,9 +32,9 @@ module.exports = async (req, res) => {
       await db.updateUserSalt(user.id, userSalt);
     }
 
-    // Vault key is held strictly in Vercel env and only delivered to active sessions
-    // Do NOT deliver raw vaultKey to default admin if they need to setup credentials
-    const vaultKey = isDefaultAdmin ? null : (process.env.TEAM_VAULT_KEY || 'dGhpcy1pcy1hLXNlY3JldC0zMi1ieXRlLWtleS0xMjM=');
+    // Deliver raw vaultKey ONLY if the user has not set up E2EE keys yet (onboarding phase)
+    const hasE2EE = user.public_key && user.encrypted_private_key && user.wrapped_vault_key;
+    const vaultKey = !hasE2EE ? (process.env.TEAM_VAULT_KEY || 'dGhpcy1pcy1hLXNlY3JldC0zMi1ieXRlLWtleS0xMjM=') : null;
     
     // Feature flag: SHOW_TUTORIAL controlled by NEXT_PUBLIC_SHOW_TUTORIAL env var or default to true
     const showTutorial = process.env.NEXT_PUBLIC_SHOW_TUTORIAL !== 'false';
