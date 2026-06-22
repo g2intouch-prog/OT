@@ -561,6 +561,9 @@ app.get('/api/login/totp-status', async (req, res) => {
   res.json({ enabled: true }); // Enforce mandatory TOTP setup dynamic checks
 });
 
+
+
+
 // Authentication route (with mandatory TOTP and multi-user support)
 app.post('/api/login', authRateLimiter, async (req, res) => {
   const { username, password, code } = req.body;
