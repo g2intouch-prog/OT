@@ -1281,6 +1281,11 @@ async function fetchUserProfile(loginPassword = null) {
           await loadDraftsFromStorage();
           renderDraftsTable();
           renderSyncTable();
+
+          // Re-fetch database records now that we have the correct vault key
+          if (state.activeTab === 'db-viewer' || state.activeTab === 'data-analysis') {
+            fetchDatabaseRecords();
+          }
         } catch (cryptErr) {
           console.error("Failed to decrypt E2EE private key or unwrap vault key:", cryptErr);
         }
