@@ -69,7 +69,7 @@ async function bootstrapSession() {
           console.log('Cryptographic boundary restored from sessionStorage KEK.');
         } else if (data.vaultKey) {
           // Unlock client-side cryptographic RAM vault
-          await window.SecurityEngine.unlockVault(data.vaultKey);
+          await window.SecurityEngine.unlockVault(data.vaultKey, data.role === 'admin');
           console.log('Cryptographic boundary established.');
         }
       }

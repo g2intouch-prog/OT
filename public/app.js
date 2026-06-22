@@ -1343,7 +1343,7 @@ async function fetchUserProfile(loginPassword = null) {
         }
       } else if (data.vaultKey) {
         try {
-          await window.SecurityEngine.unlockVault(data.vaultKey);
+          await window.SecurityEngine.unlockVault(data.vaultKey, data.role === 'admin');
           console.log('Cryptographic boundary established for onboarding.');
           
           const keyStatusInput = document.getElementById('display-key-status');

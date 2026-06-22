@@ -17,7 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!cachedSalt) {
           throw new Error('User salt not loaded. Please reload page.');
         }
-        await window.SecurityEngine.unlockVaultWithPassword(pwd, cachedSalt);
+        await window.SecurityEngine.unlockVaultWithPassword(pwd, cachedSalt, cachedRole === 'admin');
         
         // Derive KEK and cache it in sessionStorage
         const kek = await window.SecurityEngine.deriveKek(pwd, cachedSalt);
@@ -192,7 +192,7 @@ document.addEventListener('DOMContentLoaded', () => {
         await batchPromises(updatePromises, 5);
 
         // 5. Unlock vault with new key & refresh UI
-        await window.SecurityEngine.unlockVaultWithPassword(newPwd, cachedSalt);
+        await window.SecurityEngine.unlockVaultWithPassword(newPwd, cachedSalt, cachedRole === 'admin');
         const newKek = await window.SecurityEngine.deriveKek(newPwd, cachedSalt);
         sessionStorage.setItem('encryptionKek', newKek);
 
@@ -260,7 +260,7 @@ async function initSettings() {
 
     // Load key into client cryptographic engine in volatile memory
     if (data.vaultKey) {
-      await window.SecurityEngine.unlockVault(data.vaultKey);
+      await window.SecurityEngine.unlockVault(data.vaultKey, data.role === 'admin');
     }
 
     // Update UI fields
