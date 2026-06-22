@@ -631,8 +631,12 @@ async function handleLogin(e) {
     }
 
     try {
+      const newSaltBytes = window.crypto.getRandomValues(new Uint8Array(16));
+      const newSaltB64 = window.SecurityEngine.uint8ArrayToBase64(newSaltBytes);
+      const newKek = await window.SecurityEngine.deriveKek(password, newSaltB64);
+
       const keypair = await window.SecurityEngine.generateKeyPair();
-      const encPrivate = await window.SecurityEngine.encryptPrivateKey(keypair.privateKey, password);
+      const encPrivate = await window.SecurityEngine.encryptPrivateKey(keypair.privateKey, newKek);
 
       const response = await fetch('/api/register', {
         method: 'POST',
@@ -641,7 +645,8 @@ async function handleLogin(e) {
           username, 
           password, 
           publicKey: keypair.publicKeyB64,
-          encryptedPrivateKey: JSON.stringify(encPrivate)
+          encryptedPrivateKey: JSON.stringify(encPrivate),
+          salt: newSaltB64
         })
       });
 

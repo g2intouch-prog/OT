@@ -721,12 +721,12 @@ app.post('/api/login/totp-enable', async (req, res) => {
 
 // New User Registration Route
 app.post('/api/register', async (req, res) => {
-  const { username, password, publicKey, encryptedPrivateKey } = req.body;
+  const { username, password, publicKey, encryptedPrivateKey, salt } = req.body;
   if (!username || !password) {
     return res.status(400).json({ error: 'Username and Password are required.' });
   }
   try {
-    const newUser = await userDb.createUser(username, password, publicKey, encryptedPrivateKey);
+    const newUser = await userDb.createUser(username, password, publicKey, encryptedPrivateKey, salt);
     res.json({ success: true, user: { id: newUser.id, username: newUser.username } });
   } catch (err) {
     res.status(400).json({ error: err.message });
