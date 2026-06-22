@@ -32,22 +32,26 @@ const SecurityEngine = (function () {
   }
 
   return {
+    // Expose converters for other modules
+    base64ToUint8Array,
+    uint8ArrayToBase64,
+
     /**
      * Imports a base64 key into a Web Crypto API Key object.
-     * The imported key is set to non-extractable.
      * @param {string} base64Key - The raw Base64 encoded encryption key.
+     * @param {boolean} extractable - Whether the vault key should be extractable (needed for admins to wrap it).
      */
-    async unlockVault(base64Key) {
+    async unlockVault(base64Key, extractable = false) {
       try {
         const rawKey = base64ToUint8Array(base64Key);
         memoryOnlyKey = await window.crypto.subtle.importKey(
           'raw',
           rawKey,
           { name: 'AES-GCM', length: 256 },
-          true, // extractable: true (for key wrapping/unwrapping)
+          extractable,
           ['encrypt', 'decrypt']
         );
-        console.log('Vault loaded successfully in RAM.');
+        console.log(`Vault loaded successfully in RAM (extractable: ${extractable}).`);
         return true;
       } catch (err) {
         console.error('Failed to unlock vault:', err);
@@ -113,27 +117,80 @@ const SecurityEngine = (function () {
     },
 
     /**
-     * Derives a 256-bit AES-GCM key from a user-entered password via SHA-256 and imports it into RAM.
+     * Derives a 256-bit AES-GCM key from a user-entered password via PBKDF2 and imports it into RAM.
      * @param {string} password - User-entered encryption password.
+     * @param {string} saltB64 - Base64 encoded 16-byte salt.
+     * @param {boolean} extractable - Key extractability.
      */
-    async unlockVaultWithPassword(password) {
+    async unlockVaultWithPassword(password, saltB64, extractable = false) {
       try {
+        const salt = base64ToUint8Array(saltB64);
         const encoder = new TextEncoder();
         const rawData = encoder.encode(password);
-        const hashBuffer = await window.crypto.subtle.digest('SHA-256', rawData);
         
-        memoryOnlyKey = await window.crypto.subtle.importKey(
+        const baseKey = await window.crypto.subtle.importKey(
           'raw',
-          hashBuffer,
+          rawData,
+          'PBKDF2',
+          false,
+          ['deriveKey']
+        );
+
+        memoryOnlyKey = await window.crypto.subtle.deriveKey(
+          {
+            name: 'PBKDF2',
+            salt: salt,
+            iterations: 600000,
+            hash: 'SHA-256'
+          },
+          baseKey,
           { name: 'AES-GCM', length: 256 },
-          true, // extractable: true (for key wrapping/unwrapping)
+          extractable,
           ['encrypt', 'decrypt']
         );
-        console.log('Vault loaded successfully in RAM using password-derived key.');
+        console.log('Vault loaded successfully in RAM using PBKDF2 key derivation.');
         return true;
       } catch (err) {
         console.error('Failed to unlock vault with password:', err);
         throw new Error('Cryptographic vault initialization failed.');
+      }
+    },
+
+    /**
+     * Derives a 256-bit KEK (Key Encrypting Key) from a password and salt using PBKDF2, returning its Base64 representation.
+     * @param {string} password - The user's account password.
+     * @param {string} saltB64 - Base64 encoded 16-byte salt.
+     */
+    async deriveKek(password, saltB64) {
+      try {
+        const salt = base64ToUint8Array(saltB64);
+        const encoder = new TextEncoder();
+        const baseKey = await window.crypto.subtle.importKey(
+          'raw',
+          encoder.encode(password),
+          'PBKDF2',
+          false,
+          ['deriveBits', 'deriveKey']
+        );
+
+        const kek = await window.crypto.subtle.deriveKey(
+          {
+            name: 'PBKDF2',
+            salt: salt,
+            iterations: 600000,
+            hash: 'SHA-256'
+          },
+          baseKey,
+          { name: 'AES-GCM', length: 256 },
+          true, // KEK is extractable so we can save it to sessionStorage
+          ['encrypt', 'decrypt']
+        );
+
+        const rawKek = await window.crypto.subtle.exportKey('raw', kek);
+        return uint8ArrayToBase64(new Uint8Array(rawKek));
+      } catch (err) {
+        console.error('Failed to derive KEK:', err);
+        throw err;
       }
     },
 
@@ -167,18 +224,18 @@ const SecurityEngine = (function () {
     },
 
     /**
-     * Encrypts the private key with a password-derived key (KEK) using AES-GCM.
+     * Encrypts the private key with a derived KEK using AES-GCM.
+     * @param {CryptoKey} privateKey - Raw private key to protect.
+     * @param {string} kekB64 - Base64 encoded Key Encrypting Key.
      */
-    async encryptPrivateKey(privateKey, password) {
+    async encryptPrivateKey(privateKey, kekB64) {
       try {
         const exportedPrivate = await window.crypto.subtle.exportKey("pkcs8", privateKey);
-        const encoder = new TextEncoder();
-        const rawData = encoder.encode(password);
-        const hashBuffer = await window.crypto.subtle.digest('SHA-256', rawData);
+        const rawKek = base64ToUint8Array(kekB64);
         
         const kek = await window.crypto.subtle.importKey(
           'raw',
-          hashBuffer,
+          rawKek,
           { name: 'AES-GCM', length: 256 },
           false,
           ['encrypt']
@@ -202,19 +259,20 @@ const SecurityEngine = (function () {
     },
 
     /**
-     * Decrypts and imports the private key using the password-derived key (KEK).
+     * Decrypts and imports the private key using the derived KEK.
+     * @param {string} encryptedB64 - Base64 private key ciphertext.
+     * @param {string} ivB64 - Base64 encryption IV.
+     * @param {string} kekB64 - Base64 Key Encrypting Key.
      */
-    async decryptPrivateKey(encryptedB64, ivB64, password) {
+    async decryptPrivateKey(encryptedB64, ivB64, kekB64) {
       try {
         const ciphertext = base64ToUint8Array(encryptedB64);
         const iv = base64ToUint8Array(ivB64);
-        const encoder = new TextEncoder();
-        const rawData = encoder.encode(password);
-        const hashBuffer = await window.crypto.subtle.digest('SHA-256', rawData);
+        const rawKek = base64ToUint8Array(kekB64);
         
         const kek = await window.crypto.subtle.importKey(
           'raw',
-          hashBuffer,
+          rawKek,
           { name: 'AES-GCM', length: 256 },
           false,
           ['decrypt']
@@ -273,7 +331,7 @@ const SecurityEngine = (function () {
     /**
      * Unwraps a wrapped master key using the private key and sets it active.
      */
-    async unwrapVaultKey(wrappedKeyB64, privateKey) {
+    async unwrapVaultKey(wrappedKeyB64, privateKey, extractable = false) {
       try {
         const wrappedBuffer = base64ToUint8Array(wrappedKeyB64);
         memoryOnlyKey = await window.crypto.subtle.unwrapKey(
@@ -282,10 +340,10 @@ const SecurityEngine = (function () {
           privateKey,
           { name: "RSA-OAEP" },
           { name: "AES-GCM", length: 256 },
-          true, // extractable
+          extractable,
           ["encrypt", "decrypt"]
         );
-        console.log("Vault key successfully unwrapped and loaded in RAM.");
+        console.log(`Vault key successfully unwrapped and loaded in RAM (extractable: ${extractable}).`);
         return true;
       } catch (err) {
         console.error("Failed to unwrap vault key:", err);
@@ -296,17 +354,17 @@ const SecurityEngine = (function () {
     /**
      * Generates a new random symmetric vault key in RAM and returns its base64.
      */
-    async generateRandomVaultKey() {
+    async generateRandomVaultKey(extractable = false) {
       try {
         const rawKey = window.crypto.getRandomValues(new Uint8Array(32));
         memoryOnlyKey = await window.crypto.subtle.importKey(
           'raw',
           rawKey,
           { name: 'AES-GCM', length: 256 },
-          true,
+          extractable,
           ['encrypt', 'decrypt']
         );
-        console.log('New random master vault key generated.');
+        console.log(`New random master vault key generated (extractable: ${extractable}).`);
         return uint8ArrayToBase64(rawKey);
       } catch (err) {
         console.error("Failed to generate random vault key:", err);

@@ -1,4 +1,6 @@
 // Settings UI controller
+let cachedSalt = null;
+
 document.addEventListener('DOMContentLoaded', () => {
   initSettings();
 
@@ -12,8 +14,14 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!pwd) return;
 
       try {
-        await window.SecurityEngine.unlockVaultWithPassword(pwd);
-        sessionStorage.setItem('encryptionPassword', pwd);
+        if (!cachedSalt) {
+          throw new Error('User salt not loaded. Please reload page.');
+        }
+        await window.SecurityEngine.unlockVaultWithPassword(pwd, cachedSalt);
+        
+        // Derive KEK and cache it in sessionStorage
+        const kek = await window.SecurityEngine.deriveKek(pwd, cachedSalt);
+        sessionStorage.setItem('encryptionKek', kek);
         
         // Update display fields
         const displayKeyStatus = document.getElementById('display-key-status');
@@ -60,6 +68,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (rotateBtn) rotateBtn.disabled = true;
 
       try {
+        if (!cachedSalt) {
+          throw new Error('User salt not loaded. Please reload page.');
+        }
         const token = sessionStorage.getItem('authToken');
         const fetchRes = await fetch('/api/entries', {
           headers: { 'Authorization': `Bearer ${token}` }
@@ -71,42 +82,32 @@ document.addEventListener('DOMContentLoaded', () => {
         const encoder = new TextEncoder();
         const decoder = new TextDecoder();
 
-        async function deriveTempKey(pwd) {
-          const rawData = encoder.encode(pwd);
-          const hashBuffer = await window.crypto.subtle.digest('SHA-256', rawData);
-          return window.crypto.subtle.importKey(
+        async function deriveTempKey(pwd, saltB64) {
+          const salt = window.SecurityEngine.base64ToUint8Array(saltB64);
+          const baseKey = await window.crypto.subtle.importKey(
             'raw',
-            hashBuffer,
+            encoder.encode(pwd),
+            'PBKDF2',
+            false,
+            ['deriveBits', 'deriveKey']
+          );
+          return window.crypto.subtle.deriveKey(
+            {
+              name: 'PBKDF2',
+              salt: salt,
+              iterations: 600000,
+              hash: 'SHA-256'
+            },
+            baseKey,
             { name: 'AES-GCM', length: 256 },
             false,
             ['encrypt', 'decrypt']
           );
         }
 
-        function base64ToUint8Array(base64) {
-          let normalized = base64.replace(/-/g, '+').replace(/_/g, '/');
-          while (normalized.length % 4) normalized += '=';
-          const binaryString = atob(normalized);
-          const len = binaryString.length;
-          const bytes = new Uint8Array(len);
-          for (let i = 0; i < len; i++) {
-            bytes[i] = binaryString.charCodeAt(i);
-          }
-          return bytes;
-        }
-
-        function uint8ArrayToBase64(uint8Array) {
-          let binary = '';
-          const len = uint8Array.byteLength;
-          for (let i = 0; i < len; i++) {
-            binary += String.fromCharCode(uint8Array[i]);
-          }
-          return btoa(binary);
-        }
-
         async function decryptWithKey(key, ciphertextB64, ivB64) {
-          const ciphertext = base64ToUint8Array(ciphertextB64);
-          const iv = base64ToUint8Array(ivB64);
+          const ciphertext = window.SecurityEngine.base64ToUint8Array(ciphertextB64);
+          const iv = window.SecurityEngine.base64ToUint8Array(ivB64);
           const decryptedBuffer = await window.crypto.subtle.decrypt(
             { name: 'AES-GCM', iv: iv },
             key,
@@ -124,8 +125,8 @@ document.addEventListener('DOMContentLoaded', () => {
             encodedData
           );
           return {
-            ciphertext: uint8ArrayToBase64(new Uint8Array(ciphertextBuffer)),
-            iv: uint8ArrayToBase64(iv)
+            ciphertext: window.SecurityEngine.uint8ArrayToBase64(new Uint8Array(ciphertextBuffer)),
+            iv: window.SecurityEngine.uint8ArrayToBase64(iv)
           };
         }
 
@@ -146,9 +147,9 @@ document.addEventListener('DOMContentLoaded', () => {
           return Promise.all(results);
         }
 
-        // 2. Derive old and new keys
-        const oldKey = await deriveTempKey(oldPwd);
-        const newKey = await deriveTempKey(newPwd);
+        // 2. Derive old and new keys using the same salt
+        const oldKey = await deriveTempKey(oldPwd, cachedSalt);
+        const newKey = await deriveTempKey(newPwd, cachedSalt);
 
         // 3. Decrypt and re-encrypt
         const rotatedRecords = [];
@@ -191,8 +192,9 @@ document.addEventListener('DOMContentLoaded', () => {
         await batchPromises(updatePromises, 5);
 
         // 5. Unlock vault with new key & refresh UI
-        await window.SecurityEngine.unlockVaultWithPassword(newPwd);
-        sessionStorage.setItem('encryptionPassword', newPwd);
+        await window.SecurityEngine.unlockVaultWithPassword(newPwd, cachedSalt);
+        const newKek = await window.SecurityEngine.deriveKek(newPwd, cachedSalt);
+        sessionStorage.setItem('encryptionKek', newKek);
 
         const displayKeyStatus = document.getElementById('display-key-status');
         if (displayKeyStatus) {
@@ -254,6 +256,7 @@ async function initSettings() {
 
     cachedShowTutorial = data.showTutorial;
     cachedRole = data.role;
+    cachedSalt = data.salt; // Capture user salt from bootstrap response
 
     // Load key into client cryptographic engine in volatile memory
     if (data.vaultKey) {

@@ -893,17 +893,76 @@ async function handleChangePasswordSubmit(e) {
     return;
   }
 
+  DOM.submitChangePasswordBtn.disabled = true;
+  DOM.submitChangePasswordBtn.textContent = 'Updating...';
+
+  // Derive old KEK
+  let oldKek = sessionStorage.getItem('encryptionKek');
+  if (!oldKek && currentPassword && state.userSaltB64) {
+    try {
+      oldKek = await window.SecurityEngine.deriveKek(currentPassword, state.userSaltB64);
+    } catch (err) {
+      console.warn("Could not derive old KEK:", err);
+    }
+  }
+
+  // Generate new salt and new KEK
+  const newSaltBytes = window.crypto.getRandomValues(new Uint8Array(16));
+  const newSaltB64 = window.SecurityEngine.uint8ArrayToBase64(newSaltBytes);
+  let newKek;
+  try {
+    newKek = await window.SecurityEngine.deriveKek(newPassword, newSaltB64);
+  } catch (err) {
+    alert("Failed to derive new KEK: " + err.message);
+    DOM.submitChangePasswordBtn.disabled = false;
+    DOM.submitChangePasswordBtn.textContent = 'Update Credentials';
+    return;
+  }
+
+  let privateKey;
+  let publicKeyB64 = state.publicKey;
+  let encryptedPrivateKeyStr = state.encryptedPrivateKey;
+  let wrappedVaultKeyStr = null;
+
+  if (state.encryptedPrivateKey && oldKek) {
+    try {
+      const encPrivObj = JSON.parse(state.encryptedPrivateKey);
+      privateKey = await window.SecurityEngine.decryptPrivateKey(encPrivObj.ciphertext, encPrivObj.iv, oldKek);
+      const newEncPrivate = await window.SecurityEngine.encryptPrivateKey(privateKey, newKek);
+      encryptedPrivateKeyStr = JSON.stringify(newEncPrivate);
+    } catch (err) {
+      alert("Verification failed: Could not decrypt private key. Check your current password.");
+      DOM.submitChangePasswordBtn.disabled = false;
+      DOM.submitChangePasswordBtn.textContent = 'Update Credentials';
+      return;
+    }
+  } else {
+    // Generate new keypair if none existed (e.g. default admin first login)
+    try {
+      const keypair = await window.SecurityEngine.generateKeyPair();
+      privateKey = keypair.privateKey;
+      publicKeyB64 = keypair.publicKeyB64;
+      const newEncPrivate = await window.SecurityEngine.encryptPrivateKey(privateKey, newKek);
+      encryptedPrivateKeyStr = JSON.stringify(newEncPrivate);
+      
+      // Wrap the active vault key
+      wrappedVaultKeyStr = await window.SecurityEngine.wrapVaultKey(publicKeyB64);
+    } catch (err) {
+      alert("Failed to generate secure credentials: " + err.message);
+      DOM.submitChangePasswordBtn.disabled = false;
+      DOM.submitChangePasswordBtn.textContent = 'Update Credentials';
+      return;
+    }
+  }
+
   const isAdminUpdate = state.userRole === 'admin';
   const url = isAdminUpdate ? '/api/settings/credentials' : '/api/settings/change-password';
   
   const requestBody = isAdminUpdate 
-    ? { currentPassword, newUsername, newPassword, code }
-    : { currentPassword, newPassword, code };
+    ? { currentPassword, newUsername, newPassword, code, publicKey: publicKeyB64, encryptedPrivateKey: encryptedPrivateKeyStr, wrappedVaultKey: wrappedVaultKeyStr, salt: newSaltB64 }
+    : { currentPassword, newPassword, code, encryptedPrivateKey: encryptedPrivateKeyStr, salt: newSaltB64 };
 
   try {
-    DOM.submitChangePasswordBtn.disabled = true;
-    DOM.submitChangePasswordBtn.textContent = 'Updating...';
-
     const response = await fetch(url, {
       method: 'POST',
       headers: {
@@ -921,6 +980,7 @@ async function handleChangePasswordSubmit(e) {
       }
 
       state.isDefaultAdmin = false;
+      sessionStorage.removeItem('encryptionKek');
       closeChangePasswordModal();
       handleLogout();
     } else {
@@ -959,17 +1019,83 @@ async function handleUpdateCredentials(e) {
     return;
   }
 
-  try {
-    DOM.submitCredentialsBtn.disabled = true;
-    DOM.submitCredentialsBtn.textContent = 'Updating...';
+  DOM.submitCredentialsBtn.disabled = true;
+  DOM.submitCredentialsBtn.textContent = 'Updating...';
 
+  // Derive old KEK
+  let oldKek = sessionStorage.getItem('encryptionKek');
+  if (!oldKek && currentPassword && state.userSaltB64) {
+    try {
+      oldKek = await window.SecurityEngine.deriveKek(currentPassword, state.userSaltB64);
+    } catch (err) {
+      console.warn("Could not derive old KEK:", err);
+    }
+  }
+
+  // Generate new salt and new KEK
+  const newSaltBytes = window.crypto.getRandomValues(new Uint8Array(16));
+  const newSaltB64 = window.SecurityEngine.uint8ArrayToBase64(newSaltBytes);
+  let newKek;
+  try {
+    newKek = await window.SecurityEngine.deriveKek(newPassword, newSaltB64);
+  } catch (err) {
+    alert("Failed to derive new KEK: " + err.message);
+    DOM.submitCredentialsBtn.disabled = false;
+    DOM.submitCredentialsBtn.textContent = 'Update Credentials';
+    return;
+  }
+
+  let privateKey;
+  let publicKeyB64 = state.publicKey;
+  let encryptedPrivateKeyStr = state.encryptedPrivateKey;
+  let wrappedVaultKeyStr = null;
+
+  if (state.encryptedPrivateKey && oldKek) {
+    try {
+      const encPrivObj = JSON.parse(state.encryptedPrivateKey);
+      privateKey = await window.SecurityEngine.decryptPrivateKey(encPrivObj.ciphertext, encPrivObj.iv, oldKek);
+      const newEncPrivate = await window.SecurityEngine.encryptPrivateKey(privateKey, newKek);
+      encryptedPrivateKeyStr = JSON.stringify(newEncPrivate);
+    } catch (err) {
+      alert("Verification failed: Could not decrypt private key. Check your current password.");
+      DOM.submitCredentialsBtn.disabled = false;
+      DOM.submitCredentialsBtn.textContent = 'Update Credentials';
+      return;
+    }
+  } else {
+    // Generate new keypair if none existed
+    try {
+      const keypair = await window.SecurityEngine.generateKeyPair();
+      privateKey = keypair.privateKey;
+      publicKeyB64 = keypair.publicKeyB64;
+      const newEncPrivate = await window.SecurityEngine.encryptPrivateKey(privateKey, newKek);
+      encryptedPrivateKeyStr = JSON.stringify(newEncPrivate);
+      wrappedVaultKeyStr = await window.SecurityEngine.wrapVaultKey(publicKeyB64);
+    } catch (err) {
+      alert("Failed to generate secure credentials: " + err.message);
+      DOM.submitCredentialsBtn.disabled = false;
+      DOM.submitCredentialsBtn.textContent = 'Update Credentials';
+      return;
+    }
+  }
+
+  try {
     const response = await fetch('/api/settings/credentials', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${state.authToken}`
       },
-      body: JSON.stringify({ currentPassword, newUsername, newPassword, code })
+      body: JSON.stringify({ 
+        currentPassword, 
+        newUsername, 
+        newPassword, 
+        code,
+        publicKey: publicKeyB64,
+        encryptedPrivateKey: encryptedPrivateKeyStr,
+        wrappedVaultKey: wrappedVaultKeyStr,
+        salt: newSaltB64
+      })
     });
 
     if (response.ok) {
@@ -978,6 +1104,7 @@ async function handleUpdateCredentials(e) {
       if (DOM.changeAdmin2fa) DOM.changeAdmin2fa.value = '';
       DOM.changeAdminUsername.value = '';
       DOM.changeAdminPassword.value = '';
+      sessionStorage.removeItem('encryptionKek');
       handleLogout();
     } else {
       const err = await response.json();
@@ -1117,6 +1244,9 @@ async function fetchUserProfile(loginPassword = null) {
       state.userRole = data.role;
       state.username = data.username;
       state.isDefaultAdmin = data.isDefaultAdmin;
+      state.encryptedPrivateKey = data.encryptedPrivateKey;
+      state.publicKey = data.publicKey;
+      state.userSaltB64 = data.salt;
       updateAuthUI();
       updateSettingsRoleCards(data.role);
 
@@ -1126,13 +1256,21 @@ async function fetchUserProfile(loginPassword = null) {
       }
 
       // E2EE Asymmetric Key Unwrapping
-      const pwd = loginPassword || sessionStorage.getItem('encryptionPassword');
-      if (pwd && data.encryptedPrivateKey && data.wrappedVaultKey) {
+      let kek = sessionStorage.getItem('encryptionKek');
+      if (!kek && loginPassword && data.salt) {
+        try {
+          kek = await window.SecurityEngine.deriveKek(loginPassword, data.salt);
+          sessionStorage.setItem('encryptionKek', kek);
+        } catch (deriveErr) {
+          console.error("Failed to derive KEK from password:", deriveErr);
+        }
+      }
+
+      if (kek && data.encryptedPrivateKey && data.wrappedVaultKey) {
         try {
           const encPrivObj = JSON.parse(data.encryptedPrivateKey);
-          const privateKey = await window.SecurityEngine.decryptPrivateKey(encPrivObj.ciphertext, encPrivObj.iv, pwd);
-          await window.SecurityEngine.unwrapVaultKey(data.wrappedVaultKey, privateKey);
-          sessionStorage.setItem('encryptionPassword', pwd);
+          const privateKey = await window.SecurityEngine.decryptPrivateKey(encPrivObj.ciphertext, encPrivObj.iv, kek);
+          await window.SecurityEngine.unwrapVaultKey(data.wrappedVaultKey, privateKey, data.role === 'admin');
           
           const keyStatusInput = document.getElementById('display-key-status');
           if (keyStatusInput) {

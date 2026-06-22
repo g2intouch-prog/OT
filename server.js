@@ -429,6 +429,31 @@ async function checkAuth(req, res, next) {
   }
 }
 
+// Zero-Dependency Rate Limiter for authentication endpoints
+const rateLimitMap = new Map();
+function authRateLimiter(req, res, next) {
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  const now = Date.now();
+  const limitWindow = 15 * 60 * 1000; // 15 minutes
+  const maxAttempts = 100;
+  if (!rateLimitMap.has(ip)) {
+    rateLimitMap.set(ip, { attempts: 1, resetTime: now + limitWindow });
+    return next();
+  }
+  const rateData = rateLimitMap.get(ip);
+  if (now > rateData.resetTime) {
+    rateData.attempts = 1;
+    rateData.resetTime = now + limitWindow;
+    return next();
+  }
+  rateData.attempts += 1;
+  if (rateData.attempts > maxAttempts) {
+    const remainingTime = Math.ceil((rateData.resetTime - now) / 1000);
+    return res.status(429).json({ error: `Too many login attempts. Please try again in ${remainingTime} seconds.` });
+  }
+  next();
+}
+
 // In-memory map for temporary login sessions during 2-step TOTP flow
 const tempAuthSessions = new Map();
 const tempTotpSecrets = new Map();
@@ -537,7 +562,7 @@ app.get('/api/login/totp-status', async (req, res) => {
 });
 
 // Authentication route (with mandatory TOTP and multi-user support)
-app.post('/api/login', async (req, res) => {
+app.post('/api/login', authRateLimiter, async (req, res) => {
   const { username, password, code } = req.body;
   if (!username || !password) {
     return res.status(400).json({ error: 'Username and password are required.' });
@@ -592,7 +617,7 @@ app.post('/api/login', async (req, res) => {
 });
 
 // Verify OTP route
-app.post('/api/login/verify-otp', async (req, res) => {
+app.post('/api/login/verify-otp', authRateLimiter, async (req, res) => {
   const { tempToken, code } = req.body;
   if (!tempToken || !code) {
     return res.status(400).json({ error: 'Temporary token and 2FA code are required.' });
@@ -779,8 +804,8 @@ app.post('/api/admin/save-wrapped-key', checkAuth, async (req, res) => {
 });
 
 // Update credentials route (Admin only, can change admin User ID and Password)
-app.post('/api/settings/credentials', checkAuth, async (req, res) => {
-  const { currentPassword, newUsername, newPassword, code } = req.body;
+app.post('/api/settings/credentials', authRateLimiter, checkAuth, async (req, res) => {
+  const { currentPassword, newUsername, newPassword, code, publicKey, encryptedPrivateKey, wrappedVaultKey, salt } = req.body;
 
   if (!currentPassword || !newUsername || !newPassword) {
     return res.status(400).json({ error: 'Current password, new User ID, and new Password are required.' });
@@ -817,12 +842,16 @@ app.post('/api/settings/credentials', checkAuth, async (req, res) => {
 
     await db.query("BEGIN");
     if (process.env.POSTGRES_URL) {
-      await db.query("UPDATE users SET username = $1, password = $2 WHERE id = $3", [newUsername.trim(), newPassword, user.id]);
+      await db.query("UPDATE users SET username = $1, password = $2, public_key = $3, encrypted_private_key = $4, wrapped_vault_key = $5, salt = $6 WHERE id = $7", [newUsername.trim(), newPassword, publicKey, encryptedPrivateKey, wrappedVaultKey, salt, user.id]);
     } else {
       const inMemUser = require('./lib/db').inMemoryDb.users.find(u => u.id === user.id);
       if (inMemUser) {
         inMemUser.username = newUsername.trim();
         inMemUser.password = newPassword;
+        inMemUser.public_key = publicKey;
+        inMemUser.encrypted_private_key = encryptedPrivateKey;
+        inMemUser.wrapped_vault_key = wrappedVaultKey;
+        inMemUser.salt = salt;
       }
     }
     await db.query("INSERT INTO config (key, value) VALUES ('admin_user', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", [newUsername.trim()]);
@@ -836,8 +865,8 @@ app.post('/api/settings/credentials', checkAuth, async (req, res) => {
 });
 
 // Change password for any user
-app.post('/api/settings/change-password', checkAuth, async (req, res) => {
-  const { currentPassword, newPassword, code } = req.body;
+app.post('/api/settings/change-password', authRateLimiter, checkAuth, async (req, res) => {
+  const { currentPassword, newPassword, code, encryptedPrivateKey, salt } = req.body;
 
   if (!currentPassword || !newPassword) {
     return res.status(400).json({ error: 'Current password and new Password are required.' });
@@ -868,7 +897,7 @@ app.post('/api/settings/change-password', checkAuth, async (req, res) => {
     }
 
     if (process.env.POSTGRES_URL) {
-      await db.query("UPDATE users SET password = $1 WHERE id = $2", [newPassword, user.id]);
+      await db.query("UPDATE users SET password = $1, encrypted_private_key = $2, salt = $3 WHERE id = $4", [newPassword, encryptedPrivateKey, salt, user.id]);
       if (user.id === 'usr-admin-s') {
         await db.query("INSERT INTO config (key, value) VALUES ('admin_pass', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", [newPassword]);
       }
@@ -876,6 +905,8 @@ app.post('/api/settings/change-password', checkAuth, async (req, res) => {
       const inMemUser = require('./lib/db').inMemoryDb.users.find(u => u.id === user.id);
       if (inMemUser) {
         inMemUser.password = newPassword;
+        inMemUser.encrypted_private_key = encryptedPrivateKey;
+        inMemUser.salt = salt;
       }
       if (user.id === 'usr-admin-s') {
         await db.query("INSERT INTO config (key, value) VALUES ('admin_pass', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", [newPassword]);
@@ -953,7 +984,7 @@ app.post('/api/entries/push', checkAuth, async (req, res) => {
       if (draft.ciphertext && draft.iv) {
         recordData = JSON.stringify({ ciphertext: draft.ciphertext, iv: draft.iv });
       } else {
-        recordData = JSON.stringify(draft.data || {});
+        throw new Error('Plaintext database entries are forbidden. All entries must be encrypted.');
       }
 
       await db.query(

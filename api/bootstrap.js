@@ -24,8 +24,22 @@ module.exports = async (req, res) => {
     // Check if user is using default master admin credentials
     const isDefaultAdmin = (user.username === 'admin' && user.password === 'password');
 
+    // Self-healing salt generator for existing users
+    let userSalt = user.salt;
+    if (!userSalt) {
+      const crypto = require('crypto');
+      userSalt = crypto.randomBytes(16).toString('base64');
+      if (process.env.POSTGRES_URL) {
+        await db.query("UPDATE users SET salt = $1 WHERE id = $2", [userSalt, user.id]);
+      } else {
+        const memoryUser = require('../lib/db').inMemoryDb.users.find(u => u.id === user.id);
+        if (memoryUser) memoryUser.salt = userSalt;
+      }
+    }
+
     // Vault key is held strictly in Vercel env and only delivered to active sessions
-    const vaultKey = process.env.TEAM_VAULT_KEY || 'dGhpcy1pcy1hLXNlY3JldC0zMi1ieXRlLWtleS0xMjM='; // Default 32-byte key for development if env is missing
+    // Do NOT deliver raw vaultKey to default admin if they need to setup credentials
+    const vaultKey = isDefaultAdmin ? null : (process.env.TEAM_VAULT_KEY || 'dGhpcy1pcy1hLXNlY3JldC0zMi1ieXRlLWtleS0xMjM=');
     
     // Feature flag: SHOW_TUTORIAL controlled by NEXT_PUBLIC_SHOW_TUTORIAL env var or default to true
     const showTutorial = process.env.NEXT_PUBLIC_SHOW_TUTORIAL !== 'false';
@@ -39,6 +53,7 @@ module.exports = async (req, res) => {
       publicKey: user.public_key,
       encryptedPrivateKey: user.encrypted_private_key,
       wrappedVaultKey: user.wrapped_vault_key,
+      salt: userSalt,
       showTutorial
     });
   } catch (err) {

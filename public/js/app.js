@@ -63,10 +63,10 @@ async function bootstrapSession() {
     if (response.ok) {
       const data = await response.json();
       if (data.action === 'PROCEED') {
-        const savedPwd = sessionStorage.getItem('encryptionPassword');
-        if (savedPwd) {
-          await window.SecurityEngine.unlockVaultWithPassword(savedPwd);
-          console.log('Cryptographic boundary restored from sessionStorage.');
+        const savedKek = sessionStorage.getItem('encryptionKek');
+        if (savedKek) {
+          await window.SecurityEngine.unlockVault(savedKek);
+          console.log('Cryptographic boundary restored from sessionStorage KEK.');
         } else if (data.vaultKey) {
           // Unlock client-side cryptographic RAM vault
           await window.SecurityEngine.unlockVault(data.vaultKey);
