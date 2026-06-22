@@ -16,14 +16,6 @@
   ],
   "routes": [
     {
-      "src": "/api/bootstrap",
-      "dest": "api/bootstrap.js"
-    },
-    {
-      "src": "/api/admin/update-status",
-      "dest": "api/admin/update-status.js"
-    },
-    {
       "src": "/api/(.*)",
       "dest": "server.js"
     },

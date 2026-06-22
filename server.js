@@ -733,6 +733,100 @@ app.post('/api/register', async (req, res) => {
   }
 });
 
+// Bootstrap route to deliver session state, salts, and E2EE config
+app.get('/api/bootstrap', async (req, res) => {
+  try {
+    const session = await userDb.verifyUserSession(req);
+    if (!session) {
+      return res.status(403).json({ action: 'SELF_DESTRUCT', error: 'Invalid or missing session.' });
+    }
+
+    const user = await userDb.getUserById(session.user_id);
+    if (!user) {
+      return res.status(403).json({ action: 'SELF_DESTRUCT', error: 'User does not exist.' });
+    }
+
+    if (user.status !== 'active') {
+      return res.status(403).json({ action: 'SELF_DESTRUCT', error: 'Access Revoked' });
+    }
+
+    const isDefaultAdmin = (user.username === 'admin' && user.password === 'password');
+
+    let userSalt = user.salt;
+    if (!userSalt) {
+      const crypto = require('crypto');
+      userSalt = crypto.randomBytes(16).toString('base64');
+      await userDb.updateUserSalt(user.id, userSalt);
+    }
+
+    const hasE2EE = user.public_key && user.encrypted_private_key && user.wrapped_vault_key;
+    const vaultKey = !hasE2EE ? (process.env.TEAM_VAULT_KEY || 'dGhpcy1pcy1hLXNlY3JldC0zMi1ieXRlLWtleS0xMjM=') : null;
+    const showTutorial = process.env.NEXT_PUBLIC_SHOW_TUTORIAL !== 'false';
+
+    return res.status(200).json({
+      action: 'PROCEED',
+      vaultKey,
+      role: user.role,
+      username: user.username,
+      isDefaultAdmin,
+      publicKey: user.public_key,
+      encryptedPrivateKey: user.encrypted_private_key,
+      wrappedVaultKey: user.wrapped_vault_key,
+      salt: userSalt,
+      showTutorial
+    });
+  } catch (err) {
+    console.error('Bootstrap API error:', err);
+    return res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// Admin update user status routes
+app.get('/api/admin/update-status', async (req, res) => {
+  try {
+    const session = await userDb.verifyUserSession(req);
+    if (!session) {
+      return res.status(401).json({ error: 'Unauthorized: Session missing or invalid.' });
+    }
+
+    const adminUser = await userDb.checkUserStatusAndRole(session.user_id);
+    if (!adminUser || adminUser.role !== 'admin' || adminUser.status !== 'active') {
+      return res.status(403).json({ error: 'Forbidden: Admin privilege required.' });
+    }
+
+    const users = await userDb.getAllUsers();
+    return res.status(200).json({ users });
+  } catch (err) {
+    console.error('Update status GET API error:', err);
+    return res.status(500).json({ error: err.message || 'Internal Server Error' });
+  }
+});
+
+app.post('/api/admin/update-status', async (req, res) => {
+  try {
+    const session = await userDb.verifyUserSession(req);
+    if (!session) {
+      return res.status(401).json({ error: 'Unauthorized: Session missing or invalid.' });
+    }
+
+    const adminUser = await userDb.checkUserStatusAndRole(session.user_id);
+    if (!adminUser || adminUser.role !== 'admin' || adminUser.status !== 'active') {
+      return res.status(403).json({ error: 'Forbidden: Admin privilege required.' });
+    }
+
+    const { userId, newStatus } = req.body;
+    if (!userId || !newStatus) {
+      return res.status(400).json({ error: 'Missing userId or newStatus.' });
+    }
+
+    await userDb.updateUserStatus(session.user_id, userId, newStatus);
+    return res.status(200).json({ success: true, message: `Status updated to ${newStatus} successfully.` });
+  } catch (err) {
+    console.error('Update status POST API error:', err);
+    return res.status(500).json({ error: err.message || 'Internal Server Error' });
+  }
+});
+
 // Admin promote user role route
 app.post('/api/admin/promote', checkAuth, async (req, res) => {
   const { userId, role } = req.body;

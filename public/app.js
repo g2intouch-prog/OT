@@ -1330,6 +1330,26 @@ async function fetchUserProfile(loginPassword = null) {
         } catch (cryptErr) {
           console.error("Failed to decrypt E2EE private key or unwrap vault key:", cryptErr);
         }
+      } else if (data.vaultKey) {
+        try {
+          await window.SecurityEngine.unlockVault(data.vaultKey);
+          console.log('Cryptographic boundary established for onboarding.');
+          
+          const keyStatusInput = document.getElementById('display-key-status');
+          if (keyStatusInput) {
+            keyStatusInput.value = 'RAM VOLATILE LOCKED-IN';
+          }
+          
+          await loadDraftsFromStorage();
+          renderDraftsTable();
+          renderSyncTable();
+
+          if (state.activeTab === 'db-viewer' || state.activeTab === 'data-analysis') {
+            fetchDatabaseRecords();
+          }
+        } catch (cryptErr) {
+          console.error("Failed to unlock onboarding vault:", cryptErr);
+        }
       }
     }
   } catch (err) {
