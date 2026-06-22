@@ -301,12 +301,34 @@ document.addEventListener('DOMContentLoaded', () => {
     }).catch(err => console.error("Error in checkConnectivity chain:", err));
 
     // Restore temporary login state if browser was reloaded during 2FA entry
-    const tempToken = sessionStorage.getItem('loginTempToken');
-    const tempPassword = sessionStorage.getItem('loginTempPassword');
-    const tempUsername = sessionStorage.getItem('loginTempUsername');
-    const modalState = sessionStorage.getItem('loginModalOpen');
+    const tempToken = localStorage.getItem('loginTempToken') || sessionStorage.getItem('loginTempToken');
+    const tempPassword = localStorage.getItem('loginTempPassword') || sessionStorage.getItem('loginTempPassword');
+    const tempUsername = localStorage.getItem('loginTempUsername') || sessionStorage.getItem('loginTempUsername');
+    const modalState = localStorage.getItem('loginModalOpen') || sessionStorage.getItem('loginModalOpen');
     
-    if (tempToken && tempPassword && modalState === 'otp') {
+    if (tempToken && modalState === 'totp-setup') {
+      state.loginTempToken = tempToken;
+      try {
+        fetch('/api/login/totp-setup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tempToken })
+        }).then(res => {
+          if (res.ok) return res.json();
+        }).then(setupData => {
+          if (setupData) {
+            DOM.totpManualSecret.textContent = setupData.secret;
+            DOM.totpQrImg.src = setupData.qrUrl;
+            DOM.totpSetupCode.value = '';
+            
+            DOM.totpSetupModal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+          }
+        });
+      } catch (err) {
+        console.error("Error restoring TOTP setup:", err);
+      }
+    } else if (tempToken && tempPassword && modalState === 'otp') {
       state.loginTempToken = tempToken;
       state.loginTempPassword = tempPassword;
       if (DOM.loginUsername && tempUsername) DOM.loginUsername.value = tempUsername;
@@ -512,6 +534,10 @@ async function openLoginModal(isRestore = false) {
     sessionStorage.removeItem('loginTempPassword');
     sessionStorage.removeItem('loginTempUsername');
     sessionStorage.removeItem('loginModalOpen');
+    localStorage.removeItem('loginTempToken');
+    localStorage.removeItem('loginTempPassword');
+    localStorage.removeItem('loginTempUsername');
+    localStorage.removeItem('loginModalOpen');
   }
   state.authModalMode = 'login'; // Reset to login mode
 
@@ -591,6 +617,10 @@ function closeLoginModal() {
   sessionStorage.removeItem('loginTempPassword');
   sessionStorage.removeItem('loginTempUsername');
   sessionStorage.removeItem('loginModalOpen');
+  localStorage.removeItem('loginTempToken');
+  localStorage.removeItem('loginTempPassword');
+  localStorage.removeItem('loginTempUsername');
+  localStorage.removeItem('loginModalOpen');
 }
 
 async function handleLogin(e) {
@@ -675,6 +705,10 @@ async function handleLogin(e) {
         sessionStorage.removeItem('loginTempPassword');
         sessionStorage.removeItem('loginTempUsername');
         sessionStorage.removeItem('loginModalOpen');
+        localStorage.removeItem('loginTempToken');
+        localStorage.removeItem('loginTempPassword');
+        localStorage.removeItem('loginTempUsername');
+        localStorage.removeItem('loginModalOpen');
         
         closeLoginModal();
         
@@ -712,6 +746,8 @@ async function handleLogin(e) {
         state.loginTempToken = data.tempToken;
         sessionStorage.setItem('loginTempToken', data.tempToken);
         sessionStorage.setItem('loginModalOpen', 'totp-setup');
+        localStorage.setItem('loginTempToken', data.tempToken);
+        localStorage.setItem('loginModalOpen', 'totp-setup');
         try {
           const setupRes = await fetch('/api/login/totp-setup', {
             method: 'POST',
@@ -743,6 +779,10 @@ async function handleLogin(e) {
         sessionStorage.setItem('loginTempToken', data.tempToken);
         sessionStorage.setItem('loginTempUsername', username);
         sessionStorage.setItem('loginModalOpen', 'otp');
+        localStorage.setItem('loginTempPassword', password);
+        localStorage.setItem('loginTempToken', data.tempToken);
+        localStorage.setItem('loginTempUsername', username);
+        localStorage.setItem('loginModalOpen', 'otp');
 
         const credentialsSec = document.getElementById('login-credentials-section');
         if (credentialsSec) credentialsSec.classList.add('hidden');
@@ -764,6 +804,10 @@ async function handleLogin(e) {
         sessionStorage.removeItem('loginTempPassword');
         sessionStorage.removeItem('loginTempUsername');
         sessionStorage.removeItem('loginModalOpen');
+        localStorage.removeItem('loginTempToken');
+        localStorage.removeItem('loginTempPassword');
+        localStorage.removeItem('loginTempUsername');
+        localStorage.removeItem('loginModalOpen');
         
         await fetchUserProfile(password);
         closeLoginModal();
