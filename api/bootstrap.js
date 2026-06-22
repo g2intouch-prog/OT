@@ -29,12 +29,7 @@ module.exports = async (req, res) => {
     if (!userSalt) {
       const crypto = require('crypto');
       userSalt = crypto.randomBytes(16).toString('base64');
-      if (process.env.POSTGRES_URL) {
-        await db.query("UPDATE users SET salt = $1 WHERE id = $2", [userSalt, user.id]);
-      } else {
-        const memoryUser = require('../lib/db').inMemoryDb.users.find(u => u.id === user.id);
-        if (memoryUser) memoryUser.salt = userSalt;
-      }
+      await db.updateUserSalt(user.id, userSalt);
     }
 
     // Vault key is held strictly in Vercel env and only delivered to active sessions
