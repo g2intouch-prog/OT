@@ -998,6 +998,22 @@
     </div>
   </div>
 
+  <!-- Record Details Modal -->
+  <div id="details-modal" class="modal-overlay">
+    <div class="modal-card" style="max-width: 600px; width: 95%;">
+      <div class="modal-header">
+        <h2 id="details-modal-title">Record Details</h2>
+        <button id="close-details-modal-btn" class="modal-close-x">&times;</button>
+      </div>
+      <div class="modal-body" id="details-modal-body" style="padding: 20px; overflow-y: auto; max-height: calc(90vh - 120px);">
+        <!-- Filled dynamically -->
+      </div>
+      <div class="modal-actions" style="padding: 16px 24px; margin-top: 0; background-color: #161b22; border-top: 1px solid var(--panel-border);">
+        <button type="button" id="close-details-btn" class="btn btn-secondary">Close Details</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Change Password Modal (For all users) -->
   <div id="change-password-modal" class="modal-overlay">
     <div class="modal-card" style="max-width: 450px; width: 95%;">

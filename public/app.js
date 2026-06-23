@@ -11,7 +11,8 @@ const state = {
   activeTab: 'data-entry',
   formCreatorSchema: [], // Working copy of schema inside Form Creator
   formCreatorActiveIndex: 0,
-  lanUrl: ''
+  lanUrl: '',
+  highRiskCases: []
 };
 
 // Selectors
@@ -222,7 +223,14 @@ const DOM = {
   saveAuditChangesBtn: document.getElementById('save-audit-changes-btn'),
   auditPrevYearBtn: document.getElementById('audit-prev-year-btn'),
   auditCurrentYearText: document.getElementById('audit-current-year-text'),
-  auditNextYearBtn: document.getElementById('audit-next-year-btn')
+  auditNextYearBtn: document.getElementById('audit-next-year-btn'),
+  
+  // Details Modal Selectors
+  detailsModal: document.getElementById('details-modal'),
+  closeDetailsModalBtn: document.getElementById('close-details-modal-btn'),
+  closeDetailsBtn: document.getElementById('close-details-btn'),
+  detailsModalBody: document.getElementById('details-modal-body'),
+  detailsModalTitle: document.getElementById('details-modal-title')
 };
 
 // Helper for finding elements inside selectors safely
@@ -4205,6 +4213,21 @@ function setupEventListeners() {
   DOM.dataEntryForm.addEventListener('submit', handleSaveDraft);
   DOM.clearFieldsBtn.addEventListener('click', clearEntryFields);
 
+  // High-Risk Popover name link click delegation
+  if (DOM.kpiHighRiskPopover) {
+    DOM.kpiHighRiskPopover.addEventListener('click', (e) => {
+      const clickEl = e.target.closest('.high-risk-name-click');
+      if (clickEl) {
+        e.preventDefault();
+        const indexVal = parseInt(clickEl.dataset.index);
+        const caseData = state.highRiskCases[indexVal];
+        if (caseData && caseData.record) {
+          showRecordDetailsModal(caseData.record);
+        }
+      }
+    });
+  }
+
   // Auth Button (login modal opener)
   DOM.authBtn.addEventListener('click', () => {
     if (state.isAuthenticated) {
@@ -4613,6 +4636,24 @@ function setupEventListeners() {
 
   if (closeRulesModalBtn) closeRulesModalBtn.addEventListener('click', hideRules);
   if (closeRulesBtn) closeRulesBtn.addEventListener('click', hideRules);
+
+  // Details Modal close events
+  if (DOM.closeDetailsModalBtn) DOM.closeDetailsModalBtn.addEventListener('click', () => {
+    DOM.detailsModal.classList.remove('active');
+    document.body.style.overflow = '';
+  });
+  if (DOM.closeDetailsBtn) DOM.closeDetailsBtn.addEventListener('click', () => {
+    DOM.detailsModal.classList.remove('active');
+    document.body.style.overflow = '';
+  });
+  if (DOM.detailsModal) {
+    DOM.detailsModal.addEventListener('click', (e) => {
+      if (e.target === DOM.detailsModal) {
+        DOM.detailsModal.classList.remove('active');
+        document.body.style.overflow = '';
+      }
+    });
+  }
 }
 
 // -------------------------------------------------------------
@@ -6140,16 +6181,18 @@ function renderAnalytics() {
 
   if (DOM.kpiHighRisk) DOM.kpiHighRisk.textContent = highRiskCount;
 
+  state.highRiskCases = highRiskCases;
+
   if (DOM.kpiHighRiskPopover) {
     if (highRiskCases.length === 0) {
       DOM.kpiHighRiskPopover.innerHTML = '<div style="padding: 8px; text-align: center; color: var(--text-muted);">No high-risk records found.</div>';
     } else {
       let popoverHtml = '<div style="font-weight: bold; border-bottom: 1px solid var(--panel-border); padding-bottom: 6px; margin-bottom: 6px; color: var(--text-main); font-size: 0.85rem;">⚠️ High-Risk Cases Details</div>';
-      highRiskCases.forEach(c => {
+      highRiskCases.forEach((c, index) => {
         popoverHtml += `
           <div class="high-risk-case-item">
             <div class="high-risk-case-title">
-              <span>${c.name}</span>
+              <span class="high-risk-name-click" data-index="${index}" style="color: var(--accent-color); text-decoration: underline; cursor: pointer; font-weight: 600;">${c.name}</span>
               <span style="font-size: 0.75rem; font-weight: normal; color: var(--text-muted);">S.No: ${c.serial}</span>
             </div>
             <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">
@@ -9041,5 +9084,44 @@ async function renderCryptoVerificationList() {
   } catch (err) {
     cryptoContainer.innerHTML = `<div class="alert-box alert-danger">Error: ${err.message}</div>`;
   }
+}
+
+function showRecordDetailsModal(record) {
+  if (!DOM.detailsModal || !DOM.detailsModalBody) return;
+  
+  DOM.detailsModalTitle.textContent = `Record Details (ID: ${record.id})`;
+  DOM.detailsModalBody.innerHTML = '';
+  
+  const table = document.createElement('table');
+  table.className = 'data-table';
+  table.style.width = '100%';
+  
+  const tbody = document.createElement('tbody');
+  
+  // Date Row
+  const trDate = document.createElement('tr');
+  trDate.innerHTML = `
+    <td style="font-weight: bold; width: 180px; white-space: normal;">Date</td>
+    <td style="white-space: normal; word-break: break-all;">${formatDateDisplay(record.date)}</td>
+  `;
+  tbody.appendChild(trDate);
+  
+  // Dynamic Schema Fields
+  state.schema.forEach(field => {
+    const tr = document.createElement('tr');
+    const val = record.data ? record.data[field.id] : '';
+    const displayVal = formatDisplayValue(val, field);
+    tr.innerHTML = `
+      <td style="font-weight: bold; width: 180px; white-space: normal;">${getFieldDisplayTitle(field)}</td>
+      <td style="white-space: normal; word-break: break-all;">${displayVal}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+  
+  table.appendChild(tbody);
+  DOM.detailsModalBody.appendChild(table);
+  
+  DOM.detailsModal.classList.add('active');
+  document.body.style.overflow = 'hidden';
 }
 
