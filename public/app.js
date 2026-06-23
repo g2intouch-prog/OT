@@ -6092,7 +6092,8 @@ function renderAnalytics() {
         name: nameVal,
         serial: annualSerial,
         date: rec.date || 'N/A',
-        cause: reasons.join(', ')
+        cause: reasons.join(', '),
+        record: rec
       });
     }
 
