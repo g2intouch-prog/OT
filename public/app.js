@@ -3203,7 +3203,7 @@ function renderAuditTable() {
   if (auditAnomalies.length === 0) {
     DOM.auditTableBody.innerHTML = `
       <tr>
-        <td colspan="6" class="text-center py-4 text-muted">No anomalies detected. Your database is clean!</td>
+        <td colspan="8" class="text-center py-4 text-muted">No anomalies detected. Your database is clean!</td>
       </tr>
     `;
     if (DOM.saveAuditChangesBtn) DOM.saveAuditChangesBtn.disabled = true;
@@ -3216,15 +3216,33 @@ function renderAuditTable() {
   auditAnomalies.forEach((anomaly, index) => {
     const tr = document.createElement('tr');
     
+    // Find name field and annual serial number
+    const nameField = state.schema.find(f => f.id === 'name' || f.id.toLowerCase().includes('name') || f.title.toLowerCase().includes('name'));
+    const nameVal = nameField && anomaly.record.data ? anomaly.record.data[nameField.id] || '' : '';
+    
+    const annualField = state.schema.find(f => f.id === 'annual_serial' || f.title.toLowerCase().includes('annual'));
+    const annualFieldId = annualField ? annualField.id : 'annual_serial';
+    const annualSerial = anomaly.record.data ? anomaly.record.data[annualFieldId] || '' : '';
+
     // Record ID
     const tdId = document.createElement('td');
     tdId.textContent = anomaly.recordId;
     tr.appendChild(tdId);
 
+    // Annual Serial
+    const tdAnnualSerial = document.createElement('td');
+    tdAnnualSerial.textContent = annualSerial;
+    tr.appendChild(tdAnnualSerial);
+
     // Date
     const tdDate = document.createElement('td');
     tdDate.textContent = anomaly.date;
     tr.appendChild(tdDate);
+
+    // Name
+    const tdName = document.createElement('td');
+    tdName.textContent = nameVal;
+    tr.appendChild(tdName);
 
     // Field Title
     const tdField = document.createElement('td');
