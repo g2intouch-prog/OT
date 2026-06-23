@@ -337,6 +337,8 @@ document.addEventListener('DOMContentLoaded', () => {
       
       const credentialsSec = document.getElementById('login-credentials-section');
       if (credentialsSec) credentialsSec.classList.add('hidden');
+      if (DOM.loginUsername) DOM.loginUsername.removeAttribute('required');
+      if (DOM.loginPassword) DOM.loginPassword.removeAttribute('required');
       if (DOM.loginOtpSection) DOM.loginOtpSection.classList.remove('hidden');
       if (DOM.loginOtp) {
         DOM.loginOtp.value = '';
@@ -537,6 +539,8 @@ async function openLoginModal(isRestore = false) {
 
   const credentialsSec = document.getElementById('login-credentials-section');
   if (credentialsSec) credentialsSec.classList.remove('hidden');
+  if (DOM.loginUsername) DOM.loginUsername.setAttribute('required', 'true');
+  if (DOM.loginPassword) DOM.loginPassword.setAttribute('required', 'true');
   
   if (DOM.loginOtpSection) DOM.loginOtpSection.classList.add('hidden');
   if (DOM.loginOtp) {
@@ -573,6 +577,8 @@ function openAdminRegisterModal() {
   
   const credentialsSec = document.getElementById('login-credentials-section');
   if (credentialsSec) credentialsSec.classList.remove('hidden');
+  if (DOM.loginUsername) DOM.loginUsername.setAttribute('required', 'true');
+  if (DOM.loginPassword) DOM.loginPassword.setAttribute('required', 'true');
   
   if (DOM.loginOtpSection) DOM.loginOtpSection.classList.add('hidden');
   if (DOM.loginOtp) {
@@ -785,6 +791,8 @@ async function handleLogin(e) {
 
         const credentialsSec = document.getElementById('login-credentials-section');
         if (credentialsSec) credentialsSec.classList.add('hidden');
+        if (DOM.loginUsername) DOM.loginUsername.removeAttribute('required');
+        if (DOM.loginPassword) DOM.loginPassword.removeAttribute('required');
         if (DOM.loginOtpSection) DOM.loginOtpSection.classList.remove('hidden');
         if (DOM.loginOtp) {
           DOM.loginOtp.value = '';
