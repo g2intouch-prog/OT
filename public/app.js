@@ -182,6 +182,7 @@ const DOM = {
   kpiLbwProgress: document.getElementById('kpi-lbw-progress'),
   kpiGenderRatio: document.getElementById('kpi-gender-ratio'),
   kpiHighRisk: document.getElementById('kpi-high-risk'),
+  kpiHighRiskPopover: document.getElementById('high-risk-popover'),
   topAddressesList: document.getElementById('top-addresses-list'),
   
   // QR Code Selectors
@@ -5921,8 +5922,8 @@ function renderAnalytics() {
     if (DOM.kpiFpProgress) DOM.kpiFpProgress.style.width = '0%';
     if (DOM.kpiLbwRate) DOM.kpiLbwRate.textContent = '0 (0%)';
     if (DOM.kpiLbwProgress) DOM.kpiLbwProgress.style.width = '0%';
-    if (DOM.kpiGenderRatio) DOM.kpiGenderRatio.textContent = 'N/A';
     if (DOM.kpiHighRisk) DOM.kpiHighRisk.textContent = '0';
+    if (DOM.kpiHighRiskPopover) DOM.kpiHighRiskPopover.innerHTML = '<div style="padding: 8px; text-align: center; color: var(--text-muted);">No high-risk records found.</div>';
     if (DOM.topAddressesList) DOM.topAddressesList.innerHTML = '<li class="text-muted">No data available</li>';
     return;
   }
@@ -5964,6 +5965,7 @@ function renderAnalytics() {
   let lbwCount = 0;
   let fpAdoptedCount = 0;
   let highRiskCount = 0;
+  const highRiskCases = [];
   
   let maleCount = 0;
   let femaleCount = 0;
@@ -6027,15 +6029,30 @@ function renderAnalytics() {
 
     // High-Risk Deliveries (Mother's age <20 or >35, or baby weight <2200g)
     let isHighRisk = false;
+    const reasons = [];
     const age = parseInt(rec.data.age);
     if (!isNaN(age) && (age < 20 || age > 35)) {
       isHighRisk = true;
+      reasons.push(`Maternal Age: ${age}`);
     }
     if (!isNaN(w) && w > 0 && w < 2200) {
       isHighRisk = true;
+      reasons.push(`Baby Weight: ${w}g`);
     }
     if (isHighRisk) {
       highRiskCount++;
+      const nameField = state.schema.find(f => f.id === 'name' || f.id.toLowerCase().includes('name') || f.title.toLowerCase().includes('name'));
+      const nameVal = nameField && rec.data ? rec.data[nameField.id] || 'Unknown' : 'Unknown';
+      const annualField = state.schema.find(f => f.id === 'annual_serial' || f.title.toLowerCase().includes('annual'));
+      const annualFieldId = annualField ? annualField.id : 'annual_serial';
+      const annualSerial = rec.data ? rec.data[annualFieldId] || 'N/A' : 'N/A';
+
+      highRiskCases.push({
+        name: nameVal,
+        serial: annualSerial,
+        date: rec.date || 'N/A',
+        cause: reasons.join(', ')
+      });
     }
 
     // Address list ranking
@@ -6122,6 +6139,31 @@ function renderAnalytics() {
   if (DOM.kpiGenderRatio) DOM.kpiGenderRatio.textContent = genderRatioText;
 
   if (DOM.kpiHighRisk) DOM.kpiHighRisk.textContent = highRiskCount;
+
+  if (DOM.kpiHighRiskPopover) {
+    if (highRiskCases.length === 0) {
+      DOM.kpiHighRiskPopover.innerHTML = '<div style="padding: 8px; text-align: center; color: var(--text-muted);">No high-risk records found.</div>';
+    } else {
+      let popoverHtml = '<div style="font-weight: bold; border-bottom: 1px solid var(--panel-border); padding-bottom: 6px; margin-bottom: 6px; color: var(--text-main); font-size: 0.85rem;">⚠️ High-Risk Cases Details</div>';
+      highRiskCases.forEach(c => {
+        popoverHtml += `
+          <div class="high-risk-case-item">
+            <div class="high-risk-case-title">
+              <span>${c.name}</span>
+              <span style="font-size: 0.75rem; font-weight: normal; color: var(--text-muted);">S.No: ${c.serial}</span>
+            </div>
+            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">
+              Date: ${c.date}
+            </div>
+            <div class="high-risk-case-details">
+              <strong>Reason:</strong> ${c.cause}
+            </div>
+          </div>
+        `;
+      });
+      DOM.kpiHighRiskPopover.innerHTML = popoverHtml;
+    }
+  }
 
   // 4. Populate Top 3 Villages/Locations List
   const sortedAddresses = Object.entries(addressCounts)
