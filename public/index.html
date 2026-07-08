@@ -51,26 +51,9 @@
     </div>
     
     <div class="header-controls">
-      <!-- User Profile Ribbon Info -->
-      <div id="user-profile-header" class="hidden" style="display: flex; align-items: center; gap: 8px; color: var(--text-muted); font-size: 0.85rem; margin-right: 12px;">
-        <span>Logged in as: <strong id="logged-in-user-name" style="color: var(--text);">guest</strong></span>
-        <button id="header-change-password-btn" class="btn btn-icon-only" title="Change Password" style="padding: 4px 8px; font-size: 0.9rem;" aria-label="Change Password">🔑</button>
-      </div>
-
       <!-- Help / Connection Status Button -->
       <button id="help-btn" class="btn btn-icon-only btn-help offline" title="User Guide & Help" aria-label="User Guide & Help" style="margin-right: 8px;">
         <span>?</span>
-      </button>
-
-      <!-- Theme Toggle Button -->
-      <button id="theme-toggle-btn" class="btn btn-icon-only" aria-label="Toggle Theme" style="margin-right: 8px;">
-        <span id="theme-toggle-icon">☀</span>
-      </button>
-
-      <!-- Admin Login Button -->
-      <button id="auth-btn" class="btn btn-secondary" title="Admin Login" aria-label="Admin Login">
-        <span class="btn-icon">🔒</span>
-        <span id="auth-btn-text" class="hidden">Admin Login</span>
       </button>
       
       <!-- Mobile Sidebar Toggle -->
@@ -129,6 +112,25 @@
             <span>Session:</span>
             <strong id="session-status-display" class="status-logged-out">Guest Mode</strong>
           </div>
+          
+          <!-- User Profile Ribbon Info -->
+          <div id="user-profile-header" class="hidden" style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--panel-border);">
+            <span style="font-size: 0.8rem; color: var(--text-muted);">Logged in as: <strong id="logged-in-user-name" style="color: var(--text-main);">guest</strong></span>
+            <button id="header-change-password-btn" class="btn btn-icon-only" title="Change Password" style="width: 28px; height: 28px; font-size: 0.8rem; padding: 0; display: inline-flex; align-items: center; justify-content: center;" aria-label="Change Password">🔑</button>
+          </div>
+        </div>
+        
+        <div class="sidebar-actions" style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--panel-border);">
+          <!-- Theme Toggle Button -->
+          <button id="theme-toggle-btn" class="btn btn-icon-only" aria-label="Toggle Theme" title="Toggle Theme" style="width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center;">
+            <span id="theme-toggle-icon">☀</span>
+          </button>
+          
+          <!-- Admin Login Button -->
+          <button id="auth-btn" class="btn btn-secondary" title="Admin Login" aria-label="Admin Login" style="flex: 1; justify-content: center; height: 36px; font-size: 0.85rem; padding: 0 12px; display: inline-flex; align-items: center; gap: 8px;">
+            <span class="btn-icon">🔒</span>
+            <span id="auth-btn-text">Admin Login</span>
+          </button>
         </div>
       </div>
     </aside>
