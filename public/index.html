@@ -61,6 +61,11 @@
         <button id="header-change-password-btn" class="btn btn-icon-only" title="Change Password" style="padding: 4px 8px; font-size: 0.9rem;" aria-label="Change Password">🔑</button>
       </div>
 
+      <!-- Help / Connection Status Button -->
+      <button id="help-btn" class="btn btn-icon-only btn-help offline" title="User Guide & Help" aria-label="User Guide & Help" style="margin-right: 8px;">
+        <span>?</span>
+      </button>
+
       <!-- Theme Toggle Button -->
       <button id="theme-toggle-btn" class="btn btn-icon-only" aria-label="Toggle Theme" style="margin-right: 8px;">
         <span id="theme-toggle-icon">☀</span>
@@ -1236,6 +1241,142 @@
       </div>
       <div class="modal-actions" style="padding: 16px 24px; margin-top: 0; background-color: #161b22; border-top: 1px solid var(--panel-border);">
         <button type="button" id="close-rules-btn" class="btn btn-secondary">Got it</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Help & User Guide Modal -->
+  <div id="help-modal" class="modal-overlay">
+    <div class="modal-card" style="max-width: 650px; width: 95%;">
+      <div class="modal-header">
+        <h2 style="display: flex; align-items: center; gap: 8px; margin: 0; font-size: 1.1rem; font-weight: 600;">
+          <span style="font-size: 1.25rem;">📖</span> User Guide & Help Center
+        </h2>
+        <button id="close-help-modal-btn" class="modal-close-x">&times;</button>
+      </div>
+      <div class="modal-body" style="padding: 20px; overflow-y: auto; max-height: calc(90vh - 120px);">
+        
+        <!-- Search bar -->
+        <div class="help-search-container" style="margin-bottom: 20px; position: relative;">
+          <input type="text" id="help-search-input" placeholder="Search help topics..." style="width: 100%; padding: 10px 16px 10px 40px; border-radius: 6px; border: 1px solid var(--panel-border); background-color: var(--input-bg); color: var(--text-main); font-size: 0.9rem; transition: var(--transition);">
+          <span style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none;">🔍</span>
+        </div>
+
+        <!-- Connection Quick Status Box -->
+        <div id="help-connection-status" class="help-status-box offline" style="margin-bottom: 20px; padding: 12px 16px; border-radius: 8px; border: 1px solid rgba(218, 54, 55, 0.3); background-color: rgba(218, 54, 55, 0.05); display: flex; align-items: center; gap: 10px; font-size: 0.85rem; transition: var(--transition);">
+          <span class="status-dot" style="width: 8px; height: 8px; border-radius: 50%; background-color: var(--danger); box-shadow: 0 0 8px var(--danger); transition: var(--transition);"></span>
+          <span class="status-text" style="font-weight: 500; color: var(--text-main);">Disconnected from Server (Working Offline)</span>
+        </div>
+
+        <!-- Help Accordion -->
+        <div class="help-accordion" id="help-accordion">
+          
+          <!-- Category 1: Connectivity & Offline Sync -->
+          <div class="help-item" data-category="network offline sync connection status">
+            <button class="help-header">
+              <span class="help-icon">🌐</span>
+              <span class="help-title">Connectivity & Offline Sync</span>
+              <span class="help-arrow">▼</span>
+            </button>
+            <div class="help-content">
+              <p>This application is engineered with an offline-first architecture to ensure you can log data under any network condition.</p>
+              <ul>
+                <li><strong>Status Ring:</strong> The circular <code>?</code> button in the top-right corner represents your network status. A <strong>green glow</strong> indicates active online connection. A <strong>red glow</strong> indicates you are disconnected.</li>
+                <li><strong>Offline Drafts:</strong> When disconnected (red glow), you can still enter records. Clicking "Save Draft" logs them securely to local storage.</li>
+                <li><strong>Synchronizing:</strong> When connection is restored (green glow), your local drafts will display at the bottom of the Data Entry page. Select the records and click <strong>"Push Selected"</strong> to sync them to the database.</li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- Category 2: Data Entry & Voice Input -->
+          <div class="help-item" data-category="data entry voice typing microphone speak dictation drafts">
+            <button class="help-header">
+              <span class="help-icon">📝</span>
+              <span class="help-title">Data Entry & Voice Typing</span>
+              <span class="help-arrow">▼</span>
+            </button>
+            <div class="help-content">
+              <p>The core panel lets you fill out logging forms and save them as drafts.</p>
+              <ul>
+                <li><strong>Next Row (Save):</strong> Pressing <code>Enter</code> or clicking "Save Draft (Next Row)" saves the current values and focuses on the first field for the next entry.</li>
+                <li><strong>Voice Dictation:</strong> Click the microphone 🎤 icon next to any input or the main microphone button to dictate inputs using speech recognition.</li>
+                <li><strong>Keyboard Navigation:</strong> Use <code>Tab</code> to cycle fields and <code>Enter</code> to save drafts.</li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- Category 3: Form Creator (Admin Only) -->
+          <div class="help-item" data-category="form creator customize fields template schema admin">
+            <button class="help-header">
+              <span class="help-icon">🛠️</span>
+              <span class="help-title">Form Creator (Admin Only)</span>
+              <span class="help-arrow">▼</span>
+            </button>
+            <div class="help-content">
+              <p>Admins can dynamically alter the shape of the data entry form to suit changing logging needs.</p>
+              <ul>
+                <li><strong>Field Types:</strong> Define fields as Text, Number, Date, Time, Dropdown menus, or Checkboxes.</li>
+                <li><strong>Validation:</strong> Mark crucial columns as "Required" or enforce specific boundaries (e.g. min/max numbers).</li>
+                <li><strong>Save Schema:</strong> Changes made here must be saved to the server. Note: This will dynamically update the forms for all client machines immediately.</li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- Category 4: Bulk Excel / CSV Imports -->
+          <div class="help-item" data-category="import excel csv upload ingestion columns map spreadsheet">
+            <button class="help-header">
+              <span class="help-icon">📥</span>
+              <span class="help-title">Importing Excel & CSV Files</span>
+              <span class="help-arrow">▼</span>
+            </button>
+            <div class="help-content">
+              <p>Ingest bulk datasets from existing spreadsheets easily.</p>
+              <ul>
+                <li><strong>File Upload:</strong> Drag & drop or select your <code>.xlsx</code>, <code>.xls</code>, or <code>.csv</code> spreadsheet.</li>
+                <li><strong>Column Mapping:</strong> Map columns in your spreadsheet to the corresponding target fields in your active form schema.</li>
+                <li><strong>Preview & Import:</strong> Preview rows for alignment, handle validation checks, and commit them to drafts.</li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- Category 5: Reports & Record Management -->
+          <div class="help-item" data-category="reports database records viewer filter audit verify edit delete admin">
+            <button class="help-header">
+              <span class="help-icon">📊</span>
+              <span class="help-title">Reports & Data Auditing</span>
+              <span class="help-arrow">▼</span>
+            </button>
+            <div class="help-content">
+              <p>Browse, inspect, and verify synchronized records in the central vault.</p>
+              <ul>
+                <li><strong>Filter & Search:</strong> Narrow down logs by month/year using the dropdown filters.</li>
+                <li><strong>Verification:</strong> Review unverified records and click <strong>Verify</strong> (requires admin authorization) to sign them off.</li>
+                <li><strong>Corrections:</strong> Admins can edit or delete committed records. Deleted records go to the sync console trash bin where they can be restored or purged.</li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- Category 6: Settings, Security & 2FA -->
+          <div class="help-item" data-category="settings security password totp 2fa authentication two factor backup">
+            <button class="help-header">
+              <span class="help-icon">⚙️</span>
+              <span class="help-title">Settings & Multi-Factor Security</span>
+              <span class="help-arrow">▼</span>
+            </button>
+            <div class="help-content">
+              <p>Configure credentials and set up multi-factor security overlays.</p>
+              <ul>
+                <li><strong>2FA (TOTP):</strong> Set up Google Authenticator or similar tools under Settings. Scan the QR code, then confirm with the code to activate.</li>
+                <li><strong>Local Backups:</strong> Export a JSON backup file of all offline drafts to avoid loss in case of browser database wipe, or restore from a previously exported backup file.</li>
+              </ul>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+      <div class="modal-actions" style="padding: 16px 24px; margin-top: 0; background-color: #161b22; border-top: 1px solid var(--panel-border);">
+        <button type="button" id="close-help-modal-btn-bottom" class="btn btn-secondary">Close Guide</button>
       </div>
     </div>
   </div>

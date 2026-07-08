@@ -230,7 +230,11 @@ const DOM = {
   closeDetailsModalBtn: document.getElementById('close-details-modal-btn'),
   closeDetailsBtn: document.getElementById('close-details-btn'),
   detailsModalBody: document.getElementById('details-modal-body'),
-  detailsModalTitle: document.getElementById('details-modal-title')
+  detailsModalTitle: document.getElementById('details-modal-title'),
+  helpBtn: document.getElementById('help-btn'),
+  helpModal: document.getElementById('help-modal'),
+  closeHelpModalBtn: document.getElementById('close-help-modal-btn'),
+  closeHelpModalBtnBottom: document.getElementById('close-help-modal-btn-bottom')
 };
 
 // Helper for finding elements inside selectors safely
@@ -506,9 +510,29 @@ async function checkConnectivity() {
 }
 
 function updateConnectivityUI() {
+  const modalStatus = document.getElementById('help-connection-status');
   if (state.isOnline) {
     if (DOM.connectionBadge) DOM.connectionBadge.className = 'badge online';
     if (DOM.connectionText) DOM.connectionText.textContent = 'Online';
+    if (DOM.helpBtn) {
+      DOM.helpBtn.classList.remove('offline');
+      DOM.helpBtn.classList.add('online');
+    }
+    if (modalStatus) {
+      modalStatus.className = 'help-status-box online';
+      modalStatus.style.borderColor = 'rgba(46, 164, 79, 0.3)';
+      modalStatus.style.backgroundColor = 'rgba(46, 164, 79, 0.05)';
+      const dot = modalStatus.querySelector('.status-dot');
+      if (dot) {
+        dot.style.backgroundColor = 'var(--success)';
+        dot.style.boxShadow = '0 0 8px var(--success)';
+      }
+      const text = modalStatus.querySelector('.status-text');
+      if (text) {
+        text.textContent = 'Connected to Central Vault Server';
+        text.style.color = 'var(--text-main)';
+      }
+    }
     if (DOM.syncNetworkWarning) DOM.syncNetworkWarning.className = 'alert-box alert-warning hidden';
     if (DOM.saveSchemaBtn) DOM.saveSchemaBtn.disabled = !state.isAuthenticated;
     
@@ -517,6 +541,25 @@ function updateConnectivityUI() {
   } else {
     if (DOM.connectionBadge) DOM.connectionBadge.className = 'badge offline';
     if (DOM.connectionText) DOM.connectionText.textContent = 'Offline';
+    if (DOM.helpBtn) {
+      DOM.helpBtn.classList.remove('online');
+      DOM.helpBtn.classList.add('offline');
+    }
+    if (modalStatus) {
+      modalStatus.className = 'help-status-box offline';
+      modalStatus.style.borderColor = 'rgba(218, 54, 55, 0.3)';
+      modalStatus.style.backgroundColor = 'rgba(218, 54, 55, 0.05)';
+      const dot = modalStatus.querySelector('.status-dot');
+      if (dot) {
+        dot.style.backgroundColor = 'var(--danger)';
+        dot.style.boxShadow = '0 0 8px var(--danger)';
+      }
+      const text = modalStatus.querySelector('.status-text');
+      if (text) {
+        text.textContent = 'Disconnected from Server (Working Offline)';
+        text.style.color = 'var(--danger)';
+      }
+    }
     if (DOM.syncNetworkWarning) DOM.syncNetworkWarning.className = 'alert-box alert-danger';
     if (DOM.syncWarningText) DOM.syncWarningText.innerHTML = `⚠️ Offline: Reconnect to the internet or hosted server to push drafts to the database.`;
     if (DOM.saveSchemaBtn) DOM.saveSchemaBtn.disabled = true;
@@ -4331,6 +4374,84 @@ function setupEventListeners() {
       btn.addEventListener('click', toggleGlobalVoiceTyping);
     });
   }
+
+  // Help Modal listeners
+  if (DOM.helpBtn && DOM.helpModal) {
+    DOM.helpBtn.addEventListener('click', () => {
+      DOM.helpModal.classList.add('active');
+      document.body.style.overflow = 'hidden';
+      checkConnectivity();
+    });
+  }
+
+  const closeHelp = () => {
+    if (DOM.helpModal) {
+      DOM.helpModal.classList.remove('active');
+      document.body.style.overflow = '';
+    }
+  };
+
+  if (DOM.closeHelpModalBtn) {
+    DOM.closeHelpModalBtn.addEventListener('click', closeHelp);
+  }
+  if (DOM.closeHelpModalBtnBottom) {
+    DOM.closeHelpModalBtnBottom.addEventListener('click', closeHelp);
+  }
+
+  if (DOM.helpModal) {
+    DOM.helpModal.addEventListener('click', (e) => {
+      if (e.target === DOM.helpModal) closeHelp();
+    });
+  }
+
+  // Accordion Toggle Logic
+  const helpItems = document.querySelectorAll('#help-accordion .help-item');
+  helpItems.forEach(item => {
+    const header = item.querySelector('.help-header');
+    if (header) {
+      header.addEventListener('click', () => {
+        const isActive = item.classList.contains('active');
+        // Close all other items
+        helpItems.forEach(i => i.classList.remove('active'));
+        // Toggle selected item
+        if (!isActive) {
+          item.classList.add('active');
+        }
+      });
+    }
+  });
+
+  // Search Filter Logic
+  const helpSearchInput = document.getElementById('help-search-input');
+  if (helpSearchInput) {
+    helpSearchInput.addEventListener('input', (e) => {
+      const query = e.target.value.toLowerCase().trim();
+      helpItems.forEach(item => {
+        const category = (item.getAttribute('data-category') || '').toLowerCase();
+        const title = (item.querySelector('.help-title') ? item.querySelector('.help-title').textContent : '').toLowerCase();
+        const content = (item.querySelector('.help-content') ? item.querySelector('.help-content').textContent : '').toLowerCase();
+        
+        if (query === '' || category.includes(query) || title.includes(query) || content.includes(query)) {
+          item.style.display = 'block';
+          if (query !== '') {
+            item.classList.add('active');
+          } else {
+            item.classList.remove('active');
+          }
+        } else {
+          item.style.display = 'none';
+          item.classList.remove('active');
+        }
+      });
+    });
+  }
+
+  // Close help modal on Escape key
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      closeHelp();
+    }
+  });
 
   // Sync Table Actions
   DOM.headerSelectAll.addEventListener('change', (e) => {
