@@ -1078,6 +1078,17 @@ body.light-mode .top-banner h1 {
   color: #e65100; /* Fallback */
 }
 
+body.light-mode .btn-icon-only {
+  background-color: #ffffff;
+  border-color: #d0d7de;
+  color: #24292f;
+}
+
+body.light-mode .btn-icon-only:hover {
+  background-color: #f3f4f6;
+  border-color: #57606a;
+}
+
 body.light-mode .sidebar {
   background-color: rgba(255, 255, 255, 0.9);
 }
