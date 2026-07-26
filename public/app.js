@@ -7138,6 +7138,17 @@ function renderAnalytics() {
     return;
   }
 
+  // Helper to parse year and month from any date format (YYYY-MM-DD or DD/MM/YYYY)
+  function getRecordYearMonth(dateStr) {
+    if (!dateStr) return { yr: '', mo: '' };
+    const str = dateStr.toString().trim();
+    let match = str.match(/^(\d{4})-(\d{2})/);
+    if (match) return { yr: match[1], mo: match[2] };
+    match = str.match(/\d{1,2}[\/\-](\d{1,2})[\/\-](\d{4})/);
+    if (match) return { yr: match[2], mo: match[1].padStart(2, '0') };
+    return { yr: '', mo: '' };
+  }
+
   // 1. Timeframe Filter Calculation
   const timeframe = DOM.analysisTimeframe ? DOM.analysisTimeframe.value : 'till-date';
   let filtered = [];
@@ -7146,19 +7157,33 @@ function renderAnalytics() {
     filtered = [...allRecords];
   } else if (timeframe === 'annual') {
     const selectedYear = DOM.analysisYear ? DOM.analysisYear.value : '';
-    filtered = allRecords.filter(rec => rec.date && rec.date.startsWith(selectedYear));
+    if (!selectedYear) {
+      filtered = [...allRecords];
+    } else {
+      filtered = allRecords.filter(rec => getRecordYearMonth(rec.date).yr === selectedYear);
+    }
   } else if (timeframe === 'monthly') {
     const selectedYear = DOM.analysisYear ? DOM.analysisYear.value : '';
     const selectedMonth = DOM.analysisMonth ? DOM.analysisMonth.value : '';
-    const yearMonth = `${selectedYear}-${selectedMonth}`;
-    filtered = allRecords.filter(rec => rec.date && rec.date.startsWith(yearMonth));
+    if (!selectedYear || !selectedMonth) {
+      filtered = [...allRecords];
+    } else {
+      filtered = allRecords.filter(rec => {
+        const ym = getRecordYearMonth(rec.date);
+        return ym.yr === selectedYear && ym.mo === selectedMonth;
+      });
+    }
   } else if (timeframe === 'custom') {
     const fromDate = DOM.analysisFromDate ? DOM.analysisFromDate.value : '';
     const toDate = DOM.analysisToDate ? DOM.analysisToDate.value : '';
-    filtered = allRecords.filter(rec => {
-      if (!rec.date) return false;
-      return rec.date >= fromDate && rec.date <= toDate;
-    });
+    if (!fromDate || !toDate) {
+      filtered = [...allRecords];
+    } else {
+      filtered = allRecords.filter(rec => {
+        if (!rec.date) return false;
+        return rec.date >= fromDate && rec.date <= toDate;
+      });
+    }
   }
 
   // Show/Hide Monthly Birth Load Chart dynamically
@@ -7175,6 +7200,7 @@ function renderAnalytics() {
   let lbwCount = 0;
   let fpAdoptedCount = 0;
   let highRiskCount = 0;
+  let multiFoetalCount = 0;
   const highRiskCases = [];
   
   let maleCount = 0;
@@ -7196,69 +7222,98 @@ function renderAnalytics() {
 
     let singleWeight = null;
 
+    // Detect Multi-Foetal Surgeries
+    const deliveryVal = (d.delivery_type || d.pregnancy_type || '').toString().toLowerCase();
+    if (deliveryVal.includes('twin') || deliveryVal.includes('triplet') || deliveryVal.includes('quadruplet') || (d.multi_foetal_infants && d.multi_foetal_infants.length > 1)) {
+      multiFoetalCount++;
+    }
+
     // Multi-Foetal Infant Detailed Parsing for Gender, Weight, and LBW
     const infants = d.multi_foetal_infants;
     if (infants && Array.isArray(infants) && infants.length > 1) {
       infants.forEach(infant => {
         // Infant Gender
         const g = (infant.gender || '').toString().trim().toLowerCase();
-        if (g === 'male' || g === 'mch' || g.includes('male')) maleCount++;
-        else if (g === 'female' || g === 'fch' || g.includes('female')) femaleCount++;
+        if (g.includes('male') && !g.includes('female')) maleCount++;
+        else if (g.includes('female')) femaleCount++;
         else if (g) otherGenderCount++;
 
         // Infant Weight (support kg float like 2.5 or grams like 2500)
         let wVal = parseFloat(infant.weight);
         if (!isNaN(wVal) && wVal > 0) {
-          if (wVal < 20) wVal = wVal * 1000; // Convert 2.5kg to 2500g for metric standardization
+          if (wVal < 20) wVal = wVal * 1000;
           totalWeight += wVal;
           validWeightCount++;
-          if (wVal < 2200) {
-            lbwCount++;
-          }
+          if (wVal < 2200) lbwCount++;
         }
       });
     } else {
-      // Standard Single Baby Gender
-      const genderRaw = (d.sexob || d.sex || d.gender || d.Sex || d.Gender || '').toString().trim().toLowerCase();
-      if (genderRaw === 'male' || genderRaw === 'mch' || genderRaw.includes('male')) maleCount++;
-      else if (genderRaw === 'female' || genderRaw === 'fch' || genderRaw.includes('female')) femaleCount++;
-      else if (genderRaw) otherGenderCount++;
-
-      // Standard Single Birth Weight
-      let w = parseFloat(d.weightob || d.weight || d.Weight);
-      if (!isNaN(w) && w > 0) {
-        if (w < 20) w = w * 1000; // Convert kg to grams if needed
-        singleWeight = w;
-        totalWeight += w;
-        validWeightCount++;
-        if (w < 2200) {
-          lbwCount++;
+      // Standard Single Baby Gender: Search data keys for sex or gender
+      let sexVal = '';
+      for (const k of Object.keys(d)) {
+        const kLower = k.toLowerCase();
+        if (kLower.includes('sex') || kLower.includes('gender')) {
+          if (d[k]) { sexVal = d[k].toString().trim().toLowerCase(); break; }
         }
+      }
+      if (sexVal.includes('male') && !sexVal.includes('female')) maleCount++;
+      else if (sexVal.includes('female')) femaleCount++;
+      else if (sexVal) otherGenderCount++;
+
+      // Standard Single Birth Weight: Search data keys for weight
+      let wNum = null;
+      for (const k of Object.keys(d)) {
+        const kLower = k.toLowerCase();
+        if (kLower.includes('weight') || kLower === 'wt') {
+          if (d[k]) {
+            const parsed = parseFloat(d[k]);
+            if (!isNaN(parsed) && parsed > 0) {
+              wNum = parsed < 20 ? parsed * 1000 : parsed;
+              break;
+            }
+          }
+        }
+      }
+      if (wNum !== null) {
+        singleWeight = wNum;
+        totalWeight += wNum;
+        validWeightCount++;
+        if (wNum < 2200) lbwCount++;
       }
     }
 
     // Family Planning (Check Maternal Card or main form field)
-    let fp = (d.fp_option || d.fp || d.fp_adopted || '').toString().trim().toUpperCase();
+    let fpVal = '';
     if (d.maternal_details && d.maternal_details.fp) {
-      fp = d.maternal_details.fp.toString().trim().toUpperCase();
+      fpVal = d.maternal_details.fp.toString().trim().toUpperCase();
+    } else {
+      for (const k of Object.keys(d)) {
+        const kLower = k.toLowerCase();
+        if (kLower.includes('fp') || kLower.includes('family') || kLower.includes('planning')) {
+          if (d[k]) { fpVal = d[k].toString().trim().toUpperCase(); break; }
+        }
+      }
     }
-    if (fpCounts[fp] !== undefined) {
-      fpCounts[fp]++;
+    if (fpVal) {
+      if (fpCounts[fpVal] !== undefined) fpCounts[fpVal]++;
+      else fpCounts['NONE']++;
+
+      if (fpVal === 'BTL' || fpVal === 'PPIUCD' || fpVal.includes('TUBECTOMY') || fpVal.includes('COUNSELED')) {
+        fpAdoptedCount++;
+      }
     } else {
       fpCounts['NONE']++;
     }
-    if (fp === 'BTL' || fp === 'PPIUCD' || fp.includes('TUBECTOMY') || fp.includes('BTL')) {
-      fpAdoptedCount++;
-    }
 
-    // Delivery Shift
-    const timeVal = d.timeob || d.time || d.Time || '';
-    const shift = getShiftName(timeVal);
-    if (shiftCounts[shift] !== undefined) {
-      shiftCounts[shift]++;
-    } else {
-      shiftCounts['Unknown']++;
+    // Delivery Shift: Search data keys for time
+    let timeVal = '';
+    for (const k of Object.keys(d)) {
+      if (k.toLowerCase().includes('time')) {
+        if (d[k]) { timeVal = d[k].toString().trim(); break; }
+      }
     }
+    const shift = getShiftName(timeVal);
+    shiftCounts[shift] = (shiftCounts[shift] || 0) + 1;
 
     // Day of the Week
     if (rec.date) {
@@ -7276,10 +7331,17 @@ function renderAnalytics() {
     // High-Risk Deliveries (Mother's age <20 or >35, or baby weight <2200g)
     let isHighRisk = false;
     const reasons = [];
-    const age = parseInt(d.age || d.Age);
-    if (!isNaN(age) && (age < 20 || age > 35)) {
+    let ageVal = NaN;
+    for (const k of Object.keys(d)) {
+      if (k.toLowerCase() === 'age' || k.toLowerCase().includes('age')) {
+        const parsed = parseInt(d[k]);
+        if (!isNaN(parsed)) { ageVal = parsed; break; }
+      }
+    }
+
+    if (!isNaN(ageVal) && (ageVal < 20 || ageVal > 35)) {
       isHighRisk = true;
-      reasons.push(`Maternal Age: ${age}`);
+      reasons.push(`Maternal Age: ${ageVal}`);
     }
     if (singleWeight !== null && singleWeight > 0 && singleWeight < 2200) {
       isHighRisk = true;
@@ -7287,12 +7349,13 @@ function renderAnalytics() {
     }
     if (isHighRisk) {
       highRiskCount++;
-      const nameVal = d.name || d.patient_name || d.Name || 'Unknown';
-      const annualSerial = d.annual_serial || d.annual_sl_no || d.sl_no || 'N/A';
-
+      let nameVal = 'Unknown';
+      for (const k of Object.keys(d)) {
+        if (k.toLowerCase().includes('name')) { nameVal = d[k]; break; }
+      }
       highRiskCases.push({
         name: nameVal,
-        serial: annualSerial,
+        serial: d.annual_serial || d.annual_sl_no || 'N/A',
         date: rec.date || 'N/A',
         cause: reasons.join(', '),
         record: rec
@@ -7300,32 +7363,36 @@ function renderAnalytics() {
     }
 
     // Address list ranking
-    const addr = (rec.data.address || '').toString().trim();
-    if (addr) {
-      const normalizedAddr = addr.toUpperCase();
-      addressCounts[normalizedAddr] = (addressCounts[normalizedAddr] || 0) + 1;
+    let addrVal = '';
+    for (const k of Object.keys(d)) {
+      const kLower = k.toLowerCase();
+      if (kLower.includes('address') || kLower.includes('village') || kLower.includes('location') || kLower.includes('place') || kLower.includes('residence')) {
+        if (d[k]) { addrVal = d[k].toString().trim(); break; }
+      }
+    }
+    if (addrVal) {
+      const normAddr = addrVal.toUpperCase();
+      addressCounts[normAddr] = (addressCounts[normAddr] || 0) + 1;
     }
 
     // Monthly Birth Load groupings
     if (rec.date) {
-      const parts = rec.date.split('-');
-      if (parts.length === 3) {
-        const yr = parts[0];
-        const mo = parts[1];
+      const ym = getRecordYearMonth(rec.date);
+      if (ym.yr && ym.mo) {
         if (timeframe === 'till-date') {
-          const key = `${yr}-${mo}`;
+          const key = `${ym.yr}-${ym.mo}`;
           monthlyCounts[key] = (monthlyCounts[key] || 0) + 1;
         } else {
-          monthlyCounts[mo] = (monthlyCounts[mo] || 0) + 1;
+          monthlyCounts[ym.mo] = (monthlyCounts[ym.mo] || 0) + 1;
         }
       }
     }
 
     // Maternal Age distribution
-    if (!isNaN(age)) {
-      if (age < 20) ageCounts['< 20']++;
-      else if (age >= 20 && age <= 25) ageCounts['20-25']++;
-      else if (age >= 26 && age <= 30) ageCounts['26-30']++;
+    if (!isNaN(ageVal)) {
+      if (ageVal < 20) ageCounts['< 20']++;
+      else if (ageVal >= 20 && ageVal <= 25) ageCounts['20-25']++;
+      else if (ageVal >= 26 && ageVal <= 30) ageCounts['26-30']++;
       else ageCounts['> 30']++;
     } else {
       ageCounts['Unknown']++;
@@ -7417,18 +7484,18 @@ function renderAnalytics() {
     }
   }
 
-  // 4. Populate Top 3 Villages/Locations List
+  // 4. Populate Top 5 Villages/Locations List
   const sortedAddresses = Object.entries(addressCounts)
     .sort((a, b) => b[1] - a[1])
-    .slice(0, 3);
+    .slice(0, 5);
   
   if (DOM.topAddressesList) {
     if (sortedAddresses.length === 0) {
-      DOM.topAddressesList.innerHTML = '<li class="text-muted" style="background: none; border: none; padding: 0;">No data available</li>';
+      DOM.topAddressesList.innerHTML = '<li class="text-muted" style="background: none; border: none; padding: 0; font-size: 0.72rem;">No data available</li>';
     } else {
       DOM.topAddressesList.innerHTML = sortedAddresses.map(([addr, count]) => {
         const pluralText = count === 1 ? 'delivery' : 'deliveries';
-        return `<li><strong>${addr}</strong>: ${count} ${pluralText}</li>`;
+        return `<li style="font-size: 0.72rem; padding: 2px 0; margin: 0; line-height: 1.2; border-bottom: 1px dashed rgba(255,255,255,0.06);"><strong>${addr}</strong>: ${count} ${pluralText}</li>`;
       }).join('');
     }
   }
