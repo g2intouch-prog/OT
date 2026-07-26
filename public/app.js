@@ -4,6 +4,11 @@ const state = {
   isAuthenticated: false,
   authToken: null,
   schema: [],          // Active fields list
+  categories: [        // Field categories list
+    { id: 'general', title: '📋 General', multiBaby: false, isDefault: true },
+    { id: 'maternal', title: '👩 Maternal', multiBaby: false, isDefault: true },
+    { id: 'foetal', title: '👶 Foetal', multiBaby: true, isDefault: true }
+  ],
   drafts: [],          // Local drafts stored in localStorage
   deletedDrafts: [],   // Trash bin for deleted drafts
   deletedDbRecords: [],// Soft-deleted database records fetched from server
@@ -1618,6 +1623,41 @@ async function fetchSchema() {
   state.formCreatorSchema = JSON.parse(JSON.stringify(state.schema));
 }
 
+async function fetchCategories() {
+  try {
+    const response = await fetch('/api/categories');
+    if (response.ok) {
+      const cats = await response.json();
+      if (Array.isArray(cats) && cats.length > 0) {
+        state.categories = cats;
+        localStorage.setItem('cached_categories', JSON.stringify(cats));
+      }
+    }
+  } catch (err) {
+    const cached = localStorage.getItem('cached_categories');
+    if (cached) {
+      try { state.categories = JSON.parse(cached); } catch(e){}
+    }
+  }
+}
+
+async function saveCategories() {
+  localStorage.setItem('cached_categories', JSON.stringify(state.categories));
+  if (!state.isOnline || !state.isAuthenticated) return;
+  try {
+    await fetch('/api/categories', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${state.authToken}`
+      },
+      body: JSON.stringify(state.categories)
+    });
+  } catch (e) {
+    console.warn('Failed to sync categories to server:', e);
+  }
+}
+
 async function saveSchema() {
   if (!state.isOnline || !state.isAuthenticated) return;
   
@@ -1986,166 +2026,170 @@ function renderDataEntryForm() {
     return;
   }
 
+  // Ensure categories are loaded
+  const categoriesList = state.categories || [
+    { id: 'general', title: '📋 General', multiBaby: false },
+    { id: 'maternal', title: '👩 Maternal', multiBaby: false },
+    { id: 'foetal', title: '👶 Foetal', multiBaby: true }
+  ];
+
+  // Group schema fields by category
+  const groupedFields = {};
+  categoriesList.forEach(cat => {
+    groupedFields[cat.id] = [];
+  });
+
   state.schema.forEach(field => {
-    const isHiddenField = field.id === 'annual_serial' || field.id === 'monthly_sl_no';
-    const formGroup = document.createElement('div');
-    formGroup.className = 'form-group';
-    if (isHiddenField) {
-      formGroup.style.display = 'none';
+    const titleLower = (field.title || field.id || '').toLowerCase();
+    let catId = field.category;
+
+    if (!catId) {
+      if (titleLower.includes('date') || titleLower.includes('serial') || titleLower.includes('time') || titleLower.includes('procedure') || titleLower.includes('surgeon')) {
+        catId = 'general';
+      } else if (titleLower.includes('name') || titleLower.includes('husband') || titleLower.includes('father') || titleLower.includes('age') || titleLower.includes('parity') || titleLower.includes('gpla') || titleLower.includes('maternal') || titleLower.includes('address')) {
+        catId = 'maternal';
+      } else if (titleLower.includes('sex') || titleLower.includes('gender') || titleLower.includes('weight') || titleLower.includes('apgar') || titleLower.includes('baby') || titleLower.includes('infant') || titleLower.includes('child')) {
+        catId = 'foetal';
+      } else {
+        catId = 'general';
+      }
+      field.category = catId;
     }
+
+    if (!groupedFields[catId]) {
+      groupedFields[catId] = [];
+    }
+    groupedFields[catId].push(field);
+  });
+
+  // Render Category Section Cards
+  categoriesList.forEach(cat => {
+    const fields = groupedFields[cat.id] || [];
+    if (fields.length === 0) return;
+
+    // Skip foetal category fields from rendering as standard fields if multiBaby is true (handled by sub-cards)
+    if (cat.multiBaby) return;
+
+    const cardSection = document.createElement('div');
+    cardSection.className = 'category-section-card mt-3';
+    cardSection.style.cssText = 'background: rgba(255,255,255,0.03); border: 1px solid var(--panel-border); border-radius: 10px; padding: 14px; margin-bottom: 14px;';
     
-    const label = document.createElement('label');
-    label.setAttribute('for', `input-${field.id}`);
-    label.textContent = getFieldDisplayTitle(field);
-    
-    let input;
-    if (field.type === 'select') {
-      input = document.createElement('select');
-      input.className = 'form-select';
-      input.id = `input-${field.id}`;
-      input.name = field.id;
-      // If we support options in future, add them. Otherwise default options:
-      const opts = field.options || ['Option 1', 'Option 2'];
-      opts.forEach(opt => {
-        const option = document.createElement('option');
-        option.value = opt;
-        option.textContent = opt;
-        input.appendChild(option);
-      });
-    } else if (field.type === 'time' && field.timeFormat === '12h') {
-      // Create hidden input for values
-      const hiddenInput = document.createElement('input');
-      hiddenInput.type = 'hidden';
-      hiddenInput.id = `input-${field.id}`;
-      hiddenInput.name = field.id;
-      formGroup.appendChild(hiddenInput);
+    cardSection.innerHTML = `
+      <h4 style="margin: 0 0 10px 0; font-size: 0.88rem; color: var(--accent-color); border-bottom: 1px dashed var(--panel-border); padding-bottom: 6px;">
+        ${cat.title}
+      </h4>
+      <div class="category-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
+      </div>
+    `;
 
-      // Render 12h time picker select inputs
-      const selectWrapper = document.createElement('div');
-      selectWrapper.className = 'time-12h-wrapper';
-      selectWrapper.style.display = 'flex';
-      selectWrapper.style.gap = '6px';
+    const grid = cardSection.querySelector('.category-grid');
 
-      const selHour = document.createElement('select');
-      selHour.id = `select-h-${field.id}`;
-      selHour.className = 'form-select';
-      selHour.style.padding = '8px';
-      selHour.innerHTML = Array.from({ length: 12 }, (_, i) => {
-        const val = (i + 1).toString().padStart(2, '0');
-        return `<option value="${val}">${val}</option>`;
-      }).join('');
-      selHour.value = '12';
-
-      const selMin = document.createElement('select');
-      selMin.id = `select-m-${field.id}`;
-      selMin.className = 'form-select';
-      selMin.style.padding = '8px';
-      selMin.innerHTML = Array.from({ length: 60 }, (_, i) => {
-        const val = i.toString().padStart(2, '0');
-        return `<option value="${val}">${val}</option>`;
-      }).join('');
-      selMin.value = '00';
-
-      const selAmpm = document.createElement('select');
-      selAmpm.id = `select-a-${field.id}`;
-      selAmpm.className = 'form-select';
-      selAmpm.style.padding = '8px';
-      selAmpm.innerHTML = '<option value="AM">AM</option><option value="PM">PM</option>';
-      selAmpm.value = 'AM';
-
-      selectWrapper.appendChild(selHour);
-      selectWrapper.appendChild(selMin);
-      selectWrapper.appendChild(selAmpm);
-
-      const updateHiddenVal = () => {
-        hiddenInput.value = `${selHour.value}:${selMin.value} ${selAmpm.value}`;
-      };
-
-      selHour.addEventListener('change', updateHiddenVal);
-      selMin.addEventListener('change', updateHiddenVal);
-      selAmpm.addEventListener('change', updateHiddenVal);
-      updateHiddenVal(); // Set initial default
-
-      input = selectWrapper;
-    } else {
-      input = document.createElement('input');
-      input.className = 'form-control';
+    fields.forEach(field => {
+      const isHiddenField = field.id === 'annual_serial' || field.id === 'monthly_sl_no';
+      const formGroup = document.createElement('div');
+      formGroup.className = 'form-group';
       if (isHiddenField) {
-        input.type = 'hidden';
-      } else {
-        input.type = field.type || 'text';
+        formGroup.style.display = 'none';
       }
-      
-      // Auto pre-fill date input with today
-      if (field.type === 'date') {
-        input.value = new Date().toISOString().split('T')[0];
-        
-        input.addEventListener('change', () => {
-          autoFillDateDependentFields(input.value);
-        });
-        input.addEventListener('input', () => {
-          autoFillDateDependentFields(input.value);
-        });
-      }
-      
-      input.id = `input-${field.id}`;
-      input.name = field.id;
-      input.required = (field.id === 'date'); // Require Date at least
 
-      // Listen for Pregnancy Type / Delivery Type changes
-      const fieldTitleLower = (field.title || field.id || '').toLowerCase();
-      if (field.type === 'select' || fieldTitleLower.includes('pregnancy') || fieldTitleLower.includes('delivery')) {
-        input.addEventListener('change', (e) => {
-          const val = (e.target.value || '').toLowerCase();
-          if (val.includes('twin')) {
-            renderInfantSubCards(2, 'Twins');
-          } else if (val.includes('triplet')) {
-            renderInfantSubCards(3, 'Triplets');
-          } else if (val.includes('quadruplet')) {
-            renderInfantSubCards(4, 'Quadruplets');
-          } else if (val.includes('single') || val.includes('n/a') || val === '') {
-            renderInfantSubCards(1, 'Single');
-          }
+      const label = document.createElement('label');
+      label.setAttribute('for', `input-${field.id}`);
+      label.textContent = getFieldDisplayTitle(field);
+
+      let input;
+      if (field.type === 'select') {
+        input = document.createElement('select');
+        input.className = 'form-select';
+        input.id = `input-${field.id}`;
+        input.name = field.id;
+        const opts = field.options || ['Option 1', 'Option 2'];
+        opts.forEach(opt => {
+          const option = document.createElement('option');
+          option.value = opt;
+          option.textContent = opt;
+          input.appendChild(option);
         });
-      }
-    }
-    
-    formGroup.appendChild(label);
-    formGroup.appendChild(input);
-    
-    // Track active voice-enabled field to receive voice typing input
-    if (field.voiceEnabled === true && field.type !== 'date') {
-      if (field.type === 'time' && field.timeFormat === '12h') {
-        const hiddenInput = formGroup.querySelector(`input[id="input-${field.id}"]`);
-        const selects = input.querySelectorAll('select');
-        selects.forEach(sel => {
-          sel.addEventListener('focus', () => {
-            state.lastActiveVoiceInput = hiddenInput.id;
-            highlightActiveVoiceInput(hiddenInput);
-          });
-          sel.addEventListener('blur', () => {
-            if (!activeSpeechInput) {
-              selects.forEach(s => s.classList.remove('voice-active'));
-            }
-          });
-        });
+      } else if (field.type === 'time' && field.timeFormat === '12h') {
+        const hiddenInput = document.createElement('input');
+        hiddenInput.type = 'hidden';
+        hiddenInput.id = `input-${field.id}`;
+        hiddenInput.name = field.id;
+        formGroup.appendChild(hiddenInput);
+
+        const selectWrapper = document.createElement('div');
+        selectWrapper.className = 'time-12h-wrapper';
+        selectWrapper.style.display = 'flex';
+        selectWrapper.style.gap = '6px';
+
+        const selHour = document.createElement('select');
+        selHour.id = `select-h-${field.id}`;
+        selHour.className = 'form-select';
+        selHour.style.padding = '8px';
+        selHour.innerHTML = Array.from({ length: 12 }, (_, i) => {
+          const val = (i + 1).toString().padStart(2, '0');
+          return `<option value="${val}">${val}</option>`;
+        }).join('');
+        selHour.value = '12';
+
+        const selMin = document.createElement('select');
+        selMin.id = `select-m-${field.id}`;
+        selMin.className = 'form-select';
+        selMin.style.padding = '8px';
+        selMin.innerHTML = Array.from({ length: 60 }, (_, i) => {
+          const val = i.toString().padStart(2, '0');
+          return `<option value="${val}">${val}</option>`;
+        }).join('');
+        selMin.value = '00';
+
+        const selAmpm = document.createElement('select');
+        selAmpm.id = `select-a-${field.id}`;
+        selAmpm.className = 'form-select';
+        selAmpm.style.padding = '8px';
+        selAmpm.innerHTML = '<option value="AM">AM</option><option value="PM">PM</option>';
+        selAmpm.value = 'AM';
+
+        const updateHiddenTime = () => {
+          hiddenInput.value = `${selHour.value}:${selMin.value} ${selAmpm.value}`;
+        };
+        selHour.addEventListener('change', updateHiddenTime);
+        selMin.addEventListener('change', updateHiddenTime);
+        selAmpm.addEventListener('change', updateHiddenTime);
+        updateHiddenTime();
+
+        selectWrapper.appendChild(selHour);
+        selectWrapper.appendChild(selMin);
+        selectWrapper.appendChild(selAmpm);
+        input = selectWrapper;
       } else {
+        input = document.createElement('input');
+        input.type = field.type || 'text';
+        input.className = 'form-control';
+        if (field.type === 'date') {
+          input.value = new Date().toISOString().split('T')[0];
+          input.addEventListener('change', () => autoFillDateDependentFields(input.value));
+          input.addEventListener('input', () => autoFillDateDependentFields(input.value));
+        }
+        input.id = `input-${field.id}`;
+        input.name = field.id;
+        input.required = (field.id === 'date');
+      }
+
+      formGroup.appendChild(label);
+      formGroup.appendChild(input);
+
+      if (field.voiceEnabled === true && field.type !== 'date') {
         input.addEventListener('focus', () => {
           state.lastActiveVoiceInput = input.id;
           highlightActiveVoiceInput(input);
         });
-        input.addEventListener('blur', () => {
-          if (!activeSpeechInput) {
-            input.classList.remove('voice-active');
-          }
-        });
       }
-    }
-    
-    DOM.dynamicInputs.appendChild(formGroup);
+
+      grid.appendChild(formGroup);
+    });
+
+    DOM.dynamicInputs.appendChild(cardSection);
   });
 
-  // Auto-fill dependent fields (Month and Serials) on initial render
   const dateInput = document.getElementById('input-date');
   if (dateInput) {
     autoFillDateDependentFields(dateInput.value);
@@ -2459,6 +2503,71 @@ function renderDraftsTable() {
   renderSyncTable();
 }
 
+// Category Manager Modal Logic
+function openCategoriesModal() {
+  renderCategoriesModal();
+  const modal = document.getElementById('categories-modal');
+  if (modal) modal.classList.remove('hidden');
+}
+
+function closeCategoriesModal() {
+  const modal = document.getElementById('categories-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+function renderCategoriesModal() {
+  const container = document.getElementById('categories-list-container');
+  if (!container) return;
+  container.innerHTML = '';
+
+  state.categories.forEach(cat => {
+    const item = document.createElement('div');
+    item.style.cssText = 'display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; background: rgba(255,255,255,0.05); border: 1px solid var(--panel-border); border-radius: 6px; font-size: 0.8rem;';
+    item.innerHTML = `
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="font-weight: 600; color: var(--text-main);">${cat.title}</span>
+        ${cat.multiBaby ? '<span class="badge" style="background-color: var(--accent-color); color: white; font-size: 0.65rem; padding: 2px 6px;">👶 Multi-Baby</span>' : ''}
+      </div>
+      <div>
+        ${cat.isDefault ? '<span style="font-size: 0.7rem; color: var(--text-muted); font-style: italic;">Default</span>' : `<button type="button" class="btn btn-link delete-cat-btn" data-id="${cat.id}" style="color: #ef4444; padding: 0 4px; font-size: 0.75rem;">🗑️ Delete</button>`}
+      </div>
+    `;
+    container.appendChild(item);
+  });
+
+  container.querySelectorAll('.delete-cat-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const catId = e.target.dataset.id;
+      if (confirm('Delete this custom category? Fields assigned to it will revert to General.')) {
+        state.categories = state.categories.filter(c => c.id !== catId);
+        await saveCategories();
+        renderCategoriesModal();
+        renderFormCreator();
+      }
+    });
+  });
+}
+
+async function handleAddNewCategory() {
+  const titleInput = document.getElementById('new-cat-title-input');
+  const multiCheck = document.getElementById('new-cat-multibaby-check');
+  if (!titleInput || !titleInput.value.trim()) return;
+
+  const rawTitle = titleInput.value.trim();
+  const id = `cat_${Date.now()}`;
+  const multiBaby = multiCheck ? multiCheck.checked : false;
+
+  state.categories.push({ id, title: rawTitle, multiBaby, isDefault: false });
+  await saveCategories();
+
+  titleInput.value = '';
+  if (multiCheck) multiCheck.checked = false;
+
+  renderCategoriesModal();
+  renderFormCreator();
+  renderDataEntryForm();
+}
+
 // -------------------------------------------------------------
 // TAB 2: FORM CREATOR
 // -------------------------------------------------------------
@@ -2486,6 +2595,32 @@ function renderFormCreator() {
     });
     titleTd.appendChild(titleInput);
     tr.appendChild(titleTd);
+
+    // Category Selector
+    const catTd = document.createElement('td');
+    const catSelect = document.createElement('select');
+    catSelect.className = 'form-select';
+    catSelect.disabled = (field.id === 'date');
+
+    const categoriesList = state.categories || [
+      { id: 'general', title: '📋 General' },
+      { id: 'maternal', title: '👩 Maternal' },
+      { id: 'foetal', title: '👶 Foetal' }
+    ];
+
+    categoriesList.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.id;
+      opt.textContent = c.title;
+      if (field.category === c.id) opt.selected = true;
+      catSelect.appendChild(opt);
+    });
+
+    catSelect.addEventListener('change', (e) => {
+      state.formCreatorSchema[index].category = e.target.value;
+    });
+    catTd.appendChild(catSelect);
+    tr.appendChild(catTd);
 
     // Field type selector
     const typeTd = document.createElement('td');
@@ -4820,6 +4955,17 @@ function setupEventListeners() {
       }
     });
   }
+
+  // Category Modal Listeners
+  const openCatBtn = document.getElementById('open-categories-modal-btn');
+  const closeCatBtn = document.getElementById('close-categories-modal-btn');
+  const closeCatFooterBtn = document.getElementById('close-categories-modal-footer-btn');
+  const saveCatBtn = document.getElementById('save-new-cat-btn');
+
+  if (openCatBtn) openCatBtn.addEventListener('click', openCategoriesModal);
+  if (closeCatBtn) closeCatBtn.addEventListener('click', closeCategoriesModal);
+  if (closeCatFooterBtn) closeCatFooterBtn.addEventListener('click', closeCategoriesModal);
+  if (saveCatBtn) saveCatBtn.addEventListener('click', handleAddNewCategory);
 
   // High-Risk Popover name link click delegation
   if (DOM.kpiHighRiskPopover) {

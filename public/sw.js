@@ -1,4 +1,4 @@
-const CACHE_NAME = 'lan-data-entry-v83';
+const CACHE_NAME = 'lan-data-entry-v84';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',

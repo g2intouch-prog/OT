@@ -1158,6 +1158,36 @@ app.post('/api/schema', checkAuth, async (req, res) => {
   }
 });
 
+// Get current categories config
+app.get('/api/categories', async (req, res) => {
+  try {
+    const { rows } = await db.query("SELECT value FROM config WHERE key = 'categories'");
+    const defaultCats = [
+      { id: 'general', title: '📋 General', multiBaby: false, isDefault: true },
+      { id: 'maternal', title: '👩 Maternal', multiBaby: false, isDefault: true },
+      { id: 'foetal', title: '👶 Foetal', multiBaby: true, isDefault: true }
+    ];
+    res.json(JSON.parse(rows.length > 0 ? rows[0].value : JSON.stringify(defaultCats)));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update categories config
+app.post('/api/categories', checkAuth, async (req, res) => {
+  const categories = req.body;
+  if (!Array.isArray(categories)) {
+    return res.status(400).json({ error: 'Categories must be an array' });
+  }
+
+  try {
+    await db.query("INSERT INTO config (key, value) VALUES ('categories', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", [JSON.stringify(categories)]);
+    res.json({ success: true, categories });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Get all entries
 app.get('/api/entries', async (req, res) => {
   try {
