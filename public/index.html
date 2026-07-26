@@ -147,9 +147,23 @@
               <h2>New Data Entry</h2>
               <p class="card-subtitle">Fill in the current row. Clicking save will draft the entry locally.</p>
             </div>
-            <button type="button" id="voice-typing-btn-mobile" class="btn btn-secondary mic-button-round mobile-only-btn" title="Voice Typing">
-              <span class="btn-icon">🎤</span>
-            </button>
+            
+            <!-- TOP RIGHT: Multi-Foetal Delivery Selector -->
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+              <div style="display: flex; align-items: center; gap: 6px; background: rgba(2, 132, 199, 0.08); border: 1px solid rgba(2, 132, 199, 0.3); border-radius: 6px; padding: 4px 8px;">
+                <span style="font-size: 0.8rem; color: var(--accent-color); font-weight: 600;">👶 Delivery:</span>
+                <select id="data-entry-multi-foetal-select" class="form-select" style="padding: 3px 8px; font-size: 0.8rem; border-color: rgba(2, 132, 199, 0.4); color: var(--accent-color); font-weight: 600; cursor: pointer; min-width: 120px;">
+                  <option value="single">Single (1 Baby)</option>
+                  <option value="twins">Twins (2 Babies)</option>
+                  <option value="triplets">Triplets (3 Babies)</option>
+                  <option value="quadruplets">Quadruplets (4 Babies)</option>
+                </select>
+              </div>
+
+              <button type="button" id="voice-typing-btn-mobile" class="btn btn-secondary mic-button-round mobile-only-btn" title="Voice Typing">
+                <span class="btn-icon">🎤</span>
+              </button>
+            </div>
           </div>
           
           <form id="data-entry-form" class="entry-form-wrapper">

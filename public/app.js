@@ -1986,17 +1986,6 @@ function renderDataEntryForm() {
     return;
   }
 
-  const hasPregnancyField = state.schema.some(f => f.id === 'pregnancy_type' || (f.title && f.title.toLowerCase().includes('pregnancy')));
-  if (!hasPregnancyField) {
-    const promptDiv = document.createElement('div');
-    promptDiv.style.cssText = 'grid-column: 1 / -1; background: rgba(2, 132, 199, 0.08); border: 1px solid rgba(2, 132, 199, 0.3); border-radius: 8px; padding: 10px 14px; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;';
-    promptDiv.innerHTML = `
-      <span style="font-size: 0.8rem; color: var(--accent-color);">👶 Want to log Twins or Triplets? Add the <strong>Pregnancy Type</strong> field to your form.</span>
-      <button type="button" class="btn btn-secondary" onclick="switchToTab('form-creator'); addPregnancyTypeField();" style="padding: 4px 10px; font-size: 0.75rem; white-space: nowrap; color: var(--accent-color); font-weight: 600;">👶 Add Pregnancy Field</button>
-    `;
-    DOM.dynamicInputs.appendChild(promptDiv);
-  }
-
   state.schema.forEach(field => {
     const isHiddenField = field.id === 'annual_serial' || field.id === 'monthly_sl_no';
     const formGroup = document.createElement('div');
@@ -4518,6 +4507,8 @@ function handleExportExcel() {
 
 // Helper to reset and clear all data entry fields
 function clearEntryFields() {
+  const multiSelect = document.getElementById('data-entry-multi-foetal-select');
+  if (multiSelect) multiSelect.value = 'single';
   renderInfantSubCards(1, 'Single');
   state.schema.forEach(field => {
     if (field.type === 'date') return;
@@ -4681,6 +4672,22 @@ function setupEventListeners() {
   // Data Entry Form Actions
   if (DOM.dataEntryForm) DOM.dataEntryForm.addEventListener('submit', handleSaveDraft);
   if (DOM.clearFieldsBtn) DOM.clearFieldsBtn.addEventListener('click', clearEntryFields);
+
+  const dataEntryMultiSelect = document.getElementById('data-entry-multi-foetal-select');
+  if (dataEntryMultiSelect) {
+    dataEntryMultiSelect.addEventListener('change', (e) => {
+      const val = e.target.value;
+      if (val === 'twins') {
+        renderInfantSubCards(2, 'Twins');
+      } else if (val === 'triplets') {
+        renderInfantSubCards(3, 'Triplets');
+      } else if (val === 'quadruplets') {
+        renderInfantSubCards(4, 'Quadruplets');
+      } else {
+        renderInfantSubCards(1, 'Single');
+      }
+    });
+  }
 
   // High-Risk Popover name link click delegation
   if (DOM.kpiHighRiskPopover) {
