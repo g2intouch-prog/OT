@@ -2158,6 +2158,7 @@ function renderDataEntryForm() {
         input.required = (field.id === 'date');
 
         if (field.id === 'weight' || field.id === 'weightob' || (field.title && field.title.toLowerCase().includes('weight'))) {
+          input.type = 'text';
           input.placeholder = 'e.g. 2500 (grams)';
           const syncMainWeightToSubCards = () => {
             const val = input.value;
@@ -2203,14 +2204,17 @@ function syncSubCardsToMainForm(typeName) {
   const apgars = [];
 
   cards.forEach((card, idx) => {
-    const g = card.querySelector('.infant-gender-input').value;
-    const t = card.querySelector('.infant-time-input').value;
-    const w = card.querySelector('.infant-weight-input').value;
-    const a = card.querySelector('.infant-apgar-input').value;
+    const g = card.querySelector('.infant-gender-input')?.value || '';
+    const t = card.querySelector('.infant-time-input')?.value || '';
+    const w = card.querySelector('.infant-weight-input')?.value || '';
+    const a = card.querySelector('.infant-apgar-input')?.value || '';
 
     if (g) genders.push(g);
     if (t) times.push(t);
-    if (w) weights.push(`T${idx + 1}: ${w}kg`);
+    if (w) {
+      const gVal = formatWeightToGrams(w);
+      weights.push(cards.length > 1 ? `T${idx + 1}: ${gVal}g` : gVal);
+    }
     if (a) apgars.push(a);
   });
 
@@ -2229,22 +2233,33 @@ function syncSubCardsToMainForm(typeName) {
       } else {
         el.value = `${typeName} (${genders.join(', ')})`;
       }
+      el.dispatchEvent(new Event('input', { bubbles: true }));
     }
   }
 
   if (weightField && weights.length > 0) {
     const el = document.getElementById(`input-${weightField.id}`);
-    if (el) el.value = weights.join(' | ');
+    if (el) {
+      el.type = 'text';
+      el.value = weights.join(' | ');
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    }
   }
 
   if (timeField && times.length > 0) {
     const el = document.getElementById(`input-${timeField.id}`);
-    if (el) el.value = times.join(' / ');
+    if (el) {
+      el.value = times.join(' / ');
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    }
   }
 
   if (apgarField && apgars.length > 0) {
     const el = document.getElementById(`input-${apgarField.id}`);
-    if (el) el.value = apgars.join(' & ');
+    if (el) {
+      el.value = apgars.join(' & ');
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    }
   }
 }
 
