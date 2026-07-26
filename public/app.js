@@ -2152,6 +2152,61 @@ function renderDataEntryForm() {
   }
 }
 
+function syncSubCardsToMainForm(typeName) {
+  const cards = document.querySelectorAll('.infant-sub-card');
+  if (cards.length === 0) return;
+
+  const genders = [];
+  const times = [];
+  const weights = [];
+  const apgars = [];
+
+  cards.forEach((card, idx) => {
+    const g = card.querySelector('.infant-gender-input').value;
+    const t = card.querySelector('.infant-time-input').value;
+    const w = card.querySelector('.infant-weight-input').value;
+    const a = card.querySelector('.infant-apgar-input').value;
+
+    if (g) genders.push(g);
+    if (t) times.push(t);
+    if (w) weights.push(`T${idx + 1}: ${w}kg`);
+    if (a) apgars.push(a);
+  });
+
+  // Find corresponding main form input fields
+  const sexField = state.schema.find(f => f.id === 'sex' || f.id === 'gender' || f.id === 'sexob' || (f.title && (f.title.toLowerCase().includes('sex') || f.title.toLowerCase().includes('gender'))));
+  const weightField = state.schema.find(f => f.id === 'weight' || f.id === 'weightob' || f.id.toLowerCase().includes('weight') || (f.title && f.title.toLowerCase().includes('weight')));
+  const timeField = state.schema.find(f => f.type === 'time' || f.id === 'timeob' || f.id.toLowerCase().includes('time') || (f.title && f.title.toLowerCase().includes('time')));
+  const apgarField = state.schema.find(f => f.id === 'apgar' || f.id.toLowerCase().includes('apgar') || (f.title && f.title.toLowerCase().includes('apgar')));
+
+  if (sexField) {
+    const el = document.getElementById(`input-${sexField.id}`);
+    if (el) {
+      if (el.tagName === 'SELECT') {
+        const optMatch = Array.from(el.options).find(o => o.value.toLowerCase().includes('twin') || o.value.toLowerCase().includes('multi'));
+        if (optMatch) el.value = optMatch.value;
+      } else {
+        el.value = `${typeName} (${genders.join(', ')})`;
+      }
+    }
+  }
+
+  if (weightField && weights.length > 0) {
+    const el = document.getElementById(`input-${weightField.id}`);
+    if (el) el.value = weights.join(' | ');
+  }
+
+  if (timeField && times.length > 0) {
+    const el = document.getElementById(`input-${timeField.id}`);
+    if (el) el.value = times.join(' / ');
+  }
+
+  if (apgarField && apgars.length > 0) {
+    const el = document.getElementById(`input-${apgarField.id}`);
+    if (el) el.value = apgars.join(' & ');
+  }
+}
+
 function renderInfantSubCards(count, typeName) {
   const container = document.getElementById('multi-foetal-container');
   const badge = document.getElementById('multi-foetal-type-badge');
@@ -2201,7 +2256,16 @@ function renderInfantSubCards(count, typeName) {
       </div>
     `;
     list.appendChild(card);
+
+    // Attach sync listener to inputs inside sub-cards
+    card.querySelectorAll('input, select').forEach(inp => {
+      inp.addEventListener('input', () => syncSubCardsToMainForm(typeName));
+      inp.addEventListener('change', () => syncSubCardsToMainForm(typeName));
+    });
   }
+
+  // Initial sync on render
+  syncSubCardsToMainForm(typeName);
 }
 
 // Helper to auto-generate Month Name, Annual Serial, and Monthly Serial based on date selection
@@ -6953,31 +7017,58 @@ function renderAnalytics() {
   const addressCounts = {};
 
   filtered.forEach(rec => {
-    // Baby Gender
-    const gender = (rec.data.sexob || '').toString().trim().toLowerCase();
-    if (gender === 'male' || gender === 'mch') maleCount++;
-    else if (gender === 'female' || gender === 'fch') femaleCount++;
-    else if (gender === 'others' || gender === 'other') otherGenderCount++;
+    // Multi-Foetal Infant Detailed Parsing for Gender, Weight, and LBW
+    const infants = rec.data ? rec.data.multi_foetal_infants : null;
+    if (infants && Array.isArray(infants) && infants.length > 1) {
+      infants.forEach(infant => {
+        // Infant Gender
+        const g = (infant.gender || '').toString().trim().toLowerCase();
+        if (g === 'male' || g === 'mch' || g.includes('male')) maleCount++;
+        else if (g === 'female' || g === 'fch' || g.includes('female')) femaleCount++;
+        else if (g) otherGenderCount++;
 
-    // Family Planning
-    const fp = (rec.data.fp_option || '').toString().trim().toUpperCase();
+        // Infant Weight (support kg float like 2.5 or grams like 2500)
+        let wVal = parseFloat(infant.weight);
+        if (!isNaN(wVal) && wVal > 0) {
+          if (wVal < 20) wVal = wVal * 1000; // Convert 2.5kg to 2500g for metric standardization
+          totalWeight += wVal;
+          validWeightCount++;
+          if (wVal < 2200) {
+            lbwCount++;
+          }
+        }
+      });
+    } else {
+      // Standard Single Baby Gender
+      const gender = (rec.data.sexob || rec.data.sex || rec.data.gender || '').toString().trim().toLowerCase();
+      if (gender === 'male' || gender === 'mch' || gender.includes('male')) maleCount++;
+      else if (gender === 'female' || gender === 'fch' || gender.includes('female')) femaleCount++;
+      else if (gender === 'others' || gender === 'other') otherGenderCount++;
+
+      // Standard Single Birth Weight
+      let w = parseFloat(rec.data.weightob || rec.data.weight);
+      if (!isNaN(w) && w > 0) {
+        if (w < 20) w = w * 1000; // Convert kg to grams if needed
+        totalWeight += w;
+        validWeightCount++;
+        if (w < 2200) {
+          lbwCount++;
+        }
+      }
+    }
+
+    // Family Planning (Check Maternal Card or main form field)
+    let fp = (rec.data.fp_option || rec.data.fp || '').toString().trim().toUpperCase();
+    if (rec.data.maternal_details && rec.data.maternal_details.fp) {
+      fp = rec.data.maternal_details.fp.toString().trim().toUpperCase();
+    }
     if (fpCounts[fp] !== undefined) {
       fpCounts[fp]++;
     } else {
       fpCounts['NONE']++;
     }
-    if (fp === 'BTL' || fp === 'PPIUCD') {
+    if (fp === 'BTL' || fp === 'PPIUCD' || fp.includes('TUBECTOMY')) {
       fpAdoptedCount++;
-    }
-
-    // Birth Weight
-    const w = parseFloat(rec.data.weightob);
-    if (!isNaN(w) && w > 0) {
-      totalWeight += w;
-      validWeightCount++;
-      if (w < 2200) {
-        lbwCount++;
-      }
     }
 
     // Delivery Shift
