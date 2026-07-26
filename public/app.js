@@ -4521,6 +4521,66 @@ function setupEventListeners() {
   // Initialize Emergency Data Recovery modal handlers
   setupEmergencyDataRecoveryHandlers();
 
+  // Admin Invitation Form Submit
+  const inviteForm = document.getElementById('admin-invite-form');
+  if (inviteForm) {
+    inviteForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const emailInput = document.getElementById('invite-email-input');
+      const roleSelect = document.getElementById('invite-role-select');
+      const statusMsg = document.getElementById('invite-status-msg');
+      const submitBtn = document.getElementById('submit-invite-btn');
+
+      if (!emailInput || !emailInput.value) return;
+      const email = emailInput.value.trim();
+      const role = roleSelect ? roleSelect.value : 'user';
+      const token = state.authToken || sessionStorage.getItem('authToken');
+
+      if (submitBtn) submitBtn.disabled = true;
+      if (statusMsg) {
+        statusMsg.style.display = 'block';
+        statusMsg.style.color = 'var(--accent-color)';
+        statusMsg.textContent = 'Generating invitation...';
+      }
+
+      try {
+        const res = await fetch('/api/admin/invite', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ email, role })
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          if (statusMsg) {
+            statusMsg.style.color = 'var(--success)';
+            statusMsg.textContent = `Success! Email invitation active for ${email} as ${role.toUpperCase()}. User can now register with this email.`;
+          }
+          emailInput.value = '';
+          if (typeof loadTeamAccounts === 'function') {
+            await loadTeamAccounts();
+          }
+        } else {
+          const err = await res.json();
+          if (statusMsg) {
+            statusMsg.style.color = 'var(--danger)';
+            statusMsg.textContent = 'Invite failed: ' + (err.error || 'Unknown error');
+          }
+        }
+      } catch (err) {
+        if (statusMsg) {
+          statusMsg.style.color = 'var(--danger)';
+          statusMsg.textContent = 'Network error sending invitation.';
+        }
+      } finally {
+        if (submitBtn) submitBtn.disabled = false;
+      }
+    });
+  }
+
 
   // Theme Toggle
   if (DOM.themeToggleBtn) DOM.themeToggleBtn.addEventListener('click', toggleTheme);
