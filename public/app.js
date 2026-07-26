@@ -2392,8 +2392,6 @@ function autoFillDateDependentFields(dateVal) {
         if (!isNaN(val) && val > maxVal) {
           maxVal = val;
         }
-      }
-    });
     const monthlyInput = document.getElementById(`input-${monthlyField.id}`);
     if (monthlyInput) {
       monthlyInput.value = maxVal + 1;
@@ -2468,8 +2466,29 @@ function handleSaveDraft(e) {
     data: formData
   };
 
-  state.drafts.push(draftEntry);
-  saveDraftsToStorage();
+  if (state.editingDraftIndex !== null && state.editingDraftIndex !== undefined) {
+    state.drafts[state.editingDraftIndex] = draftEntry;
+    state.editingDraftIndex = null;
+    saveDraftsToStorage();
+    renderSyncTable();
+  } else if (state.editingDbRecord) {
+    const recId = state.editingDbRecord.id;
+    state.editingDbRecord = null;
+    if (state.isOnline && state.isAuthenticated) {
+      const token = state.authToken || sessionStorage.getItem('authToken');
+      fetch(`/api/entries/update/${recId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ date: targetDate, data: formData })
+      }).then(() => fetchDatabaseRecords()).catch(err => console.error('Error updating DB record:', err));
+    }
+  } else {
+    state.drafts.push(draftEntry);
+    saveDraftsToStorage();
+  }
   
   // Transition animation: slide current row out and flash success
   DOM.dynamicInputs.style.transform = 'translateX(50px)';
@@ -3043,8 +3062,8 @@ function renderSyncTable() {
     const editBtn = document.createElement('button');
     editBtn.className = 'btn btn-link p-0';
     editBtn.style.marginRight = '8px';
-    editBtn.textContent = 'Edit';
-    editBtn.addEventListener('click', () => openEditModal(draft, index, true));
+    editBtn.textContent = '✏️ Edit';
+    editBtn.addEventListener('click', () => loadDraftIntoDataEntry(draft, index, true));
     actionTd.appendChild(editBtn);
     
     const rejectBtn = document.createElement('button');
@@ -3688,9 +3707,9 @@ function renderDBTable() {
     const editBtn = document.createElement('button');
     editBtn.className = 'btn btn-link p-0 mr-2';
     editBtn.style.marginRight = '8px';
-    editBtn.textContent = 'Edit';
+    editBtn.textContent = '✏️ Edit';
     editBtn.disabled = !state.isAuthenticated || !state.isOnline;
-    editBtn.addEventListener('click', () => openEditModal(rec, null, false));
+    editBtn.addEventListener('click', () => loadDraftIntoDataEntry(rec, index, false));
     actionTd.appendChild(editBtn);
 
     // Delete btn
@@ -4753,6 +4772,14 @@ function handleExportExcel() {
 
 // Helper to reset and clear all data entry fields
 function clearEntryFields() {
+  state.editingDraftIndex = null;
+  state.editingDbRecord = null;
+  if (DOM.saveDraftBtn) {
+    const btnSpan = DOM.saveDraftBtn.querySelector('span:last-child') || DOM.saveDraftBtn;
+    btnSpan.textContent = '💾 Save Local Draft';
+    DOM.saveDraftBtn.style.backgroundColor = 'var(--accent-color)';
+  }
+
   const multiSelect = document.getElementById('data-entry-multi-foetal-select');
   if (multiSelect) multiSelect.value = 'single';
   renderInfantSubCards(1, 'Single');
@@ -4930,15 +4957,53 @@ function setupEventListeners() {
   if (dataEntryMultiSelect) {
     dataEntryMultiSelect.addEventListener('change', (e) => {
       const val = e.target.value;
-      if (val === 'twins') {
-        renderInfantSubCards(2, 'Twins');
-      } else if (val === 'triplets') {
-        renderInfantSubCards(3, 'Triplets');
-      } else if (val === 'quadruplets') {
-        renderInfantSubCards(4, 'Quadruplets');
-      } else {
-        renderInfantSubCards(1, 'Single');
-      }
+      let count = 1;
+      let title = 'Single';
+      if (val === 'twins') { count = 2; title = 'Twins'; }
+      else if (val === 'triplets') { count = 3; title = 'Triplets'; }
+      else if (val === 'quadruplets') { count = 4; title = 'Quadruplets'; }
+      
+      // Preserve any data currently in existing cards before re-rendering
+      const existingValues = [];
+      const currentCards = document.querySelectorAll('.infant-sub-card');
+      currentCards.forEach((c) => {
+        existingValues.push({
+          gender: c.querySelector('.infant-gender-input')?.value || '',
+          timeob: c.querySelector('.infant-time-input')?.value || '',
+          weight: c.querySelector('.infant-weight-input')?.value || '',
+          apgar: c.querySelector('.infant-apgar-input')?.value || ''
+        });
+      });
+
+      renderInfantSubCards(count, title);
+
+      // Restore previously entered values into cards and populate single-baby values if turning single -> twin
+      const newCards = document.querySelectorAll('.infant-sub-card');
+      newCards.forEach((c, i) => {
+        if (existingValues[i] && (existingValues[i].gender || existingValues[i].timeob || existingValues[i].weight)) {
+          const gSel = c.querySelector('.infant-gender-input');
+          const tInp = c.querySelector('.infant-time-input');
+          const wInp = c.querySelector('.infant-weight-input');
+          const aInp = c.querySelector('.infant-apgar-input');
+          if (gSel && existingValues[i].gender) gSel.value = existingValues[i].gender;
+          if (tInp && existingValues[i].timeob) tInp.value = existingValues[i].timeob;
+          if (wInp && existingValues[i].weight) wInp.value = existingValues[i].weight;
+          if (aInp && existingValues[i].apgar) aInp.value = existingValues[i].apgar;
+        } else if (i === 0) {
+          // If converting older single-baby record to twin, pre-fill Infant #1 with main form values
+          const mainGender = document.getElementById('input-sexob') || document.getElementById('input-sex') || document.getElementById('input-gender');
+          const mainTime = document.getElementById('input-timeob') || document.getElementById('input-time');
+          const mainWeight = document.getElementById('input-weightob') || document.getElementById('input-weight');
+          
+          const gSel = c.querySelector('.infant-gender-input');
+          const tInp = c.querySelector('.infant-time-input');
+          const wInp = c.querySelector('.infant-weight-input');
+          
+          if (gSel && mainGender && mainGender.value) gSel.value = mainGender.value;
+          if (tInp && mainTime && mainTime.value) tInp.value = mainTime.value;
+          if (wInp && mainWeight && mainWeight.value) wInp.value = mainWeight.value;
+        }
+      });
     });
   }
 
