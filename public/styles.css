@@ -455,6 +455,14 @@ body {
   margin-bottom: 20px;
 }
 
+/* Compact Data Entry Panel */
+#data-entry-form-card {
+  padding: 14px 18px;
+}
+#data-entry-form-card .card-subtitle {
+  margin-bottom: 6px;
+}
+
 .card-header-flex {
   display: flex;
   justify-content: space-between;

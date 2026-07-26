@@ -2068,14 +2068,14 @@ function renderDataEntryForm() {
     if (fields.length === 0) return;
 
     const cardSection = document.createElement('div');
-    cardSection.className = 'category-section-card mt-3';
-    cardSection.style.cssText = 'background: rgba(255,255,255,0.03); border: 1px solid var(--panel-border); border-radius: 10px; padding: 14px; margin-bottom: 14px;';
+    cardSection.className = 'category-section-card mt-2';
+    cardSection.style.cssText = 'background: rgba(255,255,255,0.03); border: 1px solid var(--panel-border); border-radius: 8px; padding: 8px 12px; margin-bottom: 8px;';
     
     cardSection.innerHTML = `
-      <h4 style="margin: 0 0 10px 0; font-size: 0.88rem; color: var(--accent-color); border-bottom: 1px dashed var(--panel-border); padding-bottom: 6px;">
+      <h4 style="margin: 0 0 6px 0; font-size: 0.82rem; color: var(--accent-color); border-bottom: 1px dashed var(--panel-border); padding-bottom: 4px;">
         ${cat.title}
       </h4>
-      <div class="category-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
+      <div class="category-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 6px 10px;">
       </div>
     `;
 
@@ -2092,6 +2092,7 @@ function renderDataEntryForm() {
       const label = document.createElement('label');
       label.setAttribute('for', `input-${field.id}`);
       label.textContent = getFieldDisplayTitle(field);
+      label.style.cssText = 'font-size: 0.72rem; margin-bottom: 2px; display: block; font-weight: 600;';
 
       let input;
       if (field.type === 'select') {
@@ -2099,6 +2100,7 @@ function renderDataEntryForm() {
         input.className = 'form-select';
         input.id = `input-${field.id}`;
         input.name = field.id;
+        input.style.cssText = 'padding: 4px 8px; font-size: 0.8rem; height: 32px;';
         const opts = field.options || ['Option 1', 'Option 2'];
         opts.forEach(opt => {
           const option = document.createElement('option');
@@ -2161,6 +2163,7 @@ function renderDataEntryForm() {
         input = document.createElement('input');
         input.type = field.type || 'text';
         input.className = 'form-control';
+        input.style.cssText = 'padding: 4px 8px; font-size: 0.8rem; height: 32px;';
         if (field.type === 'date') {
           input.value = new Date().toISOString().split('T')[0];
           input.addEventListener('change', () => autoFillDateDependentFields(input.value));
