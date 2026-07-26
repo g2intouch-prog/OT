@@ -2325,6 +2325,15 @@ function renderInfantSubCards(count, typeName) {
     });
   }
 
+  // Pre-fill Infant #1 from main form weight input if present
+  const mainWeightInp = document.getElementById('input-weightob') || document.getElementById('input-weight') || document.querySelector('input[id*="weight"]');
+  if (mainWeightInp && mainWeightInp.value) {
+    const firstSubCardWeight = list.querySelector('.infant-sub-card:first-child .infant-weight-input');
+    if (firstSubCardWeight && !firstSubCardWeight.value) {
+      firstSubCardWeight.value = formatWeightToGrams(mainWeightInp.value);
+    }
+  }
+
   // Initial sync on render
   syncSubCardsToMainForm(typeName);
 }
@@ -2410,22 +2419,42 @@ function autoFillDateDependentFields(dateVal) {
 }
 
 function handleSaveDraft(e) {
-  e.preventDefault();
+  if (e) {
+    if (typeof e.preventDefault === 'function') e.preventDefault();
+    if (typeof e.stopPropagation === 'function') e.stopPropagation();
+  }
   
   const formData = {};
   let targetDate = new Date().toISOString().split('T')[0];
 
-  state.schema.forEach(field => {
-    const input = document.getElementById(`input-${field.id}`);
-    if (input) {
-      formData[field.id] = input.value;
-      if (field.id === 'date' && input.value) {
-        targetDate = input.value;
+  // 1. Gather fields from state.schema
+  if (Array.isArray(state.schema) && state.schema.length > 0) {
+    state.schema.forEach(field => {
+      const input = document.getElementById(`input-${field.id}`);
+      if (input) {
+        formData[field.id] = input.value;
+        if (field.id === 'date' && input.value) {
+          targetDate = input.value;
+        }
+      }
+    });
+  }
+
+  // 2. Fallback gather from all form inputs inside dataEntryForm
+  const formInputs = document.querySelectorAll('#data-entry-form input, #data-entry-form select, #data-entry-form textarea');
+  formInputs.forEach(inp => {
+    if (inp.id && inp.id.startsWith('input-')) {
+      const key = inp.id.replace('input-', '');
+      if (!formData[key]) {
+        formData[key] = inp.value;
+      }
+      if (key === 'date' && inp.value) {
+        targetDate = inp.value;
       }
     }
   });
 
-  // Collect Multi-Foetal Infant Sub-Card details if present
+  // 3. Collect Multi-Foetal Infant Sub-Card details if present
   const infantCards = document.querySelectorAll('.infant-sub-card');
   if (infantCards.length > 0) {
     const infantsList = [];
@@ -2453,7 +2482,7 @@ function handleSaveDraft(e) {
     formData.multi_foetal_infants = infantsList;
   }
 
-  // Collect Maternal Clinical Details if present
+  // 4. Collect Maternal Clinical Details if present
   const maternalCard = document.getElementById('maternal-details-container');
   if (maternalCard && !maternalCard.classList.contains('hidden')) {
     const outcomeInput = document.getElementById('maternal-outcome-input');
@@ -2480,6 +2509,7 @@ function handleSaveDraft(e) {
     state.editingDraftIndex = null;
     saveDraftsToStorage();
     renderSyncTable();
+    alert('Local draft updated successfully!');
   } else if (state.editingDbRecord) {
     const recId = state.editingDbRecord.id;
     state.editingDbRecord = null;
@@ -2492,33 +2522,26 @@ function handleSaveDraft(e) {
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({ date: targetDate, data: formData })
-      }).then(() => fetchDatabaseRecords()).catch(err => console.error('Error updating DB record:', err));
+      })
+      .then(() => {
+        fetchDatabaseRecords();
+        alert('Database record updated successfully!');
+      })
+      .catch(err => {
+        console.error('Error updating DB record:', err);
+        alert('Failed to update DB record: ' + err.message);
+      });
     }
   } else {
     state.drafts.push(draftEntry);
     saveDraftsToStorage();
+    alert('Local draft saved successfully!');
   }
-  
-  // Transition animation: slide current row out and flash success
-  if (DOM.dynamicInputs) {
-    DOM.dynamicInputs.style.transform = 'translateX(50px)';
-    DOM.dynamicInputs.style.opacity = '0';
-  }
-  
-  setTimeout(() => {
-    // Reset fields except date
-    clearEntryFields();
-    
-    // Clear and slide back in
-    if (DOM.dynamicInputs) {
-      DOM.dynamicInputs.style.transform = 'translateX(0)';
-      DOM.dynamicInputs.style.opacity = '1';
-    }
-    
-    // Refresh tables
-    renderDraftsTable();
-    renderSyncTable();
-  }, 200);
+
+  renderDraftsTable();
+  renderSyncTable();
+  clearEntryFields();
+  return false;
 }
 
 function loadDraftIntoDataEntry(item, itemIndex, isDraft = true) {
