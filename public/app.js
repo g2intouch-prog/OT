@@ -4570,7 +4570,7 @@ function setupEventListeners() {
           const data = await res.json();
           if (statusMsg) {
             statusMsg.style.color = 'var(--success)';
-            statusMsg.textContent = `Success! Email invitation active for ${email} as ${role.toUpperCase()}. User can now register with this email.`;
+            statusMsg.textContent = `✅ Invitation Authorized for ${email} as ${role.toUpperCase()}! The team member can now open the app, click Register, and sign up with ${email}.`;
           }
           emailInput.value = '';
           if (typeof loadTeamAccounts === 'function') {
