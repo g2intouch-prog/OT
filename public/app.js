@@ -1986,6 +1986,17 @@ function renderDataEntryForm() {
     return;
   }
 
+  const hasPregnancyField = state.schema.some(f => f.id === 'pregnancy_type' || (f.title && f.title.toLowerCase().includes('pregnancy')));
+  if (!hasPregnancyField) {
+    const promptDiv = document.createElement('div');
+    promptDiv.style.cssText = 'grid-column: 1 / -1; background: rgba(2, 132, 199, 0.08); border: 1px solid rgba(2, 132, 199, 0.3); border-radius: 8px; padding: 10px 14px; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;';
+    promptDiv.innerHTML = `
+      <span style="font-size: 0.8rem; color: var(--accent-color);">👶 Want to log Twins or Triplets? Add the <strong>Pregnancy Type</strong> field to your form.</span>
+      <button type="button" class="btn btn-secondary" onclick="switchToTab('form-creator'); addPregnancyTypeField();" style="padding: 4px 10px; font-size: 0.75rem; white-space: nowrap; color: var(--accent-color); font-weight: 600;">👶 Add Pregnancy Field</button>
+    `;
+    DOM.dynamicInputs.appendChild(promptDiv);
+  }
+
   state.schema.forEach(field => {
     const isHiddenField = field.id === 'annual_serial' || field.id === 'monthly_sl_no';
     const formGroup = document.createElement('div');
@@ -2708,6 +2719,23 @@ function addNewField() {
     options: []
   });
   renderFormCreator();
+}
+
+function addPregnancyTypeField() {
+  const existing = state.formCreatorSchema.find(f => f.id === 'pregnancy_type' || f.title.toLowerCase().includes('pregnancy'));
+  if (existing) {
+    alert('Pregnancy Type field is already present in your Form Creator list!');
+    return;
+  }
+  state.formCreatorSchema.push({
+    id: 'pregnancy_type',
+    title: 'Pregnancy Type',
+    type: 'select',
+    voiceEnabled: false,
+    options: ['Single', 'Twins', 'Triplets', 'Quadruplets']
+  });
+  renderFormCreator();
+  alert('Added "Pregnancy Type" dropdown field! Click "Save" at the top toolbar of Form Creator to save this to your database.');
 }
 
 function resetFormCreator() {
@@ -4735,6 +4763,8 @@ function setupEventListeners() {
 
   // Form Creator Actions
   if (DOM.addFieldBtn) DOM.addFieldBtn.addEventListener('click', addNewField);
+  const addPregnancyFieldBtn = document.getElementById('add-pregnancy-field-btn');
+  if (addPregnancyFieldBtn) addPregnancyFieldBtn.addEventListener('click', addPregnancyTypeField);
   if (DOM.resetCreatorBtn) DOM.resetCreatorBtn.addEventListener('click', resetFormCreator);
   if (DOM.saveSchemaBtn) DOM.saveSchemaBtn.addEventListener('click', saveSchema);
   if (DOM.changeCredentialsForm) DOM.changeCredentialsForm.addEventListener('submit', handleUpdateCredentials);
