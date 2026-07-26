@@ -2386,6 +2386,8 @@ function autoFillDateDependentFields(dateVal) {
         if (!isNaN(val) && val > maxVal) {
           maxVal = val;
         }
+      }
+    });
     const monthlyInput = document.getElementById(`input-${monthlyField.id}`);
     if (monthlyInput) {
       monthlyInput.value = maxVal + 1;
