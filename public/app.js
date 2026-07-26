@@ -2219,6 +2219,14 @@ function renderInfantSubCards(count, typeName) {
     return;
   }
 
+  // Detect any extra custom baby-related fields configured in Form Creator schema
+  const customBabyFields = state.schema.filter(f => {
+    const title = (f.title || f.id || '').toLowerCase();
+    const isStandard = f.id === 'sex' || f.id === 'gender' || f.id === 'sexob' || f.id === 'weight' || f.id === 'weightob' || f.id === 'timeob' || f.id === 'apgar';
+    const isBabyRelated = title.includes('baby') || title.includes('infant') || title.includes('child');
+    return isBabyRelated && !isStandard;
+  });
+
   container.classList.remove('hidden');
   if (badge) badge.textContent = typeName;
   list.innerHTML = '';
@@ -2227,6 +2235,17 @@ function renderInfantSubCards(count, typeName) {
     const card = document.createElement('div');
     card.className = 'infant-sub-card';
     card.style.cssText = 'background: rgba(255,255,255,0.7); border: 1px solid rgba(2, 132, 199, 0.3); border-radius: 8px; padding: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.03);';
+    
+    let customFieldsHtml = '';
+    customBabyFields.forEach(cf => {
+      customFieldsHtml += `
+        <div>
+          <label style="font-size: 0.7rem; margin-bottom: 2px; display: block; font-weight: 600;">${getFieldDisplayTitle(cf)}</label>
+          <input type="text" class="form-control infant-custom-input" data-field-id="${cf.id}" placeholder="${getFieldDisplayTitle(cf)}" style="padding: 4px; font-size: 0.75rem;">
+        </div>
+      `;
+    });
+
     card.innerHTML = `
       <div style="font-weight: 700; font-size: 0.8rem; color: var(--accent-color); margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center;">
         <span>👶 Infant #${i}</span>
@@ -2253,6 +2272,7 @@ function renderInfantSubCards(count, typeName) {
           <label style="font-size: 0.7rem; margin-bottom: 2px; display: block; font-weight: 600;">Apgar Score</label>
           <input type="text" class="form-control infant-apgar-input" placeholder="e.g. 9/10" style="padding: 4px; font-size: 0.75rem;">
         </div>
+        ${customFieldsHtml}
       </div>
     `;
     list.appendChild(card);
@@ -2373,12 +2393,20 @@ function handleSaveDraft(e) {
       const timeInput = card.querySelector('.infant-time-input');
       const weightInput = card.querySelector('.infant-weight-input');
       const apgarInput = card.querySelector('.infant-apgar-input');
+      const customInputs = card.querySelectorAll('.infant-custom-input');
+      const customVals = {};
+      customInputs.forEach(ci => {
+        const fieldId = ci.dataset.fieldId;
+        if (fieldId) customVals[fieldId] = ci.value;
+      });
+
       infantsList.push({
         infant: idx + 1,
         gender: genderSelect ? genderSelect.value : 'Male',
         timeob: timeInput ? timeInput.value : '',
         weight: weightInput ? weightInput.value : '',
-        apgar: apgarInput ? apgarInput.value : ''
+        apgar: apgarInput ? apgarInput.value : '',
+        ...customVals
       });
     });
     formData.multi_foetal_infants = infantsList;
