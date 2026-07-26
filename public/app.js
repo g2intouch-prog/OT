@@ -7189,8 +7189,15 @@ function renderAnalytics() {
   const addressCounts = {};
 
   filtered.forEach(rec => {
+    let d = rec.data || {};
+    if (typeof d === 'string') {
+      try { d = JSON.parse(d); } catch(e) {}
+    }
+
+    let singleWeight = null;
+
     // Multi-Foetal Infant Detailed Parsing for Gender, Weight, and LBW
-    const infants = rec.data ? rec.data.multi_foetal_infants : null;
+    const infants = d.multi_foetal_infants;
     if (infants && Array.isArray(infants) && infants.length > 1) {
       infants.forEach(infant => {
         // Infant Gender
@@ -7212,15 +7219,16 @@ function renderAnalytics() {
       });
     } else {
       // Standard Single Baby Gender
-      const gender = (rec.data.sexob || rec.data.sex || rec.data.gender || '').toString().trim().toLowerCase();
-      if (gender === 'male' || gender === 'mch' || gender.includes('male')) maleCount++;
-      else if (gender === 'female' || gender === 'fch' || gender.includes('female')) femaleCount++;
-      else if (gender === 'others' || gender === 'other') otherGenderCount++;
+      const genderRaw = (d.sexob || d.sex || d.gender || d.Sex || d.Gender || '').toString().trim().toLowerCase();
+      if (genderRaw === 'male' || genderRaw === 'mch' || genderRaw.includes('male')) maleCount++;
+      else if (genderRaw === 'female' || genderRaw === 'fch' || genderRaw.includes('female')) femaleCount++;
+      else if (genderRaw) otherGenderCount++;
 
       // Standard Single Birth Weight
-      let w = parseFloat(rec.data.weightob || rec.data.weight);
+      let w = parseFloat(d.weightob || d.weight || d.Weight);
       if (!isNaN(w) && w > 0) {
         if (w < 20) w = w * 1000; // Convert kg to grams if needed
+        singleWeight = w;
         totalWeight += w;
         validWeightCount++;
         if (w < 2200) {
@@ -7230,21 +7238,22 @@ function renderAnalytics() {
     }
 
     // Family Planning (Check Maternal Card or main form field)
-    let fp = (rec.data.fp_option || rec.data.fp || '').toString().trim().toUpperCase();
-    if (rec.data.maternal_details && rec.data.maternal_details.fp) {
-      fp = rec.data.maternal_details.fp.toString().trim().toUpperCase();
+    let fp = (d.fp_option || d.fp || d.fp_adopted || '').toString().trim().toUpperCase();
+    if (d.maternal_details && d.maternal_details.fp) {
+      fp = d.maternal_details.fp.toString().trim().toUpperCase();
     }
     if (fpCounts[fp] !== undefined) {
       fpCounts[fp]++;
     } else {
       fpCounts['NONE']++;
     }
-    if (fp === 'BTL' || fp === 'PPIUCD' || fp.includes('TUBECTOMY')) {
+    if (fp === 'BTL' || fp === 'PPIUCD' || fp.includes('TUBECTOMY') || fp.includes('BTL')) {
       fpAdoptedCount++;
     }
 
     // Delivery Shift
-    const shift = getShiftName(rec.data.timeob);
+    const timeVal = d.timeob || d.time || d.Time || '';
+    const shift = getShiftName(timeVal);
     if (shiftCounts[shift] !== undefined) {
       shiftCounts[shift]++;
     } else {
@@ -7267,22 +7276,19 @@ function renderAnalytics() {
     // High-Risk Deliveries (Mother's age <20 or >35, or baby weight <2200g)
     let isHighRisk = false;
     const reasons = [];
-    const age = parseInt(rec.data.age);
+    const age = parseInt(d.age || d.Age);
     if (!isNaN(age) && (age < 20 || age > 35)) {
       isHighRisk = true;
       reasons.push(`Maternal Age: ${age}`);
     }
-    if (!isNaN(w) && w > 0 && w < 2200) {
+    if (singleWeight !== null && singleWeight > 0 && singleWeight < 2200) {
       isHighRisk = true;
-      reasons.push(`Baby Weight: ${w}g`);
+      reasons.push(`Baby Weight: ${singleWeight}g`);
     }
     if (isHighRisk) {
       highRiskCount++;
-      const nameField = state.schema.find(f => f.id === 'name' || f.id.toLowerCase().includes('name') || f.title.toLowerCase().includes('name'));
-      const nameVal = nameField && rec.data ? rec.data[nameField.id] || 'Unknown' : 'Unknown';
-      const annualField = state.schema.find(f => f.id === 'annual_serial' || f.title.toLowerCase().includes('annual'));
-      const annualFieldId = annualField ? annualField.id : 'annual_serial';
-      const annualSerial = rec.data ? rec.data[annualFieldId] || 'N/A' : 'N/A';
+      const nameVal = d.name || d.patient_name || d.Name || 'Unknown';
+      const annualSerial = d.annual_serial || d.annual_sl_no || d.sl_no || 'N/A';
 
       highRiskCases.push({
         name: nameVal,
@@ -7326,31 +7332,37 @@ function renderAnalytics() {
     }
   });
 
-  // Shift categoriser helper
+  // Shift categoriser helper (supports 12h e.g. "02:30 PM" and 24h e.g. "14:30")
   function getShiftName(timeStr) {
     if (!timeStr) return 'Unknown';
-    const match = timeStr.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM|am|pm)$/i);
-    if (!match) return 'Unknown';
+    const str = timeStr.toString().trim();
     
-    let hours = parseInt(match[1]);
-    const minutes = parseInt(match[2]);
-    const ampm = match[3].toUpperCase();
-    
-    if (ampm === 'PM' && hours < 12) hours += 12;
-    if (ampm === 'AM' && hours === 12) hours = 0;
-    
-    const totalMinutes = hours * 60 + minutes;
-    
-    // 6:00 AM (360 mins) to 12:00 PM (720 mins)
-    if (totalMinutes >= 360 && totalMinutes < 720) {
-      return 'Forenoon (6 AM - 12 PM)';
+    // Check 12h format
+    const match12 = str.match(/^(\d{1,2}):(\d{2})\s*(AM|PM|am|pm)$/i);
+    if (match12) {
+      let hours = parseInt(match12[1]);
+      const minutes = parseInt(match12[2]);
+      const ampm = match12[3].toUpperCase();
+      if (ampm === 'PM' && hours < 12) hours += 12;
+      if (ampm === 'AM' && hours === 12) hours = 0;
+      const totalMinutes = hours * 60 + minutes;
+      if (totalMinutes >= 360 && totalMinutes < 720) return 'Forenoon (6 AM - 12 PM)';
+      if (totalMinutes >= 720 && totalMinutes < 1260) return 'Afternoon (12 PM - 9 PM)';
+      return 'Night (9 PM - 6 AM)';
     }
-    // 12:00 PM (720 mins) to 9:00 PM (1260 mins)
-    if (totalMinutes >= 720 && totalMinutes < 1260) {
-      return 'Afternoon (12 PM - 9 PM)';
+
+    // Check 24h format
+    const match24 = str.match(/^(\d{1,2}):(\d{2})$/);
+    if (match24) {
+      const hours = parseInt(match24[1]);
+      const minutes = parseInt(match24[2]);
+      const totalMinutes = hours * 60 + minutes;
+      if (totalMinutes >= 360 && totalMinutes < 720) return 'Forenoon (6 AM - 12 PM)';
+      if (totalMinutes >= 720 && totalMinutes < 1260) return 'Afternoon (12 PM - 9 PM)';
+      return 'Night (9 PM - 6 AM)';
     }
-    // 9:00 PM (1260 mins) to 6:00 AM (360 mins)
-    return 'Night (9 PM - 6 AM)';
+
+    return 'Unknown';
   }
 
   // 3. Render KPI values
