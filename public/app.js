@@ -3576,6 +3576,56 @@ function runDatabaseAuditScan() {
       }
     });
   });
+
+  // Third pass: Multi-Foetal Pregnancy Detection (Check if 2+ consecutive entries share same Patient & Husband Name)
+  const nameField = state.schema.find(f => f.id === 'name' || f.id.includes('name') || (f.title && f.title.toLowerCase().includes('name')));
+  const husbandField = state.schema.find(f => f.id === 'husband' || f.id.includes('husband') || (f.title && (f.title.toLowerCase().includes('husband') || f.title.toLowerCase().includes('father'))));
+
+  if (nameField && husbandField) {
+    for (let i = 0; i < filteredRecords.length - 1; i++) {
+      const recA = filteredRecords[i];
+      const recB = filteredRecords[i + 1];
+
+      const nameA = (recA.data ? recA.data[nameField.id] : '') || '';
+      const nameB = (recB.data ? recB.data[nameField.id] : '') || '';
+
+      const husbandA = (recA.data ? recA.data[husbandField.id] : '') || '';
+      const husbandB = (recB.data ? recB.data[husbandField.id] : '') || '';
+
+      const cleanNameA = String(nameA).trim().toLowerCase();
+      const cleanNameB = String(nameB).trim().toLowerCase();
+      const cleanHusbandA = String(husbandA).trim().toLowerCase();
+      const cleanHusbandB = String(husbandB).trim().toLowerCase();
+
+      if (cleanNameA !== '' && cleanNameA === cleanNameB && cleanHusbandA !== '' && cleanHusbandA === cleanHusbandB) {
+        // Detected consecutive pair with same name & husband name!
+        const existingA = auditAnomalies.find(a => a.recordId === recA.id && a.issue.includes('Multi-Foetal'));
+        if (!existingA) {
+          auditAnomalies.push({
+            recordId: recA.id,
+            date: recA.date || "",
+            field: nameField,
+            val: `${nameA} (H: ${husbandA})`,
+            issue: `👶 Potential Multi-Foetal Pregnancy: Same Patient & Husband Name as consecutive Row #${recB.id}`,
+            suggestion: "Consolidate Twin/Triplet deliveries into 1 surgery entry with infant sub-cards",
+            record: recA
+          });
+        }
+        const existingB = auditAnomalies.find(a => a.recordId === recB.id && a.issue.includes('Multi-Foetal'));
+        if (!existingB) {
+          auditAnomalies.push({
+            recordId: recB.id,
+            date: recB.date || "",
+            field: nameField,
+            val: `${nameB} (H: ${husbandB})`,
+            issue: `👶 Potential Multi-Foetal Pregnancy: Same Patient & Husband Name as consecutive Row #${recA.id}`,
+            suggestion: "Consolidate Twin/Triplet deliveries into 1 surgery entry with infant sub-cards",
+            record: recB
+          });
+        }
+      }
+    }
+  }
 }
 
 function renderAuditTable() {
