@@ -473,12 +473,14 @@ async function saveDraftsToStorage() {
 }
 
 function updateDraftCountBadges() {
-  const count = state.drafts.length;
-  DOM.draftsCountBadge.textContent = count;
-  if (count > 0) {
-    DOM.draftsCountBadge.classList.remove('hidden');
-  } else {
-    DOM.draftsCountBadge.classList.add('hidden');
+  const count = state.drafts ? state.drafts.length : 0;
+  if (DOM.draftsCountBadge) {
+    DOM.draftsCountBadge.textContent = count;
+    if (count > 0) {
+      DOM.draftsCountBadge.classList.remove('hidden');
+    } else {
+      DOM.draftsCountBadge.classList.add('hidden');
+    }
   }
 }
 
@@ -575,8 +577,8 @@ function updateConnectivityUI() {
 
 async function openLoginModal(isRestore = false) {
   if (!isRestore) {
-    DOM.loginUsername.value = '';
-    DOM.loginPassword.value = '';
+    if (DOM.loginUsername) DOM.loginUsername.value = '';
+    if (DOM.loginPassword) DOM.loginPassword.value = '';
     state.loginTempToken = null;
     sessionStorage.removeItem('loginTempToken');
     sessionStorage.removeItem('loginTempPassword');
@@ -618,8 +620,8 @@ async function openLoginModal(isRestore = false) {
   }
   if (submitBtn) submitBtn.textContent = 'Login';
   
-  DOM.loginError.classList.add('hidden');
-  DOM.authModal.classList.add('active');
+  if (DOM.loginError) DOM.loginError.classList.add('hidden');
+  if (DOM.authModal) DOM.authModal.classList.add('active');
   document.body.style.overflow = 'hidden';
 }
 
@@ -638,8 +640,8 @@ function openAdminRegisterModal() {
     DOM.loginOtp.removeAttribute('required');
   }
 
-  DOM.loginUsername.value = '';
-  DOM.loginPassword.value = '';
+  if (DOM.loginUsername) DOM.loginUsername.value = '';
+  if (DOM.loginPassword) DOM.loginPassword.value = '';
 
   const title = document.getElementById('auth-modal-title');
   const subtitle = document.getElementById('login-modal-subtitle');
@@ -653,8 +655,8 @@ function openAdminRegisterModal() {
   if (toggleLink) toggleLink.style.display = 'none';
   if (submitBtn) submitBtn.textContent = 'Create Account';
   
-  DOM.loginError.classList.add('hidden');
-  DOM.authModal.classList.add('active');
+  if (DOM.loginError) DOM.loginError.classList.add('hidden');
+  if (DOM.authModal) DOM.authModal.classList.add('active');
   document.body.style.overflow = 'hidden';
 }
 
