@@ -1300,10 +1300,12 @@ function updateAuthUI() {
     if (formCard) formCard.style.display = 'block';
     if (draftsCard) draftsCard.style.display = 'block';
 
-    DOM.authBtn.className = 'btn btn-secondary';
-    DOM.authBtn.title = 'Logout';
-    DOM.authBtn.setAttribute('aria-label', 'Logout');
-    DOM.authBtnText.textContent = 'Logout';
+    if (DOM.authBtn) {
+      DOM.authBtn.className = 'btn btn-secondary';
+      DOM.authBtn.title = 'Logout';
+      DOM.authBtn.setAttribute('aria-label', 'Logout');
+    }
+    if (DOM.authBtnText) DOM.authBtnText.textContent = 'Logout';
     if (authBtnIcon) authBtnIcon.textContent = '🔓';
 
     if (DOM.userProfileHeader) {
@@ -1316,8 +1318,10 @@ function updateAuthUI() {
     let roleName = 'User';
     if (state.userRole === 'admin') roleName = 'Admin';
     else if (state.userRole === 'viewer') roleName = 'Viewer';
-    DOM.sessionStatusDisplay.className = 'status-logged-in';
-    DOM.sessionStatusDisplay.textContent = `${roleName} Mode`;
+    if (DOM.sessionStatusDisplay) {
+      DOM.sessionStatusDisplay.className = 'status-logged-in';
+      DOM.sessionStatusDisplay.textContent = `${roleName} Mode`;
+    }
 
     if (DOM.creatorAdminWarning) DOM.creatorAdminWarning.className = 'alert-box alert-warning hidden';
     if (DOM.saveSchemaBtn) DOM.saveSchemaBtn.removeAttribute('disabled');
@@ -1335,16 +1339,20 @@ function updateAuthUI() {
       DOM.userProfileHeader.classList.add('hidden');
     }
 
-    DOM.authBtn.className = 'btn btn-secondary';
-    DOM.authBtn.title = 'Login';
-    DOM.authBtn.setAttribute('aria-label', 'Login');
-    DOM.authBtnText.textContent = 'Login';
+    if (DOM.authBtn) {
+      DOM.authBtn.className = 'btn btn-secondary';
+      DOM.authBtn.title = 'Login';
+      DOM.authBtn.setAttribute('aria-label', 'Login');
+    }
+    if (DOM.authBtnText) DOM.authBtnText.textContent = 'Login';
     if (authBtnIcon) authBtnIcon.textContent = '🔒';
-    DOM.sessionStatusDisplay.className = 'status-logged-out';
-    DOM.sessionStatusDisplay.textContent = 'Guest Mode';
-    DOM.creatorAdminWarning.className = 'alert-box alert-warning';
-    DOM.saveSchemaBtn.setAttribute('disabled', 'true');
-    DOM.submitCredentialsBtn.setAttribute('disabled', 'true');
+    if (DOM.sessionStatusDisplay) {
+      DOM.sessionStatusDisplay.className = 'status-logged-out';
+      DOM.sessionStatusDisplay.textContent = 'Guest Mode';
+    }
+    if (DOM.creatorAdminWarning) DOM.creatorAdminWarning.className = 'alert-box alert-warning';
+    if (DOM.saveSchemaBtn) DOM.saveSchemaBtn.setAttribute('disabled', 'true');
+    if (DOM.submitCredentialsBtn) DOM.submitCredentialsBtn.setAttribute('disabled', 'true');
     if (DOM.clearDatabaseBtn) DOM.clearDatabaseBtn.setAttribute('disabled', 'true');
     if (DOM.clearUsersBtn) DOM.clearUsersBtn.setAttribute('disabled', 'true');
     if (DOM.localBackupExportBtn) DOM.localBackupExportBtn.setAttribute('disabled', 'true');
