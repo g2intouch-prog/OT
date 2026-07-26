@@ -626,33 +626,6 @@
       <!-- TAB 7: SETTINGS -->
       <section id="tab-settings" class="tab-panel" style="max-width: 1200px; margin: 0 auto; padding-bottom: 16px;">
         
-        <!-- Top 3-Role Summary Badges -->
-        <div style="display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap;">
-          <div style="flex: 1; min-width: 150px; padding: 10px 14px; background: rgba(255,255,255,0.03); border: 1px solid var(--panel-border); border-radius: 8px;">
-            <div style="display: flex; align-items: center; justify-content: space-between;">
-              <span style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted);">🛡️ Administrators</span>
-              <span style="width: 8px; height: 8px; border-radius: 50%; background: var(--accent-color); display: inline-block; box-shadow: 0 0 8px var(--accent-color);"></span>
-            </div>
-            <strong id="role-count-admin" style="font-size: 1.25rem; color: var(--text-main); display: block; margin-top: 2px;">0</strong>
-          </div>
-          
-          <div style="flex: 1; min-width: 150px; padding: 10px 14px; background: rgba(255,255,255,0.03); border: 1px solid var(--panel-border); border-radius: 8px;">
-            <div style="display: flex; align-items: center; justify-content: space-between;">
-              <span style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted);">📝 Operators</span>
-              <span style="width: 8px; height: 8px; border-radius: 50%; background: #2ea44f; display: inline-block; box-shadow: 0 0 8px #2ea44f;"></span>
-            </div>
-            <strong id="role-count-operator" style="font-size: 1.25rem; color: var(--text-main); display: block; margin-top: 2px;">0</strong>
-          </div>
-
-          <div style="flex: 1; min-width: 150px; padding: 10px 14px; background: rgba(255,255,255,0.03); border: 1px solid var(--panel-border); border-radius: 8px;">
-            <div style="display: flex; align-items: center; justify-content: space-between;">
-              <span style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted);">📊 Viewers</span>
-              <span style="width: 8px; height: 8px; border-radius: 50%; background: #a371f7; display: inline-block; box-shadow: 0 0 8px #a371f7;"></span>
-            </div>
-            <strong id="role-count-viewer" style="font-size: 1.25rem; color: var(--text-main); display: block; margin-top: 2px;">0</strong>
-          </div>
-        </div>
-
         <!-- 2-Column Responsive Dashboard Grid -->
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 16px; align-items: start;">
           
@@ -728,7 +701,27 @@
             
             <!-- Live Team Status Panel -->
             <div id="admin-management-panel" class="panel-card hidden" style="padding: 16px; margin: 0;">
-              <h3 style="font-size: 0.95rem; margin-bottom: 8px; color: var(--success);">👥 Active Team Roster</h3>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
+                <h3 style="font-size: 0.95rem; margin: 0; color: var(--success);">👥 My Team</h3>
+                
+                <!-- 3 Sleek Role Count Ovals -->
+                <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+                  <span style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 12px; font-size: 0.7rem; font-weight: 600; background: rgba(57,255,20,0.08); border: 1px solid rgba(57,255,20,0.3); color: #2ea44f;">
+                    <span style="width: 6px; height: 6px; border-radius: 50%; background: #2ea44f;"></span>
+                    <span>Admin: <strong id="role-count-admin">0</strong></span>
+                  </span>
+
+                  <span style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 12px; font-size: 0.7rem; font-weight: 600; background: rgba(88,166,255,0.08); border: 1px solid rgba(88,166,255,0.3); color: #58a6ff;">
+                    <span style="width: 6px; height: 6px; border-radius: 50%; background: #58a6ff;"></span>
+                    <span>Operator: <strong id="role-count-operator">0</strong></span>
+                  </span>
+
+                  <span style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 12px; font-size: 0.7rem; font-weight: 600; background: rgba(163,113,247,0.08); border: 1px solid rgba(163,113,247,0.3); color: #a371f7;">
+                    <span style="width: 6px; height: 6px; border-radius: 50%; background: #a371f7;"></span>
+                    <span>Viewer: <strong id="role-count-viewer">0</strong></span>
+                  </span>
+                </div>
+              </div>
               
               <div class="table-responsive" style="margin-bottom: 12px; max-height: 180px; overflow-y: auto;">
                 <table class="data-table" style="font-size: 0.8rem;">
