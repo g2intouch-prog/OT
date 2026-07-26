@@ -389,6 +389,17 @@
             </div>
           </div>
 
+          <!-- Decryption Recovery Alert Banner -->
+          <div id="decryption-recovery-banner" class="alert-box alert-warning hidden mt-3" style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: rgba(210, 153, 34, 0.15); border: 1px solid rgba(210, 153, 34, 0.4); border-radius: 8px;">
+            <div>
+              <strong style="color: #e3b341;">⚠️ Undecrypted Records Detected (<span id="undecrypted-count">0</span>)</strong>
+              <p style="margin: 4px 0 0; font-size: 0.8rem; color: var(--text-muted);">Some records were encrypted under a previous password or vault key. Click to decrypt and repair them.</p>
+            </div>
+            <button id="open-recovery-modal-btn" class="btn btn-warning" style="white-space: nowrap; font-weight: 600; background-color: #d29922; border-color: #bb861a;">
+              🔑 Recover Data
+            </button>
+          </div>
+
           <!-- Duplicate Records Warning Box -->
           <div id="db-duplicate-alert" class="alert-box alert-danger hidden mt-3">
             <span>⚠️ Warning: Duplicate records detected in database! Please review highlighted rows and delete or edit the incorrect entry.</span>
@@ -1375,6 +1386,32 @@
       </div>
       <div class="modal-actions" style="padding: 16px 24px; margin-top: 0; background-color: #161b22; border-top: 1px solid var(--panel-border);">
         <button type="button" id="close-help-modal-btn-bottom" class="btn btn-secondary">Close Guide</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- EMERGENCY DATA RECOVERY MODAL -->
+  <div id="recovery-modal" class="modal-overlay hidden">
+    <div class="modal-card" style="max-width: 500px; padding: 0; overflow: hidden; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--panel-border);">
+      <div class="modal-header" style="padding: 16px 20px; background: #161b22; border-bottom: 1px solid var(--panel-border); display: flex; justify-content: space-between; align-items: center;">
+        <h3 style="margin: 0; font-size: 1rem; display: flex; align-items: center; gap: 8px; color: var(--text-main);">
+          <span>🔑</span> Data Decryption Recovery Tool
+        </h3>
+        <button id="close-recovery-modal-btn" class="close-btn" style="background: none; border: none; font-size: 18px; color: var(--text-muted); cursor: pointer;">&times;</button>
+      </div>
+      <div class="modal-body" style="padding: 20px;">
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 16px; line-height: 1.5;">
+          If database records fail to decrypt after a password change or key rotation, enter your <strong>previous account password</strong> below. The system will derive the matching decryption key, recover all undecrypted records, and auto-heal your database with your current active vault key.
+        </p>
+        <div class="form-group" style="margin-bottom: 16px;">
+          <label for="recovery-password-input" style="font-size: 0.8rem; font-weight: 600; display: block; margin-bottom: 6px;">Previous Account Password</label>
+          <input type="password" id="recovery-password-input" class="form-control" placeholder="Type your old/previous password..." style="width: 100%; padding: 8px 12px; font-size: 0.9rem;">
+        </div>
+        <div id="recovery-status-msg" style="font-size: 0.825rem; font-weight: 500; min-height: 20px; display: none;"></div>
+      </div>
+      <div class="modal-actions" style="padding: 14px 20px; background: #161b22; border-top: 1px solid var(--panel-border); display: flex; justify-content: flex-end; gap: 10px;">
+        <button id="cancel-recovery-btn" class="btn btn-secondary" style="padding: 6px 14px; font-size: 0.85rem;">Cancel</button>
+        <button id="run-recovery-btn" class="btn btn-primary" style="padding: 6px 16px; font-size: 0.85rem; background-color: var(--accent-color);">Start Recovery & Repair</button>
       </div>
     </div>
   </div>

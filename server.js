@@ -937,9 +937,11 @@ app.post('/api/settings/credentials', authRateLimiter, checkAuth, async (req, re
       return res.status(400).json({ error: 'Incorrect current password.' });
     }
 
+    const finalWrappedKey = (wrappedVaultKey !== null && wrappedVaultKey !== undefined) ? wrappedVaultKey : user.wrapped_vault_key;
+
     await db.query("BEGIN");
     if (process.env.POSTGRES_URL) {
-      await db.query("UPDATE users SET username = $1, password = $2, public_key = $3, encrypted_private_key = $4, wrapped_vault_key = $5, salt = $6 WHERE id = $7", [newUsername.trim(), newPassword, publicKey, encryptedPrivateKey, wrappedVaultKey, salt, user.id]);
+      await db.query("UPDATE users SET username = $1, password = $2, public_key = $3, encrypted_private_key = $4, wrapped_vault_key = $5, salt = $6 WHERE id = $7", [newUsername.trim(), newPassword, publicKey, encryptedPrivateKey, finalWrappedKey, salt, user.id]);
     } else {
       const inMemUser = require('./lib/db').inMemoryDb.users.find(u => u.id === user.id);
       if (inMemUser) {
@@ -947,7 +949,7 @@ app.post('/api/settings/credentials', authRateLimiter, checkAuth, async (req, re
         inMemUser.password = newPassword;
         inMemUser.public_key = publicKey;
         inMemUser.encrypted_private_key = encryptedPrivateKey;
-        inMemUser.wrapped_vault_key = wrappedVaultKey;
+        if (finalWrappedKey) inMemUser.wrapped_vault_key = finalWrappedKey;
         inMemUser.salt = salt;
       }
     }
@@ -963,7 +965,7 @@ app.post('/api/settings/credentials', authRateLimiter, checkAuth, async (req, re
 
 // Change password for any user
 app.post('/api/settings/change-password', authRateLimiter, checkAuth, async (req, res) => {
-  const { currentPassword, newPassword, code, encryptedPrivateKey, salt } = req.body;
+  const { currentPassword, newPassword, code, encryptedPrivateKey, wrappedVaultKey, salt } = req.body;
 
   if (!currentPassword || !newPassword) {
     return res.status(400).json({ error: 'Current password and new Password are required.' });
@@ -993,8 +995,10 @@ app.post('/api/settings/change-password', authRateLimiter, checkAuth, async (req
       return res.status(400).json({ error: 'Incorrect current password.' });
     }
 
+    const finalWrappedKey = (wrappedVaultKey !== null && wrappedVaultKey !== undefined) ? wrappedVaultKey : user.wrapped_vault_key;
+
     if (process.env.POSTGRES_URL) {
-      await db.query("UPDATE users SET password = $1, encrypted_private_key = $2, salt = $3 WHERE id = $4", [newPassword, encryptedPrivateKey, salt, user.id]);
+      await db.query("UPDATE users SET password = $1, encrypted_private_key = $2, wrapped_vault_key = $3, salt = $4 WHERE id = $5", [newPassword, encryptedPrivateKey, finalWrappedKey, salt, user.id]);
       if (user.id === 'usr-admin-s') {
         await db.query("INSERT INTO config (key, value) VALUES ('admin_pass', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", [newPassword]);
       }
@@ -1003,6 +1007,7 @@ app.post('/api/settings/change-password', authRateLimiter, checkAuth, async (req
       if (inMemUser) {
         inMemUser.password = newPassword;
         inMemUser.encrypted_private_key = encryptedPrivateKey;
+        if (finalWrappedKey) inMemUser.wrapped_vault_key = finalWrappedKey;
         inMemUser.salt = salt;
       }
       if (user.id === 'usr-admin-s') {

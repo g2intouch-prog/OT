@@ -157,7 +157,16 @@ document.addEventListener('DOMContentLoaded', () => {
           const encData = rec.data && rec.data.ciphertext ? rec.data : null;
           if (encData) {
             try {
-              const plainText = await decryptWithKey(oldKey, encData.ciphertext, encData.iv);
+              let plainText;
+              try {
+                plainText = await decryptWithKey(oldKey, encData.ciphertext, encData.iv);
+              } catch (e1) {
+                if (window.SecurityEngine && window.SecurityEngine.isUnlocked()) {
+                  plainText = await window.SecurityEngine.decryptPayload(encData.ciphertext, encData.iv);
+                } else {
+                  throw e1;
+                }
+              }
               const reEncrypted = await encryptWithKey(newKey, plainText);
               rotatedRecords.push({
                 id: rec.id,

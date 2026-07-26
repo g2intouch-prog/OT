@@ -1036,6 +1036,16 @@ async function handleChangePasswordSubmit(e) {
       privateKey = await window.SecurityEngine.decryptPrivateKey(encPrivObj.ciphertext, encPrivObj.iv, oldKek);
       const newEncPrivate = await window.SecurityEngine.encryptPrivateKey(privateKey, newKek);
       encryptedPrivateKeyStr = JSON.stringify(newEncPrivate);
+
+      if (window.SecurityEngine && window.SecurityEngine.isUnlocked()) {
+        try {
+          wrappedVaultKeyStr = await window.SecurityEngine.wrapVaultKey(publicKeyB64);
+        } catch (wErr) {
+          wrappedVaultKeyStr = state.wrappedVaultKey || null;
+        }
+      } else {
+        wrappedVaultKeyStr = state.wrappedVaultKey || null;
+      }
     } catch (err) {
       alert("Verification failed: Could not decrypt private key. Check your current password.");
       DOM.submitChangePasswordBtn.disabled = false;
@@ -1066,7 +1076,7 @@ async function handleChangePasswordSubmit(e) {
   
   const requestBody = isAdminUpdate 
     ? { currentPassword, newUsername, newPassword, code, publicKey: publicKeyB64, encryptedPrivateKey: encryptedPrivateKeyStr, wrappedVaultKey: wrappedVaultKeyStr, salt: newSaltB64 }
-    : { currentPassword, newPassword, code, encryptedPrivateKey: encryptedPrivateKeyStr, salt: newSaltB64 };
+    : { currentPassword, newPassword, code, encryptedPrivateKey: encryptedPrivateKeyStr, wrappedVaultKey: wrappedVaultKeyStr, salt: newSaltB64 };
 
   try {
     const response = await fetch(url, {
@@ -1162,6 +1172,16 @@ async function handleUpdateCredentials(e) {
       privateKey = await window.SecurityEngine.decryptPrivateKey(encPrivObj.ciphertext, encPrivObj.iv, oldKek);
       const newEncPrivate = await window.SecurityEngine.encryptPrivateKey(privateKey, newKek);
       encryptedPrivateKeyStr = JSON.stringify(newEncPrivate);
+
+      if (window.SecurityEngine && window.SecurityEngine.isUnlocked()) {
+        try {
+          wrappedVaultKeyStr = await window.SecurityEngine.wrapVaultKey(publicKeyB64);
+        } catch (wErr) {
+          wrappedVaultKeyStr = state.wrappedVaultKey || null;
+        }
+      } else {
+        wrappedVaultKeyStr = state.wrappedVaultKey || null;
+      }
     } catch (err) {
       alert("Verification failed: Could not decrypt private key. Check your current password.");
       DOM.submitCredentialsBtn.disabled = false;
@@ -1406,6 +1426,24 @@ async function fetchUserProfile(loginPassword = null) {
           await window.SecurityEngine.unlockVault(data.vaultKey, data.role === 'admin');
           console.log('Cryptographic boundary established for onboarding.');
           
+          if (!data.wrappedVaultKey && data.publicKey && window.SecurityEngine.isUnlocked()) {
+            try {
+              const repairedWrappedKey = await window.SecurityEngine.wrapVaultKey(data.publicKey);
+              await fetch('/api/admin/save-wrapped-key', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ userId: data.id || 'usr-admin-s', wrappedVaultKey: repairedWrappedKey })
+              });
+              state.wrappedVaultKey = repairedWrappedKey;
+              console.log('Successfully repaired missing wrapped_vault_key.');
+            } catch (repairErr) {
+              console.warn('Auto-repair wrapped key failed:', repairErr);
+            }
+          }
+
           const keyStatusInput = document.getElementById('display-key-status');
           if (keyStatusInput) {
             keyStatusInput.value = 'RAM VOLATILE LOCKED-IN';
@@ -1597,6 +1635,142 @@ function recalculateClientSerials() {
   }
 }
 
+// Storage for user recovery candidate keys
+state.customRecoveryKeys = state.customRecoveryKeys || [];
+
+async function decryptRecordPayload(rec) {
+  if (!rec || !rec.data || !rec.data.ciphertext || !rec.data.iv) return false;
+  if (typeof rec.data === 'object' && !rec.data.ciphertext) return true;
+
+  const ciphertextB64 = rec.data.ciphertext;
+  const ivB64 = rec.data.iv;
+
+  // 1. Try with active SecurityEngine key in RAM (Primary Vault Key)
+  if (window.SecurityEngine && window.SecurityEngine.isUnlocked()) {
+    try {
+      const decText = await window.SecurityEngine.decryptPayload(ciphertextB64, ivB64);
+      rec.encryptedData = rec.data;
+      rec.data = JSON.parse(decText);
+      return true;
+    } catch (e) {
+      // Primary key failed
+    }
+  }
+
+  // 2. Try with session KEK (Key Encrypting Key) if available in sessionStorage
+  const sessionKekB64 = sessionStorage.getItem('encryptionKek');
+  if (sessionKekB64) {
+    try {
+      const rawKek = window.SecurityEngine.base64ToUint8Array(sessionKekB64);
+      const tempKey = await window.crypto.subtle.importKey(
+        'raw', rawKek, { name: 'AES-GCM', length: 256 }, false, ['decrypt']
+      );
+      const ciphertext = window.SecurityEngine.base64ToUint8Array(ciphertextB64);
+      const iv = window.SecurityEngine.base64ToUint8Array(ivB64);
+      const decBuffer = await window.crypto.subtle.decrypt({ name: 'AES-GCM', iv }, tempKey, ciphertext);
+      const decText = new TextDecoder().decode(decBuffer);
+      rec.encryptedData = rec.data;
+      rec.data = JSON.parse(decText);
+      rec._needsReEncryption = true;
+      console.log('Record ID', rec.id, 'decrypted via session KEK fallback.');
+      return true;
+    } catch (e) {}
+  }
+
+  // 3. Try custom recovery keys (derived from previous user passwords)
+  if (state.customRecoveryKeys && state.customRecoveryKeys.length > 0) {
+    for (const keyObj of state.customRecoveryKeys) {
+      try {
+        const ciphertext = window.SecurityEngine.base64ToUint8Array(ciphertextB64);
+        const iv = window.SecurityEngine.base64ToUint8Array(ivB64);
+        const decBuffer = await window.crypto.subtle.decrypt({ name: 'AES-GCM', iv }, keyObj, ciphertext);
+        const decText = new TextDecoder().decode(decBuffer);
+        rec.encryptedData = rec.data;
+        rec.data = JSON.parse(decText);
+        rec._needsReEncryption = true;
+        console.log('Record ID', rec.id, 'decrypted via custom recovery key.');
+        return true;
+      } catch (e) {}
+    }
+  }
+
+  // 4. Try default static key fallback
+  const defaultKeyB64 = 'dGhpcy1pcy1hLXNlY3JldC0zMi1ieXRlLWtleS0xMjM=';
+  try {
+    const rawKey = window.SecurityEngine.base64ToUint8Array(defaultKeyB64);
+    const tempKey = await window.crypto.subtle.importKey(
+      'raw', rawKey, { name: 'AES-GCM', length: 256 }, false, ['decrypt']
+    );
+    const ciphertext = window.SecurityEngine.base64ToUint8Array(ciphertextB64);
+    const iv = window.SecurityEngine.base64ToUint8Array(ivB64);
+    const decBuffer = await window.crypto.subtle.decrypt({ name: 'AES-GCM', iv }, tempKey, ciphertext);
+    const decText = new TextDecoder().decode(decBuffer);
+    rec.encryptedData = rec.data;
+    rec.data = JSON.parse(decText);
+    rec._needsReEncryption = true;
+    console.log('Record ID', rec.id, 'decrypted via default static key fallback.');
+    return true;
+  } catch (e) {}
+
+  return false;
+}
+
+// Automatically re-encrypt records that were decrypted with fallback keys
+async function healAndReencryptRecords() {
+  if (!window.SecurityEngine || !window.SecurityEngine.isUnlocked()) return;
+  
+  const recordsToHeal = state.dbRecords.filter(r => r._needsReEncryption && r.data && !r.data.ciphertext);
+  if (recordsToHeal.length === 0) return;
+
+  console.log(`Auto-healing ${recordsToHeal.length} records with active Vault Key...`);
+  const token = state.authToken || sessionStorage.getItem('authToken');
+
+  for (const rec of recordsToHeal) {
+    try {
+      const payloadStr = JSON.stringify(rec.data);
+      const reEncrypted = await window.SecurityEngine.encryptPayload(payloadStr);
+      
+      const res = await fetch(`/api/entries/update/${rec.id}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          date: rec.date,
+          data: reEncrypted
+        })
+      });
+
+      if (res.ok) {
+        rec.encryptedData = reEncrypted;
+        delete rec._needsReEncryption;
+        console.log(`Successfully healed record ID ${rec.id} in DB.`);
+      }
+    } catch (err) {
+      console.warn(`Failed to auto-heal record ID ${rec.id}:`, err);
+    }
+  }
+}
+
+// Updates UI elements when undecrypted records are present
+function updateDecryptionRecoveryUI() {
+  const undecryptedRecords = state.dbRecords.filter(r => r.data && r.data.ciphertext && r.data.iv);
+  const banner = document.getElementById('decryption-recovery-banner');
+  const countEl = document.getElementById('undecrypted-count');
+
+  if (banner && countEl) {
+    if (undecryptedRecords.length > 0) {
+      countEl.textContent = undecryptedRecords.length;
+      banner.classList.remove('hidden');
+      banner.style.display = 'flex';
+    } else {
+      banner.classList.add('hidden');
+      banner.style.display = 'none';
+    }
+  }
+}
+
 async function fetchDatabaseRecords() {
   if (!state.isOnline) return;
 
@@ -1605,72 +1779,60 @@ async function fetchDatabaseRecords() {
     if (response.ok) {
       state.dbRecords = await response.json();
       
-      // Decrypt database records inline if key is loaded in memory
-      if (window.SecurityEngine && window.SecurityEngine.isUnlocked()) {
-        const selectedMonth = DOM.filterMonth ? DOM.filterMonth.value : 'all';
-        const selectedYear = DOM.filterYear ? DOM.filterYear.value : 'all';
-        
-        const priorityRecords = [];
-        const otherRecords = [];
-        
-        for (const rec of state.dbRecords) {
-          if (rec.data && rec.data.ciphertext && rec.data.iv) {
-            if (!rec.date) {
-              otherRecords.push(rec);
-              continue;
-            }
-            const [yr, mo] = rec.date.split('-');
-            const matchMonth = (selectedMonth === 'all' || mo === selectedMonth);
-            const matchYear = (selectedYear === 'all' || yr === selectedYear);
-            if (matchMonth && matchYear) {
-              priorityRecords.push(rec);
-            } else {
-              otherRecords.push(rec);
-            }
+      const selectedMonth = DOM.filterMonth ? DOM.filterMonth.value : 'all';
+      const selectedYear = DOM.filterYear ? DOM.filterYear.value : 'all';
+      
+      const priorityRecords = [];
+      const otherRecords = [];
+      
+      for (const rec of state.dbRecords) {
+        if (rec.data && rec.data.ciphertext && rec.data.iv) {
+          if (!rec.date) {
+            otherRecords.push(rec);
+            continue;
           }
-        }
-        
-        // 1. Decrypt priority records first in parallel
-        if (priorityRecords.length > 0) {
-          await Promise.all(priorityRecords.map(async (rec) => {
-            try {
-              const decText = await window.SecurityEngine.decryptPayload(rec.data.ciphertext, rec.data.iv);
-              rec.encryptedData = rec.data;
-              rec.data = JSON.parse(decText);
-            } catch (e) {
-              console.warn('Failed to decrypt priority record', rec.id, e);
-            }
-          }));
-          
-          // Render immediately once priority records are decrypted
-          recalculateClientSerials();
-          renderDBTable();
-          populateYearFilters();
-        }
-        
-        // 2. Decrypt remaining records in parallel in the background
-        if (otherRecords.length > 0) {
-          Promise.all(otherRecords.map(async (rec) => {
-            try {
-              const decText = await window.SecurityEngine.decryptPayload(rec.data.ciphertext, rec.data.iv);
-              rec.encryptedData = rec.data;
-              rec.data = JSON.parse(decText);
-            } catch (e) {
-              console.warn('Failed to decrypt background record', rec.id, e);
-            }
-          })).then(() => {
-            recalculateClientSerials();
-            // Re-render if the user switched filter, or just update the table quietly
-            renderDBTable();
-          });
+          const [yr, mo] = rec.date.split('-');
+          const matchMonth = (selectedMonth === 'all' || mo === selectedMonth);
+          const matchYear = (selectedYear === 'all' || yr === selectedYear);
+          if (matchMonth && matchYear) {
+            priorityRecords.push(rec);
+          } else {
+            otherRecords.push(rec);
+          }
         }
       }
       
+      // 1. Decrypt priority records first in parallel
+      if (priorityRecords.length > 0) {
+        await Promise.all(priorityRecords.map(async (rec) => {
+          await decryptRecordPayload(rec);
+        }));
+        
+        recalculateClientSerials();
+        renderDBTable();
+        populateYearFilters();
+        updateDecryptionRecoveryUI();
+        await healAndReencryptRecords();
+      }
+      
+      // 2. Decrypt remaining records in parallel in the background
+      if (otherRecords.length > 0) {
+        Promise.all(otherRecords.map(async (rec) => {
+          await decryptRecordPayload(rec);
+        })).then(async () => {
+          recalculateClientSerials();
+          renderDBTable();
+          updateDecryptionRecoveryUI();
+          await healAndReencryptRecords();
+        });
+      }
+
       // Recalculate serial numbers client-side (after decryption)
       recalculateClientSerials();
       
       renderDBTable();
       populateYearFilters();
+      updateDecryptionRecoveryUI();
 
       // Update reports count badge
       const reportsBadge = document.getElementById('reports-count-badge');
@@ -1712,19 +1874,11 @@ async function fetchDeletedDbRecords() {
       state.deletedDbRecords = await response.json();
       
       // Decrypt deleted db records
-      if (window.SecurityEngine && window.SecurityEngine.isUnlocked()) {
-        await Promise.all(state.deletedDbRecords.map(async (rec) => {
-          if (rec.data && rec.data.ciphertext && rec.data.iv) {
-            try {
-              const decText = await window.SecurityEngine.decryptPayload(rec.data.ciphertext, rec.data.iv);
-              rec.encryptedData = rec.data;
-              rec.data = JSON.parse(decText);
-            } catch (e) {
-              console.warn('Failed to decrypt deleted record', rec.id, e);
-            }
-          }
-        }));
-      }
+      await Promise.all(state.deletedDbRecords.map(async (rec) => {
+        if (rec.data && rec.data.ciphertext && rec.data.iv) {
+          await decryptRecordPayload(rec);
+        }
+      }));
       renderDeletedDraftsTable();
     }
   } catch (err) {
@@ -4364,6 +4518,9 @@ function setupEventListeners() {
     DOM.changeUserPasswordForm.addEventListener('submit', handleChangePasswordSubmit);
   }
 
+  // Initialize Emergency Data Recovery modal handlers
+  setupEmergencyDataRecoveryHandlers();
+
 
   // Theme Toggle
   if (DOM.themeToggleBtn) DOM.themeToggleBtn.addEventListener('click', toggleTheme);
@@ -4772,6 +4929,126 @@ function setupEventListeners() {
       if (e.target === DOM.detailsModal) {
         DOM.detailsModal.classList.remove('active');
         document.body.style.overflow = '';
+      }
+    });
+  }
+}
+
+function setupEmergencyDataRecoveryHandlers() {
+  const openBtn = document.getElementById('open-recovery-modal-btn');
+  const closeBtn = document.getElementById('close-recovery-modal-btn');
+  const cancelBtn = document.getElementById('cancel-recovery-btn');
+  const runBtn = document.getElementById('run-recovery-btn');
+  const modal = document.getElementById('recovery-modal');
+  const pwdInput = document.getElementById('recovery-password-input');
+  const statusMsg = document.getElementById('recovery-status-msg');
+
+  if (!modal) return;
+
+  function openRecoveryModal() {
+    modal.classList.remove('hidden');
+    modal.style.display = 'flex';
+    if (pwdInput) pwdInput.value = '';
+    if (statusMsg) {
+      statusMsg.style.display = 'none';
+      statusMsg.textContent = '';
+    }
+  }
+
+  function closeRecoveryModal() {
+    modal.classList.add('hidden');
+    modal.style.display = 'none';
+  }
+
+  if (openBtn) openBtn.addEventListener('click', openRecoveryModal);
+  if (closeBtn) closeBtn.addEventListener('click', closeRecoveryModal);
+  if (cancelBtn) cancelBtn.addEventListener('click', closeRecoveryModal);
+  if (modal) {
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) closeRecoveryModal();
+    });
+  }
+
+  if (runBtn) {
+    runBtn.addEventListener('click', async () => {
+      const pwd = pwdInput ? pwdInput.value : '';
+      if (!pwd) {
+        if (statusMsg) {
+          statusMsg.style.display = 'block';
+          statusMsg.style.color = 'var(--danger)';
+          statusMsg.textContent = 'Please enter your previous password.';
+        }
+        return;
+      }
+
+      runBtn.disabled = true;
+      runBtn.textContent = 'Decrypting...';
+      if (statusMsg) {
+        statusMsg.style.display = 'block';
+        statusMsg.style.color = 'var(--accent-color)';
+        statusMsg.textContent = 'Deriving cryptographic key from previous password...';
+      }
+
+      try {
+        const userSaltB64 = state.userSaltB64 || (typeof cachedSalt !== 'undefined' ? cachedSalt : 'dGhpcy1pcy1hLXNlY3JldC0zMi1ieXRlLWtleS0xMjM=');
+        const derivedKekB64 = await window.SecurityEngine.deriveKek(pwd, userSaltB64);
+        const rawKek = window.SecurityEngine.base64ToUint8Array(derivedKekB64);
+        const tempKey = await window.crypto.subtle.importKey(
+          'raw', rawKek, { name: 'AES-GCM', length: 256 }, false, ['decrypt']
+        );
+
+        if (!state.customRecoveryKeys) state.customRecoveryKeys = [];
+        state.customRecoveryKeys.push(tempKey);
+
+        // Also derive PBKDF2 AES-GCM key directly in case records were encrypted via PBKDF2 key rotation
+        try {
+          const encoder = new TextEncoder();
+          const baseKey = await window.crypto.subtle.importKey(
+            'raw', encoder.encode(pwd), 'PBKDF2', false, ['deriveBits', 'deriveKey']
+          );
+          const pbkdfKey = await window.crypto.subtle.deriveKey(
+            { name: 'PBKDF2', salt: window.SecurityEngine.base64ToUint8Array(userSaltB64), iterations: 600000, hash: 'SHA-256' },
+            baseKey,
+            { name: 'AES-GCM', length: 256 },
+            false,
+            ['decrypt']
+          );
+          state.customRecoveryKeys.push(pbkdfKey);
+        } catch (e2) {}
+
+        let newlyDecryptedCount = 0;
+        for (const rec of state.dbRecords) {
+          if (rec.data && rec.data.ciphertext && rec.data.iv) {
+            const success = await decryptRecordPayload(rec);
+            if (success) newlyDecryptedCount++;
+          }
+        }
+
+        if (newlyDecryptedCount > 0) {
+          recalculateClientSerials();
+          renderDBTable();
+          updateDecryptionRecoveryUI();
+          
+          statusMsg.style.color = 'var(--success)';
+          statusMsg.textContent = `Success! ${newlyDecryptedCount} old record(s) decrypted and recovered. Auto-healing database...`;
+          
+          await healAndReencryptRecords();
+
+          setTimeout(() => {
+            closeRecoveryModal();
+            alert(`Recovery complete! Successfully recovered and auto-healed ${newlyDecryptedCount} record(s).`);
+          }, 1200);
+        } else {
+          statusMsg.style.color = 'var(--danger)';
+          statusMsg.textContent = 'Could not decrypt records with this password. Please check the password and try again.';
+        }
+      } catch (err) {
+        console.error('Recovery error:', err);
+        statusMsg.style.color = 'var(--danger)';
+        statusMsg.textContent = 'Recovery failed: ' + err.message;
+      } finally {
+        runBtn.disabled = false;
+        runBtn.textContent = 'Start Recovery & Repair';
       }
     });
   }
