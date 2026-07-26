@@ -1,6 +1,6 @@
 // App State
 const state = {
-  isOnline: false,
+  isOnline: typeof navigator !== 'undefined' ? navigator.onLine : true,
   isAuthenticated: false,
   authToken: null,
   schema: [],          // Active fields list
@@ -487,24 +487,18 @@ function updateDraftCountBadges() {
 // -------------------------------------------------------------
 
 async function checkConnectivity() {
-  try {
-    // Ping API endpoint to ensure we are connected to the LAN database
-    const response = await fetch('/api/schema', { method: 'GET', cache: 'no-cache' });
-    if (response.ok) {
-      if (!state.isOnline) {
-        state.isOnline = true;
-        updateConnectivityUI();
-        // Auto fetch DB records when online
-        fetchDatabaseRecords();
+  const online = typeof navigator !== 'undefined' ? navigator.onLine : true;
+  state.isOnline = online;
+  updateConnectivityUI();
+
+  if (online) {
+    try {
+      const response = await fetch('/api/schema', { method: 'GET', cache: 'no-cache' });
+      if (response.ok) {
+        if (state.dbRecords.length === 0) fetchDatabaseRecords();
       }
-    } else {
-      throw new Error('Server returned error');
-    }
-  } catch (err) {
-    console.warn('Connectivity check failed:', err);
-    if (state.isOnline || state.isOnline === undefined) {
-      state.isOnline = false;
-      updateConnectivityUI();
+    } catch (err) {
+      console.warn('Backend ping warning:', err);
     }
   }
 }
