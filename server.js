@@ -1227,6 +1227,8 @@ app.post('/api/entries/push', checkAuth, async (req, res) => {
       let recordData;
       if (draft.ciphertext && draft.iv) {
         recordData = JSON.stringify({ ciphertext: draft.ciphertext, iv: draft.iv });
+      } else if (draft.data && draft.data.ciphertext && draft.data.iv) {
+        recordData = JSON.stringify({ ciphertext: draft.data.ciphertext, iv: draft.data.iv });
       } else {
         throw new Error('Plaintext database entries are forbidden. All entries must be encrypted.');
       }

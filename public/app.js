@@ -3454,7 +3454,17 @@ async function pushSelectedDrafts() {
       }
       draft.date = draftDate;
 
-      if (window.SecurityEngine && window.SecurityEngine.isUnlocked()) {
+      // Check if draft is ALREADY encrypted ({ ciphertext, iv })
+      if (draft.ciphertext && draft.iv) {
+        encryptedToPush.push(draft);
+      } else if (draft.data && draft.data.ciphertext && draft.data.iv) {
+        encryptedToPush.push({
+          date: draft.date,
+          verified: draft.verified,
+          ciphertext: draft.data.ciphertext,
+          iv: draft.data.iv
+        });
+      } else if (window.SecurityEngine && window.SecurityEngine.isUnlocked()) {
         try {
           const plainString = JSON.stringify(draft.data);
           const encrypted = await window.SecurityEngine.encryptPayload(plainString);
@@ -3472,7 +3482,11 @@ async function pushSelectedDrafts() {
           return;
         }
       } else {
-        encryptedToPush.push(draft);
+        alert('Vault Key is locked. Please log in or unlock your Encryption Vault to push records.');
+        if (typeof openLoginModal === 'function') openLoginModal();
+        DOM.pushSelectedBtn.disabled = false;
+        DOM.pushSelectedBtn.innerHTML = `<span>Push (<span id="push-count-text">${toPush.length}</span>)</span>`;
+        return;
       }
     }
 
