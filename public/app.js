@@ -4608,6 +4608,64 @@ function setupEventListeners() {
     });
   }
 
+  // Settings Change Password Button
+  const settingsChangePasswordBtn = document.getElementById('settings-change-password-btn');
+  if (settingsChangePasswordBtn) {
+    settingsChangePasswordBtn.addEventListener('click', () => {
+      if (typeof openChangePasswordModal === 'function') {
+        openChangePasswordModal(false);
+      }
+    });
+  }
+
+  // Settings Data Management: Open Excel Import Button
+  const settingsOpenExcelBtn = document.getElementById('settings-open-excel-import-btn');
+  if (settingsOpenExcelBtn) {
+    settingsOpenExcelBtn.addEventListener('click', () => {
+      const excelFileInput = document.getElementById('excel-import-file');
+      if (excelFileInput) excelFileInput.click();
+    });
+  }
+
+  // Settings Data Management: Open Form Creator Button
+  const settingsOpenFormCreatorBtn = document.getElementById('settings-open-form-creator-btn');
+  if (settingsOpenFormCreatorBtn) {
+    settingsOpenFormCreatorBtn.addEventListener('click', () => {
+      if (typeof switchToTab === 'function') {
+        switchToTab('form-creator');
+      }
+    });
+  }
+
+  // Forgot Password Link Event Listener
+  const forgotPasswordLink = document.getElementById('forgot-password-link');
+  if (forgotPasswordLink) {
+    forgotPasswordLink.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const loginUsernameInput = document.getElementById('login-username');
+      const emailVal = (loginUsernameInput ? loginUsernameInput.value : '').trim();
+      const username = prompt("Enter your User ID or Email to request a password reset from the Administrator:", emailVal);
+      if (!username || !username.trim()) return;
+
+      try {
+        const res = await fetch('/api/password-reset-request', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: username.trim() })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          alert(`✅ Request Submitted!\n\n${data.message}`);
+        } else {
+          const err = await res.json();
+          alert('Request failed: ' + (err.error || 'Unknown error'));
+        }
+      } catch (err) {
+        alert('Network error submitting reset request.');
+      }
+    });
+  }
+
   // Update Master Admin Email Button
   const saveAdminEmailBtn = document.getElementById('save-admin-email-btn');
   if (saveAdminEmailBtn) {
@@ -9296,6 +9354,37 @@ async function loadTeamAccounts() {
     const activeUsers = users.filter(u => u.status !== 'revoked');
     const revokedUsers = users.filter(u => u.status === 'revoked');
 
+    // Fetch pending password reset requests
+    try {
+      const resetRes = await fetch('/api/admin/password-reset-requests', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (resetRes.ok) {
+        const { requests } = await resetRes.json();
+        const resetTbody = document.getElementById('reset-requests-table-body');
+        if (resetTbody) {
+          resetTbody.innerHTML = '';
+          if (!requests || requests.length === 0) {
+            resetTbody.innerHTML = '<tr><td colspan="2" class="text-center py-1 text-muted">No pending reset requests.</td></tr>';
+          } else {
+            requests.forEach(r => {
+              const tr = document.createElement('tr');
+              tr.innerHTML = `
+                <td><strong>${r.username}</strong></td>
+                <td class="actions-col" style="white-space: nowrap;">
+                  <button onclick="approvePasswordReset(${r.id}, '${r.username}')" class="btn btn-success" style="padding: 2px 6px; font-size: 0.7rem; margin-right: 4px;">Approve & Reset</button>
+                  <button onclick="rejectPasswordReset(${r.id})" class="btn btn-secondary" style="padding: 2px 6px; font-size: 0.7rem;">Reject</button>
+                </td>
+              `;
+              resetTbody.appendChild(tr);
+            });
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("Could not fetch password reset requests:", e);
+    }
+
     // Update 3-Role Counter Badges
     const adminCount = activeUsers.filter(u => u.role === 'admin').length;
     const operatorCount = activeUsers.filter(u => u.role === 'user' || u.role === 'operator').length;
@@ -9315,7 +9404,7 @@ async function loadTeamAccounts() {
       activeUsers.forEach(user => {
         const tr = document.createElement('tr');
         const statusBadge = `<span style="color: var(--success); font-weight: bold; background: var(--success-glow); padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(46,164,79,0.2)">ACTIVE</span>`;
-        const isSelf = user.username === 'admin@vault.team' || user.id === 'usr-admin';
+        const isSelf = user.username.toLowerCase() === 'g2intouch@gmail.com' || user.username.toLowerCase() === (state.username || '').toLowerCase() || user.id === 'usr-admin-master';
         
         let promoteButton = '';
         if (!isSelf) {
@@ -9714,4 +9803,51 @@ function showRecordDetailsModal(record) {
   DOM.detailsModal.classList.add('active');
   document.body.style.overflow = 'hidden';
 }
+
+window.approvePasswordReset = async function(requestId, username) {
+  if (!confirm(`Approve password reset request for ${username}?`)) return;
+  const token = state.authToken || sessionStorage.getItem('authToken');
+  try {
+    const res = await fetch('/api/admin/approve-password-reset', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ requestId })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      alert(`✅ Password Reset Approved for ${data.username}!\n\nTemporary Password: ${data.tempPassword}\n\nPlease share this temporary password with the user so they can log in and change it.`);
+      if (typeof loadTeamAccounts === 'function') await loadTeamAccounts();
+    } else {
+      const err = await res.json();
+      alert('Failed to approve password reset: ' + (err.error || 'Unknown error'));
+    }
+  } catch (err) {
+    alert('Network error approving reset request.');
+  }
+};
+
+window.rejectPasswordReset = async function(requestId) {
+  const token = state.authToken || sessionStorage.getItem('authToken');
+  try {
+    const res = await fetch('/api/admin/reject-password-reset', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ requestId })
+    });
+    if (res.ok) {
+      if (typeof loadTeamAccounts === 'function') await loadTeamAccounts();
+    } else {
+      const err = await res.json();
+      alert('Failed to reject request: ' + (err.error || 'Unknown error'));
+    }
+  } catch (err) {
+    alert('Network error rejecting reset request.');
+  }
+};
 

@@ -77,14 +77,6 @@
           <span class="nav-icon">📝</span>
           <span class="nav-text">Data Entry</span>
         </button>
-        <button class="nav-item" data-tab="form-creator">
-          <span class="nav-icon">🛠️</span>
-          <span class="nav-text">Form Creator</span>
-        </button>
-        <button class="nav-item" data-tab="import-excel">
-          <span class="nav-icon">📥</span>
-          <span class="nav-text">Import Excel/CSV</span>
-        </button>
         <button class="nav-item" data-tab="db-viewer" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
           <div style="display: flex; align-items: center; gap: 8px;">
             <span class="nav-icon">📊</span>
@@ -647,9 +639,12 @@
               </div>
               <div id="admin-email-status-msg" style="font-size: 0.75rem; margin-bottom: 8px; display: none;"></div>
 
-              <div style="border-top: 1px dashed var(--panel-border); padding-top: 10px; margin-top: 8px;">
-                <button type="button" id="purge-old-users-btn" class="btn btn-danger" style="padding: 5px 10px; font-size: 0.75rem; width: 100%;">
-                  <span>🗑️ Remove Old User IDs (Keep Only My Account)</span>
+              <div style="border-top: 1px dashed var(--panel-border); padding-top: 10px; margin-top: 8px; display: flex; gap: 8px;">
+                <button type="button" id="settings-change-password-btn" class="btn btn-secondary" style="padding: 5px 10px; font-size: 0.75rem; flex: 1;">
+                  <span>🔑 Change Password</span>
+                </button>
+                <button type="button" id="purge-old-users-btn" class="btn btn-danger" style="padding: 5px 10px; font-size: 0.75rem; flex: 1.5;">
+                  <span>🗑️ Purge Old Users</span>
                 </button>
               </div>
             </div>
@@ -741,7 +736,32 @@
                 </table>
               </div>
 
-              <h3 style="font-size: 0.85rem; margin-bottom: 6px; color: var(--danger);">Suspended Accounts</h3>
+              <!-- Pending Password Reset Requests -->
+              <div id="password-reset-requests-section" style="margin-top: 10px; margin-bottom: 10px; border: 1px dashed rgba(255, 171, 0, 0.4); background: rgba(255, 171, 0, 0.04); padding: 8px 10px; border-radius: 6px;">
+                <h3 style="font-size: 0.8rem; margin: 0 0 6px 0; color: #ffab00;">🔔 Password Reset Requests</h3>
+                <div class="table-responsive" style="max-height: 100px; overflow-y: auto;">
+                  <table class="data-table" style="font-size: 0.75rem;">
+                    <thead>
+                      <tr>
+                        <th>User Email</th>
+                        <th class="actions-col">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody id="reset-requests-table-body">
+                      <tr>
+                        <td colspan="2" class="text-center py-1 text-muted">No pending reset requests.</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; margin-bottom: 6px;">
+                <h3 style="font-size: 0.85rem; margin: 0; color: var(--danger);">Suspended Accounts</h3>
+                <button type="button" id="clear-users-btn" class="btn btn-danger" style="background-color: #8b1c1c; border-color: #8b1c1c; padding: 2px 8px; font-size: 0.7rem;">
+                  <span>🗑️ Clear Revoked Users</span>
+                </button>
+              </div>
               <div class="table-responsive" style="max-height: 120px; overflow-y: auto;">
                 <table class="data-table" style="font-size: 0.8rem;">
                   <thead>
@@ -761,30 +781,36 @@
               </div>
             </div>
 
-            <!-- Local Backup & Maintenance Card -->
-            <div class="panel-card" id="local-backup-card" style="padding: 16px;">
-              <h3 style="font-size: 0.95rem; margin-bottom: 4px;">💾 Data Backup & Maintenance</h3>
-              <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 10px;">Export decrypted records or restore database backups.</p>
+            <!-- Data Management Card -->
+            <div class="panel-card" id="data-management-card" style="padding: 16px;">
+              <h3 style="font-size: 0.95rem; margin-bottom: 4px; color: var(--accent-color);">💾 Data Management</h3>
+              <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 10px;">Spreadsheet imports, form schema customization, CSV backups & database cleanup.</p>
               
-              <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                <button type="button" id="local-backup-export-btn" class="btn btn-success" disabled style="padding: 5px 12px; font-size: 0.75rem; flex: 1;">
-                  <span>📥 Export CSV Backup</span>
+              <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px;">
+                <button type="button" id="settings-open-excel-import-btn" class="btn btn-primary" style="padding: 5px 10px; font-size: 0.75rem; flex: 1;">
+                  <span>📥 Import Excel/CSV</span>
                 </button>
-                <input type="file" id="local-backup-restore-file" accept=".csv" style="display: none;">
-                <button type="button" id="local-backup-restore-btn" class="btn btn-secondary" disabled style="padding: 5px 12px; font-size: 0.75rem; flex: 1;">
-                  <span>📤 Restore from CSV</span>
+                <button type="button" id="settings-open-form-creator-btn" class="btn btn-secondary" style="padding: 5px 10px; font-size: 0.75rem; flex: 1;">
+                  <span>🛠️ Form Creator</span>
                 </button>
               </div>
 
-              <div style="border-top: 1px dashed var(--panel-border); padding-top: 10px; margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap;">
-                <button type="button" id="clear-drafts-btn" class="btn btn-secondary" style="border-color: var(--danger); color: var(--danger); padding: 4px 8px; font-size: 0.7rem;">
+              <div style="display: flex; gap: 8px; flex-wrap: wrap; border-top: 1px dashed var(--panel-border); padding-top: 8px; margin-top: 8px;">
+                <button type="button" id="local-backup-export-btn" class="btn btn-success" disabled style="padding: 5px 10px; font-size: 0.75rem; flex: 1;">
+                  <span>Export CSV</span>
+                </button>
+                <input type="file" id="local-backup-restore-file" accept=".csv" style="display: none;">
+                <button type="button" id="local-backup-restore-btn" class="btn btn-secondary" disabled style="padding: 5px 10px; font-size: 0.75rem; flex: 1;">
+                  <span>Restore CSV</span>
+                </button>
+              </div>
+
+              <div style="border-top: 1px dashed var(--panel-border); padding-top: 8px; margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap;">
+                <button type="button" id="clear-drafts-btn" class="btn btn-secondary" style="border-color: var(--danger); color: var(--danger); padding: 4px 8px; font-size: 0.7rem; flex: 1;">
                   <span>Clear Drafts</span>
                 </button>
-                <button type="button" id="clear-database-btn" class="btn btn-danger" disabled style="padding: 4px 8px; font-size: 0.7rem;">
+                <button type="button" id="clear-database-btn" class="btn btn-danger" disabled style="padding: 4px 8px; font-size: 0.7rem; flex: 1;">
                   <span>Clear DB</span>
-                </button>
-                <button type="button" id="clear-users-btn" class="btn btn-danger" style="background-color: #8b1c1c; border-color: #8b1c1c; padding: 4px 8px; font-size: 0.7rem;">
-                  <span>Clear Users</span>
                 </button>
               </div>
             </div>
@@ -872,9 +898,14 @@
             <button type="submit" id="submit-login-btn" class="btn btn-primary">Login</button>
           </div>
 
-          <div style="margin-top: 16px; text-align: center; font-size: 0.8rem; border-top: 1px dashed var(--panel-border); padding-top: 12px;">
-            <span id="auth-toggle-text">Don't have an account? </span>
-            <a href="#" id="auth-toggle-link" style="color: var(--accent-color); font-weight: 600; text-decoration: none;">Register here</a>
+          <div style="margin-top: 16px; text-align: center; font-size: 0.8rem; border-top: 1px dashed var(--panel-border); padding-top: 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+            <div>
+              <span id="auth-toggle-text">Don't have an account? </span>
+              <a href="#" id="auth-toggle-link" style="color: var(--accent-color); font-weight: 600; text-decoration: none;">Register here</a>
+            </div>
+            <div>
+              <a href="#" id="forgot-password-link" style="color: var(--text-muted); font-size: 0.75rem; text-decoration: underline;">Forgot Password?</a>
+            </div>
           </div>
         </form>
       </div>
@@ -1268,6 +1299,50 @@
                 <li><strong>2FA (TOTP):</strong> Set up Google Authenticator or similar tools under Settings. Scan the QR code, then confirm with the code to activate.</li>
                 <li><strong>Local Backups:</strong> Export a JSON backup file of all offline drafts to avoid loss in case of browser database wipe, or restore from a previously exported backup file.</li>
               </ul>
+            </div>
+          </div>
+
+          <!-- Category 7: User Roles & System Permissions (Role-Wise Guide) -->
+          <div class="help-item" data-category="roles permissions password reset admin operator viewer invite security">
+            <button class="help-header">
+              <span class="help-icon">🔐</span>
+              <span class="help-title">User Roles & Security (Role-Wise Guide)</span>
+              <span class="help-arrow">▼</span>
+            </button>
+            <div class="help-content">
+              
+              <!-- 🛡️ Administrator Role -->
+              <div style="margin-bottom: 12px; padding: 10px; background: rgba(57,255,20,0.05); border: 1px solid rgba(57,255,20,0.2); border-radius: 6px;">
+                <h4 style="margin: 0 0 6px 0; color: #2ea44f; font-size: 0.85rem;">🛡️ Administrator (Full Access)</h4>
+                <ul style="margin: 0; padding-left: 18px; font-size: 0.78rem;">
+                  <li><strong>Team Management:</strong> Invite new team members via email & assign roles (Admin, Operator, Viewer).</li>
+                  <li><strong>Master Email:</strong> Update Master email under <code>Settings</code> &rarr; <code>Master Admin Account</code>.</li>
+                  <li><strong>Purge Accounts:</strong> Click <code>Purge Old Users</code> to delete old logins while preserving your active Master Admin account.</li>
+                  <li><strong>Approve Password Resets:</strong> Review pending password reset requests under <code>Settings</code> &rarr; <code>My Team</code> &rarr; <code>🔔 Password Reset Requests</code>. Click <code>Approve & Reset</code> to generate a temporary password for the user.</li>
+                  <li><strong>Form Customization & Auditing:</strong> Full control over Form Creator, verifying logs, record edits, and database backups.</li>
+                </ul>
+              </div>
+
+              <!-- 📝 Data Entry Operator Role -->
+              <div style="margin-bottom: 12px; padding: 10px; background: rgba(88,166,255,0.05); border: 1px solid rgba(88,166,255,0.2); border-radius: 6px;">
+                <h4 style="margin: 0 0 6px 0; color: #58a6ff; font-size: 0.85rem;">📝 Data Entry Operator</h4>
+                <ul style="margin: 0; padding-left: 18px; font-size: 0.78rem;">
+                  <li><strong>Data Logging & Voice Input:</strong> Access to Data Entry form, microphone voice typing, draft saving, and offline sync.</li>
+                  <li><strong>Password Change:</strong> Click the 🔑 key icon beside your name in the top-left sidebar menu at any time to change your password.</li>
+                  <li><strong>Forgot Password Request:</strong> Click <code>Forgot Password?</code> on the login window to send a reset request directly to your Administrator.</li>
+                </ul>
+              </div>
+
+              <!-- 📊 Viewer Role -->
+              <div style="padding: 10px; background: rgba(163,113,247,0.05); border: 1px solid rgba(163,113,247,0.2); border-radius: 6px;">
+                <h4 style="margin: 0 0 6px 0; color: #a371f7; font-size: 0.85rem;">📊 Viewer</h4>
+                <ul style="margin: 0; padding-left: 18px; font-size: 0.78rem;">
+                  <li><strong>Read-Only Reports:</strong> Browse, filter, search, print, and export reports & analytics.</li>
+                  <li><strong>Password Change:</strong> Change your password at any time via the 🔑 key icon in the top-left sidebar menu.</li>
+                  <li><strong>Forgot Password Request:</strong> Submit password reset requests to the Administrator via the <code>Forgot Password?</code> link on the login window.</li>
+                </ul>
+              </div>
+
             </div>
           </div>
 

@@ -748,6 +748,63 @@ app.get('/api/admin/invitations', checkAuth, async (req, res) => {
   }
 });
 
+// Request Password Reset Route (Public)
+app.post('/api/password-reset-request', authRateLimiter, async (req, res) => {
+  const { username } = req.body;
+  if (!username || !username.trim()) {
+    return res.status(400).json({ error: 'Username/Email is required.' });
+  }
+  try {
+    await userDb.createPasswordResetRequest(username);
+    res.json({ success: true, message: 'Password reset request submitted successfully. Please inform your Administrator to approve it.' });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Admin Get Pending Password Reset Requests Route
+app.get('/api/admin/password-reset-requests', checkAuth, async (req, res) => {
+  try {
+    const session = await userDb.verifyUserSession(req);
+    const requests = await userDb.getPendingPasswordResetRequests();
+    res.json({ success: true, requests });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Admin Approve Password Reset Request Route
+app.post('/api/admin/approve-password-reset', checkAuth, async (req, res) => {
+  const { requestId } = req.body;
+  if (!requestId) {
+    return res.status(400).json({ error: 'requestId is required.' });
+  }
+  try {
+    const session = await userDb.verifyUserSession(req);
+    // Generate simple random temp password (e.g. ResetPass8492)
+    const tempPassword = 'Temp' + Math.floor(100000 + Math.random() * 900000);
+    const result = await userDb.approvePasswordResetRequest(requestId, tempPassword);
+    res.json({ success: true, username: result.username, tempPassword: result.tempPassword });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Admin Reject Password Reset Request Route
+app.post('/api/admin/reject-password-reset', checkAuth, async (req, res) => {
+  const { requestId } = req.body;
+  if (!requestId) {
+    return res.status(400).json({ error: 'requestId is required.' });
+  }
+  try {
+    const session = await userDb.verifyUserSession(req);
+    await userDb.rejectPasswordResetRequest(requestId);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 // New User Registration Route (Invite-Only Enforcement)
 app.post('/api/register', async (req, res) => {
   const { username, password, publicKey, encryptedPrivateKey, salt } = req.body;
