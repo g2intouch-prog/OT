@@ -3959,10 +3959,13 @@ async function handleLocalBackupExport() {
   }
   
   try {
-    DOM.localBackupExportBtn.disabled = true;
-    DOM.localBackupExportBtn.querySelector('span').textContent = 'Exporting...';
+    if (DOM.localBackupExportBtn) {
+      DOM.localBackupExportBtn.disabled = true;
+      const span = DOM.localBackupExportBtn.querySelector('span');
+      if (span) span.textContent = 'Decrypting & Exporting...';
+    }
     
-    const response = await fetch('/api/entries');
+    const response = await fetch('/api/entries?_t=' + Date.now());
     if (!response.ok) {
       throw new Error("Failed to fetch database entries");
     }
@@ -3972,31 +3975,57 @@ async function handleLocalBackupExport() {
       alert("No database records found to export.");
       return;
     }
+
+    // Decrypt all rows prior to CSV formatting
+    await Promise.all(rows.map(async (r) => {
+      if (r.data && r.data.ciphertext) {
+        await decryptRecordPayload(r);
+      }
+    }));
     
-    const csvHeader = 'ID,Created At,Verified,Date,Data\n';
-    const csvRows = rows.map(r => {
-      const parsedData = typeof r.data === 'string' ? JSON.parse(r.data) : r.data;
-      const dataEscaped = JSON.stringify(parsedData).replace(/"/g, '""');
-      return `${r.id},"${r.created_at}",${r.verified},"${r.date}","${dataEscaped}"`;
+    // Build CSV Header Columns dynamically from active schema
+    const headers = ['Status', 'Date'];
+    state.schema.forEach(field => {
+      headers.push(getFieldDisplayTitle(field));
+    });
+    
+    const csvHeaderRow = headers.map(h => `"${String(h).replace(/"/g, '""')}"`).join(',');
+    
+    const csvRows = rows.map(rec => {
+      const rowValues = [];
+      rowValues.push(rec.verified === 1 ? 'Verified' : 'Unverified');
+      rowValues.push(rec.date ? formatDateDisplay(rec.date) : '');
+
+      state.schema.forEach(field => {
+        let val = field.id === 'date' ? rec.date : (rec.data ? rec.data[field.id] : '');
+        let formattedVal = formatDisplayValue(val, field);
+        if (formattedVal === null || formattedVal === undefined) formattedVal = '';
+        rowValues.push(String(formattedVal).replace(/"/g, '""'));
+      });
+
+      return rowValues.map(v => `"${v}"`).join(',');
     }).join('\n');
     
-    const csvContent = csvHeader + csvRows;
+    const csvContent = csvHeaderRow + '\n' + csvRows;
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     
     const link = document.createElement("a");
     link.setAttribute("href", url);
-    link.setAttribute("download", `backup_${new Date().toISOString().split('T')[0]}_${Date.now()}.csv`);
+    link.setAttribute("download", `OT_Decrypted_Backup_${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     
-    alert('Backup CSV file exported and downloaded successfully!');
+    alert(`Successfully exported ${rows.length} decrypted record(s) to CSV!`);
   } catch (err) {
-    alert('Failed to generate local CSV backup: ' + err.message);
+    alert('Failed to generate CSV backup: ' + err.message);
   } finally {
-    DOM.localBackupExportBtn.disabled = false;
-    DOM.localBackupExportBtn.querySelector('span').textContent = 'Export CSV Backup';
+    if (DOM.localBackupExportBtn) {
+      DOM.localBackupExportBtn.disabled = false;
+      const span = DOM.localBackupExportBtn.querySelector('span');
+      if (span) span.textContent = 'Export CSV Backup';
+    }
   }
 }
 
@@ -9177,6 +9206,19 @@ async function loadTeamAccounts() {
 
     const activeUsers = users.filter(u => u.status !== 'revoked');
     const revokedUsers = users.filter(u => u.status === 'revoked');
+
+    // Update 3-Role Counter Badges
+    const adminCount = activeUsers.filter(u => u.role === 'admin').length;
+    const operatorCount = activeUsers.filter(u => u.role === 'user' || u.role === 'operator').length;
+    const viewerCount = activeUsers.filter(u => u.role === 'viewer').length;
+
+    const elAdmin = document.getElementById('role-count-admin');
+    const elOp = document.getElementById('role-count-operator');
+    const elView = document.getElementById('role-count-viewer');
+
+    if (elAdmin) elAdmin.textContent = adminCount;
+    if (elOp) elOp.textContent = operatorCount;
+    if (elView) elView.textContent = viewerCount;
 
     if (activeUsers.length === 0) {
       tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-muted">No active team members.</td></tr>';

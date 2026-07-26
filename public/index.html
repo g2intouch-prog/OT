@@ -630,6 +630,33 @@
           <h2>Live Team Status Panel (Admin Operations)</h2>
           <p class="card-subtitle">Manage team invitations and member authorizations. Changing status to 'revoked' will trigger an instant SELF_DESTRUCT instruction to purge volatile session variables and local caches on their device.</p>
           
+          <!-- 3-Role Summary Badges -->
+          <div style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap;">
+            <div style="flex: 1; min-width: 160px; padding: 12px 16px; background: rgba(255,255,255,0.03); border: 1px solid var(--panel-border); border-radius: 8px;">
+              <div style="display: flex; align-items: center; justify-content: space-between;">
+                <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">🛡️ Administrators</span>
+                <span style="width: 10px; height: 10px; border-radius: 50%; background: var(--accent-color); display: inline-block; box-shadow: 0 0 8px var(--accent-color);"></span>
+              </div>
+              <strong id="role-count-admin" style="font-size: 1.4rem; color: var(--text-main); display: block; margin-top: 4px;">0</strong>
+            </div>
+            
+            <div style="flex: 1; min-width: 160px; padding: 12px 16px; background: rgba(255,255,255,0.03); border: 1px solid var(--panel-border); border-radius: 8px;">
+              <div style="display: flex; align-items: center; justify-content: space-between;">
+                <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">📝 Data Entry Operators</span>
+                <span style="width: 10px; height: 10px; border-radius: 50%; background: #2ea44f; display: inline-block; box-shadow: 0 0 8px #2ea44f;"></span>
+              </div>
+              <strong id="role-count-operator" style="font-size: 1.4rem; color: var(--text-main); display: block; margin-top: 4px;">0</strong>
+            </div>
+
+            <div style="flex: 1; min-width: 160px; padding: 12px 16px; background: rgba(255,255,255,0.03); border: 1px solid var(--panel-border); border-radius: 8px;">
+              <div style="display: flex; align-items: center; justify-content: space-between;">
+                <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">📊 Viewers</span>
+                <span style="width: 10px; height: 10px; border-radius: 50%; background: #a371f7; display: inline-block; box-shadow: 0 0 8px #a371f7;"></span>
+              </div>
+              <strong id="role-count-viewer" style="font-size: 1.4rem; color: var(--text-main); display: block; margin-top: 4px;">0</strong>
+            </div>
+          </div>
+
           <!-- Invite Team Member Form -->
           <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--panel-border); border-radius: 8px; padding: 16px; margin-bottom: 24px;">
             <h3 style="font-size: 0.95rem; margin-bottom: 8px; color: var(--accent-color);">📧 Invite New Team Member</h3>
@@ -693,98 +720,6 @@
               </tbody>
             </table>
           </div>
-        </div>
-
-        <!-- Session Profile & Configuration Card -->
-        <div class="panel-card mb-4" id="session-profile-card">
-          <h2>Session Profile & Configuration</h2>
-          <p class="card-subtitle">Details about your active cryptographic session configuration.</p>
-          
-          <div class="dynamic-inputs-grid">
-            <div class="form-group">
-              <label>Current Account Role</label>
-              <input type="text" id="display-role" class="form-control" readonly style="opacity: 0.8; font-weight: bold;">
-            </div>
-            <div class="form-group">
-              <label>Cryptographic Vault Key Status</label>
-              <input type="text" id="display-key-status" class="form-control" readonly style="opacity: 0.8; color: var(--success); font-weight: bold;">
-            </div>
-          </div>
-        </div>
-
-        <!-- Encryption Password Card -->
-        <div class="panel-card mb-4" id="encryption-password-card">
-          <h2>🔐 Derive Encryption Key</h2>
-          <p class="card-subtitle">Enter an encryption password to generate a 256-bit AES-GCM key and unlock the local session vault.</p>
-          <form id="key-derivation-form">
-            <div class="dynamic-inputs-grid">
-              <div class="form-group">
-                <label for="encryption-password-input">Encryption Password</label>
-                <input type="password" id="encryption-password-input" class="form-control" placeholder="Enter encryption password..." required autocomplete="new-password">
-              </div>
-            </div>
-            <div class="form-actions mt-4">
-              <button type="submit" id="derive-key-btn" class="btn btn-primary">
-                <span>Generate Key & Unlock Vault</span>
-              </button>
-            </div>
-          </form>
-        </div>
-
-        <!-- Rotate Encryption Key Card -->
-        <div class="panel-card mb-4" id="rotate-key-card">
-          <h2>🔄 Rotate Encryption Key</h2>
-          <p class="card-subtitle">Safely rotate your encryption key. This will decrypt all existing database records using your old password, re-encrypt them with your new password, and save them back to the database.</p>
-          <form id="key-rotation-form">
-            <div class="dynamic-inputs-grid">
-              <div class="form-group">
-                <label for="old-encryption-password-input">Old Encryption Password</label>
-                <input type="password" id="old-encryption-password-input" class="form-control" placeholder="Enter old password..." required autocomplete="new-password">
-              </div>
-              <div class="form-group">
-                <label for="new-encryption-password-input">New Encryption Password</label>
-                <input type="password" id="new-encryption-password-input" class="form-control" placeholder="Enter new password..." required autocomplete="new-password">
-              </div>
-            </div>
-            <div class="form-actions mt-4">
-              <button type="submit" id="rotate-key-btn" class="btn btn-warning">
-                <span>Rotate Password & Re-encrypt DB</span>
-              </button>
-            </div>
-          </form>
-        </div>
-
-        <!-- Admin Credentials Settings Card -->
-        <div class="panel-card" id="admin-credentials-card">
-          <h2>Admin Credentials Settings</h2>
-          <p class="card-subtitle">Change the administrative Login User ID and Password. Confirm your current password to save changes.</p>
-          
-          <form id="change-credentials-form">
-            <div class="dynamic-inputs-grid">
-              <div class="form-group">
-                <label for="change-admin-username">New Admin User ID</label>
-                <input type="text" id="change-admin-username" class="form-control" placeholder="e.g. admin" required autocomplete="username">
-              </div>
-              <div class="form-group">
-                <label for="change-admin-password">New Password</label>
-                <input type="password" id="change-admin-password" class="form-control" placeholder="Enter new password" required autocomplete="new-password">
-              </div>
-              <div class="form-group">
-                <label for="change-current-password">Current Password (To Save Changes)</label>
-                <input type="password" id="change-current-password" class="form-control" placeholder="Enter current password" required autocomplete="current-password">
-              </div>
-              <div class="form-group hidden" id="change-admin-2fa-group">
-                <label for="change-admin-2fa">Enter TOTP</label>
-                <input type="text" id="change-admin-2fa" class="form-control" placeholder="000000" pattern="[0-9]{6}" inputmode="numeric" maxlength="6" autocomplete="one-time-code">
-              </div>
-            </div>
-            
-            <div class="form-actions mt-4">
-              <button type="submit" id="submit-credentials-btn" class="btn btn-primary" disabled>
-                <span>Update Credentials</span>
-              </button>
-            </div>
-          </form>
         </div>
 
         <!-- TOTP Authentication Settings Card -->
