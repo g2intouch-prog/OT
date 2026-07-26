@@ -2275,8 +2275,8 @@ function renderInfantSubCards(count, typeName) {
     });
 
     card.innerHTML = `
-      <div style="font-weight: 700; font-size: 0.8rem; color: var(--accent-color); margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center;">
-        <span>👶 Infant #${i}</span>
+      <div style="font-weight: 700; font-size: 0.8rem; color: #0284c7; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed rgba(2, 132, 199, 0.2); padding-bottom: 4px;">
+        <span>Infant #${i}</span>
         <span style="font-size: 0.7rem; color: var(--text-muted); font-weight: normal;">${typeName} (${i}/${count})</span>
       </div>
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
@@ -2293,8 +2293,8 @@ function renderInfantSubCards(count, typeName) {
           <input type="time" class="form-control infant-time-input" style="padding: 4px; font-size: 0.75rem;">
         </div>
         <div>
-          <label style="font-size: 0.7rem; margin-bottom: 2px; display: block; font-weight: 600;">Weight (kg)</label>
-          <input type="number" step="0.01" class="form-control infant-weight-input" placeholder="e.g. 2.5" style="padding: 4px; font-size: 0.75rem;">
+          <label style="font-size: 0.7rem; margin-bottom: 2px; display: block; font-weight: 600;">Weight (grams)</label>
+          <input type="number" step="1" class="form-control infant-weight-input" placeholder="e.g. 2500" style="padding: 4px; font-size: 0.75rem;">
         </div>
         <div>
           <label style="font-size: 0.7rem; margin-bottom: 2px; display: block; font-weight: 600;">Apgar Score</label>
@@ -2432,7 +2432,7 @@ function handleSaveDraft(e) {
         infant: idx + 1,
         gender: genderSelect ? genderSelect.value : 'Male',
         timeob: timeInput ? timeInput.value : '',
-        weight: weightInput ? weightInput.value : '',
+        weight: weightInput ? formatWeightToGrams(weightInput.value) : '',
         apgar: apgarInput ? apgarInput.value : '',
         ...customVals
       });
@@ -2560,7 +2560,7 @@ function loadDraftIntoDataEntry(item, itemIndex, isDraft = true) {
         const inf = recData.multi_foetal_infants[i];
         if (gSel && inf.gender) gSel.value = inf.gender;
         if (tInp && inf.timeob) tInp.value = inf.timeob;
-        if (wInp && inf.weight) wInp.value = inf.weight;
+        if (wInp && inf.weight) wInp.value = formatWeightToGrams(inf.weight);
         if (aInp && inf.apgar) aInp.value = inf.apgar;
       } else if (i === 0) {
         const mainGender = recData.sexob || recData.sex || recData.gender || '';
@@ -2568,7 +2568,7 @@ function loadDraftIntoDataEntry(item, itemIndex, isDraft = true) {
         const mainWeight = recData.weightob || recData.weight || '';
         if (gSel && mainGender) gSel.value = mainGender;
         if (tInp && mainTime) tInp.value = mainTime;
-        if (wInp && mainWeight) wInp.value = mainWeight;
+        if (wInp && mainWeight) wInp.value = formatWeightToGrams(mainWeight);
       }
     });
   }
