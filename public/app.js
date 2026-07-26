@@ -2219,47 +2219,43 @@ function syncSubCardsToMainForm(typeName) {
   });
 
   // Find corresponding main form input fields
-  const sexField = state.schema.find(f => f.id === 'sex' || f.id === 'gender' || f.id === 'sexob' || (f.title && (f.title.toLowerCase().includes('sex') || f.title.toLowerCase().includes('gender'))));
-  const weightField = state.schema.find(f => f.id === 'weight' || f.id === 'weightob' || f.id.toLowerCase().includes('weight') || (f.title && f.title.toLowerCase().includes('weight')));
-  const timeField = state.schema.find(f => f.type === 'time' || f.id === 'timeob' || f.id.toLowerCase().includes('time') || (f.title && f.title.toLowerCase().includes('time')));
-  const apgarField = state.schema.find(f => f.id === 'apgar' || f.id.toLowerCase().includes('apgar') || (f.title && f.title.toLowerCase().includes('apgar')));
+  const sexField = Array.isArray(state.schema) ? state.schema.find(f => f.id === 'sex' || f.id === 'gender' || f.id === 'sexob' || (f.title && (f.title.toLowerCase().includes('sex') || f.title.toLowerCase().includes('gender')))) : null;
+  const weightField = Array.isArray(state.schema) ? state.schema.find(f => f.id === 'weight' || f.id === 'weightob' || f.id.toLowerCase().includes('weight') || (f.title && f.title.toLowerCase().includes('weight'))) : null;
+  const timeField = Array.isArray(state.schema) ? state.schema.find(f => f.type === 'time' || f.id === 'timeob' || f.id.toLowerCase().includes('time') || (f.title && f.title.toLowerCase().includes('time'))) : null;
+  const apgarField = Array.isArray(state.schema) ? state.schema.find(f => f.id === 'apgar' || f.id.toLowerCase().includes('apgar') || (f.title && f.title.toLowerCase().includes('apgar'))) : null;
 
-  if (sexField) {
-    const el = document.getElementById(`input-${sexField.id}`);
-    if (el) {
-      if (el.tagName === 'SELECT') {
-        const optMatch = Array.from(el.options).find(o => o.value.toLowerCase().includes('twin') || o.value.toLowerCase().includes('multi'));
-        if (optMatch) el.value = optMatch.value;
-      } else {
-        el.value = `${typeName} (${genders.join(', ')})`;
-      }
-      el.dispatchEvent(new Event('input', { bubbles: true }));
+  let sexEl = sexField ? document.getElementById(`input-${sexField.id}`) : null;
+  if (!sexEl) sexEl = document.getElementById('input-sexob') || document.getElementById('input-sex') || document.getElementById('input-gender') || document.querySelector('select[id*="sex"], input[id*="sex"]');
+  if (sexEl && genders.length > 0) {
+    if (sexEl.tagName === 'SELECT') {
+      const optMatch = Array.from(sexEl.options).find(o => o.value.toLowerCase().includes('twin') || o.value.toLowerCase().includes('multi'));
+      if (optMatch) sexEl.value = optMatch.value;
+    } else {
+      sexEl.value = `${typeName} (${genders.join(', ')})`;
     }
+    sexEl.dispatchEvent(new Event('input', { bubbles: true }));
   }
 
-  if (weightField && weights.length > 0) {
-    const el = document.getElementById(`input-${weightField.id}`);
-    if (el) {
-      el.type = 'text';
-      el.value = weights.join(' | ');
-      el.dispatchEvent(new Event('input', { bubbles: true }));
-    }
+  let weightEl = weightField ? document.getElementById(`input-${weightField.id}`) : null;
+  if (!weightEl) weightEl = document.getElementById('input-weightob') || document.getElementById('input-weight') || document.querySelector('input[id*="weight"]');
+  if (weightEl && weights.length > 0) {
+    weightEl.type = 'text';
+    weightEl.value = weights.join(' | ');
+    weightEl.dispatchEvent(new Event('input', { bubbles: true }));
   }
 
-  if (timeField && times.length > 0) {
-    const el = document.getElementById(`input-${timeField.id}`);
-    if (el) {
-      el.value = times.join(' / ');
-      el.dispatchEvent(new Event('input', { bubbles: true }));
-    }
+  let timeEl = timeField ? document.getElementById(`input-${timeField.id}`) : null;
+  if (!timeEl) timeEl = document.getElementById('input-timeob') || document.getElementById('input-time') || document.querySelector('input[id*="time"]');
+  if (timeEl && times.length > 0) {
+    timeEl.value = times.join(' / ');
+    timeEl.dispatchEvent(new Event('input', { bubbles: true }));
   }
 
-  if (apgarField && apgars.length > 0) {
-    const el = document.getElementById(`input-${apgarField.id}`);
-    if (el) {
-      el.value = apgars.join(' & ');
-      el.dispatchEvent(new Event('input', { bubbles: true }));
-    }
+  let apgarEl = apgarField ? document.getElementById(`input-${apgarField.id}`) : null;
+  if (!apgarEl) apgarEl = document.getElementById('input-apgar') || document.querySelector('input[id*="apgar"]');
+  if (apgarEl && apgars.length > 0) {
+    apgarEl.value = apgars.join(' & ');
+    apgarEl.dispatchEvent(new Event('input', { bubbles: true }));
   }
 }
 
