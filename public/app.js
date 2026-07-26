@@ -2091,6 +2091,23 @@ function renderDataEntryForm() {
       input.id = `input-${field.id}`;
       input.name = field.id;
       input.required = (field.id === 'date'); // Require Date at least
+
+      // Listen for Pregnancy Type / Delivery Type changes
+      const fieldTitleLower = (field.title || field.id || '').toLowerCase();
+      if (field.type === 'select' || fieldTitleLower.includes('pregnancy') || fieldTitleLower.includes('delivery')) {
+        input.addEventListener('change', (e) => {
+          const val = (e.target.value || '').toLowerCase();
+          if (val.includes('twin')) {
+            renderInfantSubCards(2, 'Twins');
+          } else if (val.includes('triplet')) {
+            renderInfantSubCards(3, 'Triplets');
+          } else if (val.includes('quadruplet')) {
+            renderInfantSubCards(4, 'Quadruplets');
+          } else if (val.includes('single') || val.includes('n/a') || val === '') {
+            renderInfantSubCards(1, 'Single');
+          }
+        });
+      }
     }
     
     formGroup.appendChild(label);
@@ -2132,6 +2149,58 @@ function renderDataEntryForm() {
   const dateInput = document.getElementById('input-date');
   if (dateInput) {
     autoFillDateDependentFields(dateInput.value);
+  }
+}
+
+function renderInfantSubCards(count, typeName) {
+  const container = document.getElementById('multi-foetal-container');
+  const badge = document.getElementById('multi-foetal-type-badge');
+  const list = document.getElementById('infant-cards-list');
+  if (!container || !list) return;
+
+  if (count <= 1) {
+    container.classList.add('hidden');
+    list.innerHTML = '';
+    return;
+  }
+
+  container.classList.remove('hidden');
+  if (badge) badge.textContent = typeName;
+  list.innerHTML = '';
+
+  for (let i = 1; i <= count; i++) {
+    const card = document.createElement('div');
+    card.className = 'infant-sub-card';
+    card.style.cssText = 'background: rgba(255,255,255,0.7); border: 1px solid rgba(2, 132, 199, 0.3); border-radius: 8px; padding: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.03);';
+    card.innerHTML = `
+      <div style="font-weight: 700; font-size: 0.8rem; color: var(--accent-color); margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center;">
+        <span>👶 Infant #${i}</span>
+        <span style="font-size: 0.7rem; color: var(--text-muted); font-weight: normal;">${typeName} (${i}/${count})</span>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+        <div>
+          <label style="font-size: 0.7rem; margin-bottom: 2px; display: block; font-weight: 600;">Gender</label>
+          <select class="form-select infant-gender-input" style="padding: 4px; font-size: 0.75rem;">
+            <option value="Male">Male ♂</option>
+            <option value="Female">Female ♀</option>
+            <option value="Ambiguous">Ambiguous</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size: 0.7rem; margin-bottom: 2px; display: block; font-weight: 600;">Time of Birth</label>
+          <input type="time" class="form-control infant-time-input" style="padding: 4px; font-size: 0.75rem;">
+        </div>
+        <div>
+          <label style="font-size: 0.7rem; margin-bottom: 2px; display: block; font-weight: 600;">Weight (kg)</label>
+          <input type="number" step="0.01" class="form-control infant-weight-input" placeholder="e.g. 2.5" style="padding: 4px; font-size: 0.75rem;">
+        </div>
+        <div>
+          <label style="font-size: 0.7rem; margin-bottom: 2px; display: block; font-weight: 600;">Apgar Score</label>
+          <input type="text" class="form-control infant-apgar-input" placeholder="e.g. 9/10" style="padding: 4px; font-size: 0.75rem;">
+        </div>
+      </div>
+    `;
+    list.appendChild(card);
   }
 }
 
@@ -2230,6 +2299,26 @@ function handleSaveDraft(e) {
       }
     }
   });
+
+  // Collect Multi-Foetal Infant Sub-Card details if present
+  const infantCards = document.querySelectorAll('.infant-sub-card');
+  if (infantCards.length > 0) {
+    const infantsList = [];
+    infantCards.forEach((card, idx) => {
+      const genderSelect = card.querySelector('.infant-gender-input');
+      const timeInput = card.querySelector('.infant-time-input');
+      const weightInput = card.querySelector('.infant-weight-input');
+      const apgarInput = card.querySelector('.infant-apgar-input');
+      infantsList.push({
+        infant: idx + 1,
+        gender: genderSelect ? genderSelect.value : 'Male',
+        timeob: timeInput ? timeInput.value : '',
+        weight: weightInput ? weightInput.value : '',
+        apgar: apgarInput ? apgarInput.value : ''
+      });
+    });
+    formData.multi_foetal_infants = infantsList;
+  }
 
   const draftEntry = {
     localId: Date.now(),
@@ -4351,6 +4440,7 @@ function handleExportExcel() {
 
 // Helper to reset and clear all data entry fields
 function clearEntryFields() {
+  renderInfantSubCards(1, 'Single');
   state.schema.forEach(field => {
     if (field.type === 'date') return;
     
@@ -4435,21 +4525,25 @@ function switchToTab(tabId) {
     }
   }
 
-  const item = Array.from(DOM.navItems).find(nav => nav.dataset.tab === tabId);
-  if (item) {
-    DOM.navItems.forEach(nav => nav.classList.remove('active'));
-    item.classList.add('active');
-    
-    DOM.tabPanels.forEach(panel => panel.classList.remove('active'));
-    const panel = document.getElementById(`tab-${tabId}`);
-    if (panel) panel.classList.add('active');
-    
+  DOM.navItems.forEach(nav => {
+    if (nav.dataset.tab === tabId) {
+      nav.classList.add('active');
+    } else {
+      nav.classList.remove('active');
+    }
+  });
+  
+  DOM.tabPanels.forEach(panel => panel.classList.remove('active'));
+  const panel = document.getElementById(`tab-${tabId}`);
+  if (panel) {
+    panel.classList.add('active');
     state.activeTab = tabId;
     sessionStorage.setItem('activeTab', tabId);
-    
-    if (tabId === 'form-creator') {
-      renderFormCreator();
-    } else if (tabId === 'db-viewer') {
+  }
+  
+  if (tabId === 'form-creator') {
+    renderFormCreator();
+  } else if (tabId === 'db-viewer') {
       fetchDatabaseRecords();
       renderDeletedDraftsTable();
     } else if (tabId === 'data-analysis') {
@@ -4467,7 +4561,6 @@ function switchToTab(tabId) {
     } else if (tabId === 'break-game') {
       initBreakGame();
     }
-  }
 }
 
 // -------------------------------------------------------------
@@ -4700,8 +4793,9 @@ function setupEventListeners() {
   const settingsOpenExcelBtn = document.getElementById('settings-open-excel-import-btn');
   if (settingsOpenExcelBtn) {
     settingsOpenExcelBtn.addEventListener('click', () => {
-      const excelFileInput = document.getElementById('excel-import-file');
-      if (excelFileInput) excelFileInput.click();
+      if (typeof switchToTab === 'function') {
+        switchToTab('import-excel');
+      }
     });
   }
 
@@ -6961,7 +7055,51 @@ function renderAnalytics() {
         labels: ['Male', 'Female', 'Others'],
         datasets: [{
           data: [maleCount, femaleCount, otherGenderCount],
-          backgroundColor: ['#2ea44f', '#ff7b00', '#d29922'],
+          backgroundColor: ['#0284c7', '#db2777', '#d29922'],
+          borderColor: gridColor,
+          borderWidth: 1
+        }]
+      },
+      options: commonOptions
+    });
+  }
+
+  // --- MULTI-FOETAL METRICS & CHART ---
+  let multiFoetalSurgeriesCount = 0;
+  let totalMultiFoetalInfantsCount = 0;
+  let twinsCount = 0;
+  let tripletsCount = 0;
+
+  filteredRecords.forEach(rec => {
+    const dataObj = rec.data || {};
+    const pregType = (dataObj.pregnancy_type || dataObj.delivery_type || dataObj.type || '').toString().toLowerCase();
+    const infants = dataObj.multi_foetal_infants || [];
+    
+    if (pregType.includes('twin') || pregType.includes('triplet') || pregType.includes('multi') || infants.length > 1) {
+      multiFoetalSurgeriesCount++;
+      const count = infants.length > 1 ? infants.length : (pregType.includes('triplet') ? 3 : 2);
+      totalMultiFoetalInfantsCount += count;
+      if (count === 2) twinsCount++;
+      if (count >= 3) tripletsCount++;
+    }
+  });
+
+  const kpiMultiFoetal = document.getElementById('kpi-multi-foetal');
+  if (kpiMultiFoetal) {
+    kpiMultiFoetal.textContent = `${multiFoetalSurgeriesCount} (${totalMultiFoetalInfantsCount} Infants)`;
+  }
+
+  // --- CHART: MULTI-FOETAL DELIVERIES (DOUGHNUT) ---
+  const canvasMultiFoetal = document.getElementById('chart-multi-foetal');
+  if (canvasMultiFoetal) {
+    if (window.chartMultiFoetalInstance) window.chartMultiFoetalInstance.destroy();
+    window.chartMultiFoetalInstance = new Chart(canvasMultiFoetal.getContext('2d'), {
+      type: 'doughnut',
+      data: {
+        labels: ['Single Births', 'Twins', 'Triplets/More'],
+        datasets: [{
+          data: [Math.max(0, totalDeliveries - multiFoetalSurgeriesCount), twinsCount, tripletsCount],
+          backgroundColor: ['#059669', '#0284c7', '#e11d48'],
           borderColor: gridColor,
           borderWidth: 1
         }]

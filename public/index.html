@@ -157,6 +157,20 @@
             <div id="dynamic-inputs-container" class="dynamic-inputs-grid">
               <div class="loading-placeholder">Loading form fields...</div>
             </div>
+
+            <!-- Dynamic Multi-Foetal Infant Sub-Form Container -->
+            <div id="multi-foetal-container" class="hidden mt-3" style="background: rgba(2, 132, 199, 0.04); border: 1px solid rgba(2, 132, 199, 0.25); border-radius: 10px; padding: 14px; margin-bottom: 16px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; border-bottom: 1px dashed rgba(2, 132, 199, 0.2); padding-bottom: 8px; flex-wrap: wrap; gap: 8px;">
+                <h4 style="margin: 0; font-size: 0.9rem; color: var(--accent-color); display: flex; align-items: center; gap: 6px;">
+                  <span>👶 Multi-Foetal Infant Details</span>
+                  <span id="multi-foetal-type-badge" class="badge" style="background-color: var(--accent-color); color: white; font-size: 0.7rem; padding: 2px 8px;">Twins</span>
+                </h4>
+                <span style="font-size: 0.75rem; color: var(--text-muted);">1 Surgery = 1 OT Sl. No. (All infants packaged into 1 record)</span>
+              </div>
+              <div id="infant-cards-list" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px;">
+                <!-- Dynamically populated Infant Sub-Cards -->
+              </div>
+            </div>
             
             <div class="form-actions">
               <button type="submit" id="save-draft-btn" class="btn btn-primary">
@@ -440,8 +454,8 @@
               <button id="restore-selected-btn" class="btn btn-success" disabled style="padding: 6px 12px; font-size: 0.8rem; white-space: nowrap; flex: 1; max-width: 180px;">
                 <span>Restore (<span id="restore-count-text">0</span>)</span>
               </button>
-              <button id="delete-permanently-btn" class="btn btn-danger" disabled style="padding: 6px 12px; font-size: 0.8rem; white-space: nowrap; flex: 1; max-width: 180px;">
-                <span>Delete (<span id="delete-permanently-count-text">0</span>)</span>
+              <button id="purge-selected-btn" class="btn btn-danger" disabled style="padding: 6px 12px; font-size: 0.8rem; white-space: nowrap; flex: 1; max-width: 180px;">
+                <span>Purge (<span id="purge-count-text">0</span>)</span>
               </button>
             </div>
           </div>
@@ -465,19 +479,19 @@
         </div>
       </section>
 
-      <!-- TAB 6: DATA ANALYSIS DASHBOARD -->
-      <section id="tab-data-analysis" class="tab-panel">
-        <div class="panel-card">
-          <div class="card-header-flex">
+      <!-- TAB 6: ANALYTICS DASHBOARD (Compact Zero-Scroll Grid Layout) -->
+      <section id="tab-data-analysis" class="tab-panel" style="padding-bottom: 12px;">
+        <div class="panel-card" style="padding: 16px;">
+          <div class="card-header-flex" style="margin-bottom: 12px; align-items: center;">
             <div>
-              <h2>Data Analytics Dashboard</h2>
-              <p class="card-subtitle">Visualize metrics and birth statistics from the SQLite database.</p>
+              <h2 style="font-size: 1.15rem; margin-bottom: 2px;">📈 Data Analytics & Birth Insights</h2>
+              <p class="card-subtitle" style="margin-bottom: 0; font-size: 0.78rem;">Live metrics, gender ratios, birth loads & multi-foetal delivery statistics.</p>
             </div>
             
-            <div class="report-filters" style="display: flex; gap: 12px; flex-wrap: wrap;">
-              <div class="form-group" style="flex-direction: row; align-items: center; gap: 8px;">
-                <label for="analysis-timeframe" style="white-space: nowrap; margin-bottom: 0;">Timeframe:</label>
-                <select id="analysis-timeframe" class="form-select" style="min-width: 130px;">
+            <div class="report-filters" style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <label for="analysis-timeframe" style="font-size: 0.75rem; white-space: nowrap; margin-bottom: 0; font-weight: 600;">Range:</label>
+                <select id="analysis-timeframe" class="form-select" style="min-width: 110px; padding: 4px 8px; font-size: 0.8rem;">
                   <option value="till-date">Till Date</option>
                   <option value="annual">Annual</option>
                   <option value="monthly">Monthly</option>
@@ -485,16 +499,16 @@
                 </select>
               </div>
               
-              <div id="analysis-year-group" class="form-group hidden" style="flex-direction: row; align-items: center; gap: 8px;">
-                <label for="analysis-year" style="white-space: nowrap; margin-bottom: 0;">Year:</label>
-                <select id="analysis-year" class="form-select" style="min-width: 100px;">
+              <div id="analysis-year-group" class="hidden" style="display: flex; align-items: center; gap: 6px;">
+                <label for="analysis-year" style="font-size: 0.75rem; white-space: nowrap; margin-bottom: 0;">Year:</label>
+                <select id="analysis-year" class="form-select" style="min-width: 90px; padding: 4px 8px; font-size: 0.8rem;">
                   <!-- Dynamic years -->
                 </select>
               </div>
               
-              <div id="analysis-month-group" class="form-group hidden" style="flex-direction: row; align-items: center; gap: 8px;">
-                <label for="analysis-month" style="white-space: nowrap; margin-bottom: 0;">Month:</label>
-                <select id="analysis-month" class="form-select" style="min-width: 120px;">
+              <div id="analysis-month-group" class="hidden" style="display: flex; align-items: center; gap: 6px;">
+                <label for="analysis-month" style="font-size: 0.75rem; white-space: nowrap; margin-bottom: 0;">Month:</label>
+                <select id="analysis-month" class="form-select" style="min-width: 100px; padding: 4px 8px; font-size: 0.8rem;">
                   <option value="01">January</option>
                   <option value="02">February</option>
                   <option value="03">March</option>
@@ -510,103 +524,96 @@
                 </select>
               </div>
 
-              <div id="analysis-custom-group" class="form-group hidden" style="flex-direction: row; align-items: center; gap: 8px; flex-wrap: wrap;">
-                <label for="analysis-from-date" style="white-space: nowrap; margin-bottom: 0;">From:</label>
-                <input type="date" id="analysis-from-date" class="form-control" style="width: auto;">
-                <label for="analysis-to-date" style="white-space: nowrap; margin-bottom: 0;">To:</label>
-                <input type="date" id="analysis-to-date" class="form-control" style="width: auto;">
+              <div id="analysis-custom-group" class="hidden" style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                <input type="date" id="analysis-from-date" class="form-control" style="width: auto; padding: 3px 6px; font-size: 0.75rem;">
+                <span style="font-size: 0.75rem;">to</span>
+                <input type="date" id="analysis-to-date" class="form-control" style="width: auto; padding: 3px 6px; font-size: 0.75rem;">
               </div>
             </div>
           </div>
 
-          <!-- KPI summary cards -->
-          <div class="reports-summary-cards mt-3">
-            <div class="summary-card">
-              <span class="summary-title">Total Deliveries</span>
-              <strong id="kpi-total-deliveries">0</strong>
+          <!-- Compact Single-Row KPI Banner (6 Cards) -->
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; margin-bottom: 14px;">
+            <div class="summary-card" style="padding: 8px 12px;">
+              <span class="summary-title" style="font-size: 0.7rem;">Total Deliveries</span>
+              <strong id="kpi-total-deliveries" style="font-size: 1.1rem;">0</strong>
             </div>
             
-            <div class="summary-card">
-              <span class="summary-title">Avg Birth Weight</span>
-              <strong id="kpi-avg-weight">0g</strong>
+            <div class="summary-card" style="padding: 8px 12px;">
+              <span class="summary-title" style="font-size: 0.7rem;">Avg Birth Weight</span>
+              <strong id="kpi-avg-weight" style="font-size: 1.1rem;">0g</strong>
             </div>
 
-            <div class="summary-card">
-              <span class="summary-title">FP Adoption Rate</span>
-              <strong id="kpi-fp-rate">0%</strong>
-              <div class="kpi-progress-bar-container" style="background-color: #21262d; border-radius: 4px; height: 6px; margin-top: 8px; overflow: hidden; width: 100%;">
+            <div class="summary-card" style="padding: 8px 12px;">
+              <span class="summary-title" style="font-size: 0.7rem;">FP Adoption Rate</span>
+              <strong id="kpi-fp-rate" style="font-size: 1.1rem;">0%</strong>
+              <div class="kpi-progress-bar-container" style="background-color: rgba(0,0,0,0.1); border-radius: 3px; height: 4px; margin-top: 4px; overflow: hidden; width: 100%;">
                 <div id="kpi-fp-progress" class="kpi-progress-bar green" style="background-color: var(--success); height: 100%; width: 0%; transition: width 0.4s ease;"></div>
               </div>
             </div>
 
-            <div class="summary-card">
-              <span class="summary-title">LBW Prevalence (< 2.2kg)</span>
-              <strong id="kpi-lbw-rate">0 (0%)</strong>
-              <div class="kpi-progress-bar-container" style="background-color: #21262d; border-radius: 4px; height: 6px; margin-top: 8px; overflow: hidden; width: 100%;">
+            <div class="summary-card" style="padding: 8px 12px;">
+              <span class="summary-title" style="font-size: 0.7rem;">LBW (< 2.2kg)</span>
+              <strong id="kpi-lbw-rate" style="font-size: 1.05rem;">0 (0%)</strong>
+              <div class="kpi-progress-bar-container" style="background-color: rgba(0,0,0,0.1); border-radius: 3px; height: 4px; margin-top: 4px; overflow: hidden; width: 100%;">
                 <div id="kpi-lbw-progress" class="kpi-progress-bar red" style="background-color: var(--danger); height: 100%; width: 0%; transition: width 0.4s ease;"></div>
               </div>
             </div>
 
-            <div class="summary-card">
-              <span class="summary-title">Baby Gender Ratio</span>
-              <strong id="kpi-gender-ratio">N/A</strong>
+            <!-- New Multi-Foetal Pregnancy Summary Card -->
+            <div class="summary-card" style="padding: 8px 12px; background: rgba(2, 132, 199, 0.06); border-color: rgba(2, 132, 199, 0.3);">
+              <span class="summary-title" style="font-size: 0.7rem; color: var(--accent-color);">👶 Multi-Foetal Surgeries</span>
+              <strong id="kpi-multi-foetal" style="font-size: 1.05rem; color: var(--accent-color);">0 (0 Infants)</strong>
             </div>
 
-            <div class="summary-card high-risk-card">
-              <span class="summary-title">High-Risk Cases</span>
-              <strong id="kpi-high-risk">0</strong>
+            <div class="summary-card high-risk-card" style="padding: 8px 12px;">
+              <span class="summary-title" style="font-size: 0.7rem;">High-Risk Cases</span>
+              <strong id="kpi-high-risk" style="font-size: 1.1rem;">0</strong>
               <div id="high-risk-popover" class="high-risk-popover"></div>
             </div>
           </div>
 
-          <!-- Charts layout grid -->
-          <div class="analytics-grid mt-4">
-            <div class="chart-card">
-              <h3>Baby Gender Distribution</h3>
-              <div class="chart-container">
+          <!-- Compact 3-Column Charts Grid (Low Height Canvas to eliminate vertical scroll) -->
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px;">
+            <div class="chart-card" style="padding: 10px;">
+              <h3 style="font-size: 0.8rem; margin-bottom: 6px;">Baby Gender Ratio</h3>
+              <div class="chart-container" style="height: 160px; position: relative;">
                 <canvas id="chart-gender"></canvas>
               </div>
             </div>
 
-            <div class="chart-card">
-              <h3>Family Planning Options</h3>
-              <div class="chart-container">
+            <div class="chart-card" style="padding: 10px;">
+              <h3 style="font-size: 0.8rem; margin-bottom: 6px;">Multi-Foetal Deliveries</h3>
+              <div class="chart-container" style="height: 160px; position: relative;">
+                <canvas id="chart-multi-foetal"></canvas>
+              </div>
+            </div>
+
+            <div class="chart-card" style="padding: 10px;">
+              <h3 style="font-size: 0.8rem; margin-bottom: 6px;">Family Planning Adoption</h3>
+              <div class="chart-container" style="height: 160px; position: relative;">
                 <canvas id="chart-fp"></canvas>
               </div>
             </div>
 
-            <div class="chart-card">
-              <h3>Delivery Shifts</h3>
-              <div class="chart-container">
+            <div class="chart-card" style="padding: 10px;">
+              <h3 style="font-size: 0.8rem; margin-bottom: 6px;">Delivery Shifts</h3>
+              <div class="chart-container" style="height: 160px; position: relative;">
                 <canvas id="chart-shifts"></canvas>
               </div>
             </div>
 
-            <div class="chart-card">
-              <h3>Weekday Birth Load</h3>
-              <div class="chart-container">
+            <div class="chart-card" style="padding: 10px;">
+              <h3 style="font-size: 0.8rem; margin-bottom: 6px;">Weekday Birth Load</h3>
+              <div class="chart-container" style="height: 160px; position: relative;">
                 <canvas id="chart-weekday"></canvas>
               </div>
             </div>
 
-            <div id="monthly-load-card" class="chart-card">
-              <h3>Monthly Birth Load</h3>
-              <div class="chart-container">
-                <canvas id="chart-monthly-load"></canvas>
-              </div>
-            </div>
-
-            <div class="chart-card">
-              <h3>Maternal Age Groups</h3>
-              <div class="chart-container">
-                <canvas id="chart-age"></canvas>
-              </div>
-            </div>
-
-            <div class="chart-card address-insights-card">
-              <h3>Top Patient Locations</h3>
-              <div class="top-addresses-wrapper">
-                <ol id="top-addresses-list" class="top-addresses-list">
+            <div class="chart-card address-insights-card" style="padding: 10px;">
+              <h3 style="font-size: 0.8rem; margin-bottom: 6px;">Top Patient Locations</h3>
+              <div class="top-addresses-wrapper" style="max-height: 160px; overflow-y: auto;">
+                <ol id="top-addresses-list" class="top-addresses-list" style="margin: 0; padding-left: 20px; font-size: 0.75rem;">
                   <li class="text-muted">No data available</li>
                 </ol>
               </div>
@@ -1346,6 +1353,22 @@
                 </ul>
               </div>
 
+            </div>
+          </div>
+
+          <!-- Category 8: Multi-Foetal Pregnancy & Analytics -->
+          <div class="help-item" data-category="multi-foetal twins triplets infants surgeries analytics charts">
+            <button class="help-header">
+              <span class="help-icon">👶</span>
+              <span class="help-title">Multi-Foetal Pregnancies & Analytics</span>
+              <span class="help-arrow">▼</span>
+            </button>
+            <div class="help-content">
+              <p>Specialized workflow for logging multi-foetal deliveries (Twins, Triplets) without skewing OT surgery counts.</p>
+              <ul>
+                <li><strong>1 Surgery = 1 OT Sl. No.:</strong> Selecting Twins, Triplets, or Quadruplets under Pregnancy Type spawns dynamic sub-cards for each infant (Gender, Time of Birth, Weight, Apgar). All infants are saved inside 1 surgery record so your OT surgery count remains 100% accurate.</li>
+                <li><strong>Multi-Foetal Analytics:</strong> Track total multi-foetal surgeries, twin/triplet ratios, and infant birth statistics on the compact Analytics Dashboard.</li>
+              </ul>
             </div>
           </div>
 
