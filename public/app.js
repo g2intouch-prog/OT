@@ -2156,6 +2156,19 @@ function renderDataEntryForm() {
         input.id = `input-${field.id}`;
         input.name = field.id;
         input.required = (field.id === 'date');
+
+        if (field.id === 'weight' || field.id === 'weightob' || (field.title && field.title.toLowerCase().includes('weight'))) {
+          input.placeholder = 'e.g. 2500 (grams)';
+          const syncMainWeightToSubCards = () => {
+            const val = input.value;
+            const subCardWeight = document.querySelector('.infant-sub-card .infant-weight-input');
+            if (subCardWeight && val && !val.includes('|')) {
+              subCardWeight.value = formatWeightToGrams(val);
+            }
+          };
+          input.addEventListener('input', syncMainWeightToSubCards);
+          input.addEventListener('change', syncMainWeightToSubCards);
+        }
       }
 
       formGroup.appendChild(label);
@@ -2487,16 +2500,20 @@ function handleSaveDraft(e) {
   }
   
   // Transition animation: slide current row out and flash success
-  DOM.dynamicInputs.style.transform = 'translateX(50px)';
-  DOM.dynamicInputs.style.opacity = '0';
+  if (DOM.dynamicInputs) {
+    DOM.dynamicInputs.style.transform = 'translateX(50px)';
+    DOM.dynamicInputs.style.opacity = '0';
+  }
   
   setTimeout(() => {
     // Reset fields except date
     clearEntryFields();
     
     // Clear and slide back in
-    DOM.dynamicInputs.style.transform = 'translateX(0)';
-    DOM.dynamicInputs.style.opacity = '1';
+    if (DOM.dynamicInputs) {
+      DOM.dynamicInputs.style.transform = 'translateX(0)';
+      DOM.dynamicInputs.style.opacity = '1';
+    }
     
     // Refresh tables
     renderDraftsTable();
@@ -5050,6 +5067,7 @@ function setupEventListeners() {
 
   // Data Entry Form Actions
   if (DOM.dataEntryForm) DOM.dataEntryForm.addEventListener('submit', handleSaveDraft);
+  if (DOM.saveDraftBtn) DOM.saveDraftBtn.addEventListener('click', handleSaveDraft);
   if (DOM.clearFieldsBtn) DOM.clearFieldsBtn.addEventListener('click', clearEntryFields);
 
   const dataEntryMultiSelect = document.getElementById('data-entry-multi-foetal-select');
