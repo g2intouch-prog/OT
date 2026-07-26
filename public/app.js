@@ -4420,8 +4420,8 @@ function setupEventListeners() {
   }
 
   // Data Entry Form Actions
-  DOM.dataEntryForm.addEventListener('submit', handleSaveDraft);
-  DOM.clearFieldsBtn.addEventListener('click', clearEntryFields);
+  if (DOM.dataEntryForm) DOM.dataEntryForm.addEventListener('submit', handleSaveDraft);
+  if (DOM.clearFieldsBtn) DOM.clearFieldsBtn.addEventListener('click', clearEntryFields);
 
   // High-Risk Popover name link click delegation
   if (DOM.kpiHighRiskPopover) {
@@ -4439,23 +4439,27 @@ function setupEventListeners() {
   }
 
   // Auth Button (login modal opener)
-  DOM.authBtn.addEventListener('click', () => {
-    if (state.isAuthenticated) {
-      if (confirm('Are you sure you want to log out of Admin mode?')) {
-        handleLogout();
+  if (DOM.authBtn) {
+    DOM.authBtn.addEventListener('click', () => {
+      if (state.isAuthenticated) {
+        if (confirm('Are you sure you want to log out of Admin mode?')) {
+          handleLogout();
+        }
+      } else {
+        openLoginModal();
       }
-    } else {
-      openLoginModal();
-    }
-  });
+    });
+  }
 
   // Auth modal actions
-  DOM.closeModalBtn.addEventListener('click', closeLoginModal);
-  DOM.cancelLoginBtn.addEventListener('click', closeLoginModal);
-  DOM.authModal.addEventListener('click', (e) => {
-    if (e.target === DOM.authModal) closeLoginModal();
-  });
-  DOM.loginForm.addEventListener('submit', handleLogin);
+  if (DOM.closeModalBtn) DOM.closeModalBtn.addEventListener('click', closeLoginModal);
+  if (DOM.cancelLoginBtn) DOM.cancelLoginBtn.addEventListener('click', closeLoginModal);
+  if (DOM.authModal) {
+    DOM.authModal.addEventListener('click', (e) => {
+      if (e.target === DOM.authModal) closeLoginModal();
+    });
+  }
+  if (DOM.loginForm) DOM.loginForm.addEventListener('submit', handleLogin);
 
   const toggleLink = document.getElementById('auth-toggle-link');
   if (toggleLink) {
@@ -4494,14 +4498,14 @@ function setupEventListeners() {
         }
       }
       
-      DOM.loginError.classList.add('hidden');
+      if (DOM.loginError) DOM.loginError.classList.add('hidden');
     });
   }
 
   // Form Creator Actions
-  DOM.addFieldBtn.addEventListener('click', addNewField);
-  DOM.resetCreatorBtn.addEventListener('click', resetFormCreator);
-  DOM.saveSchemaBtn.addEventListener('click', saveSchema);
+  if (DOM.addFieldBtn) DOM.addFieldBtn.addEventListener('click', addNewField);
+  if (DOM.resetCreatorBtn) DOM.resetCreatorBtn.addEventListener('click', resetFormCreator);
+  if (DOM.saveSchemaBtn) DOM.saveSchemaBtn.addEventListener('click', saveSchema);
   if (DOM.changeCredentialsForm) DOM.changeCredentialsForm.addEventListener('submit', handleUpdateCredentials);
 
   // Change Password Modal Events
