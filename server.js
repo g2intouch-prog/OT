@@ -922,6 +922,21 @@ app.post('/api/admin/clear-users', checkAuth, async (req, res) => {
   }
 });
 
+// Admin Update My Email/Username Route
+app.post('/api/admin/update-my-email', checkAuth, async (req, res) => {
+  const { newEmail } = req.body;
+  if (!newEmail || !newEmail.trim()) {
+    return res.status(400).json({ error: 'New email address is required.' });
+  }
+  try {
+    const session = await userDb.verifyUserSession(req);
+    await userDb.updateUserUsername(session.user_id, newEmail);
+    res.json({ success: true, username: newEmail.trim().toLowerCase() });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 // Admin save wrapped key for a user route
 app.post('/api/admin/save-wrapped-key', checkAuth, async (req, res) => {
   const { userId, wrappedVaultKey } = req.body;

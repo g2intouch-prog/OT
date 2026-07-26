@@ -4608,6 +4608,97 @@ function setupEventListeners() {
     });
   }
 
+  // Update Master Admin Email Button
+  const saveAdminEmailBtn = document.getElementById('save-admin-email-btn');
+  if (saveAdminEmailBtn) {
+    saveAdminEmailBtn.addEventListener('click', async () => {
+      const emailInput = document.getElementById('admin-my-email-input');
+      const statusMsg = document.getElementById('admin-email-status-msg');
+      if (!emailInput || !emailInput.value.trim()) return;
+
+      const newEmail = emailInput.value.trim();
+      const token = state.authToken || sessionStorage.getItem('authToken');
+
+      saveAdminEmailBtn.disabled = true;
+      if (statusMsg) {
+        statusMsg.style.display = 'block';
+        statusMsg.style.color = 'var(--accent-color)';
+        statusMsg.textContent = 'Updating Master Admin email...';
+      }
+
+      try {
+        const res = await fetch('/api/admin/update-my-email', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ newEmail })
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          state.username = data.username;
+          if (DOM.loggedInUserName) DOM.loggedInUserName.textContent = data.username;
+          if (statusMsg) {
+            statusMsg.style.color = 'var(--success)';
+            statusMsg.textContent = `✅ Master Admin email updated to ${data.username}!`;
+          }
+          if (typeof loadTeamAccounts === 'function') await loadTeamAccounts();
+        } else {
+          const err = await res.json();
+          if (statusMsg) {
+            statusMsg.style.color = 'var(--danger)';
+            statusMsg.textContent = 'Update failed: ' + (err.error || 'Unknown error');
+          }
+        }
+      } catch (err) {
+        if (statusMsg) {
+          statusMsg.style.color = 'var(--danger)';
+          statusMsg.textContent = 'Network error updating email.';
+        }
+      } finally {
+        saveAdminEmailBtn.disabled = false;
+      }
+    });
+  }
+
+  // Purge Old User Accounts Button
+  const purgeUsersBtn = document.getElementById('purge-old-users-btn');
+  if (purgeUsersBtn) {
+    purgeUsersBtn.addEventListener('click', async () => {
+      if (!confirm("Are you ABSOLUTELY sure you want to remove all old user IDs? This will permanently delete all other user accounts while preserving your active Master Admin account and database data.")) {
+        return;
+      }
+
+      const token = state.authToken || sessionStorage.getItem('authToken');
+      purgeUsersBtn.disabled = true;
+
+      try {
+        const res = await fetch('/api/admin/clear-users', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          alert(`Success! Removed ${data.clearedCount || 0} old user account(s). Your active Master Admin account is preserved.`);
+          if (typeof loadTeamAccounts === 'function') await loadTeamAccounts();
+        } else {
+          const err = await res.json();
+          alert('Failed to remove old user accounts: ' + (err.error || 'Unknown error'));
+        }
+      } catch (err) {
+        alert('Network error purging user accounts.');
+      } finally {
+        purgeUsersBtn.disabled = false;
+      }
+    });
+  }
+
 
   // Theme Toggle
   if (DOM.themeToggleBtn) DOM.themeToggleBtn.addEventListener('click', toggleTheme);
