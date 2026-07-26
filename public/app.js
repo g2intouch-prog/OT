@@ -289,6 +289,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize Theme (Day / Night mode)
     initTheme();
 
+    // Setup password eye toggle icons for all password fields
+    setupPasswordToggleEyes();
+
     // Setup Event Listeners
     setupEventListeners();
 
@@ -965,14 +968,83 @@ function closeChangePasswordModal() {
   }
 }
 
+function validatePasswordComplexity(password) {
+  if (!password || password.length < 8) {
+    return { valid: false, message: 'Password must be at least 8 characters long.' };
+  }
+  if (!/[A-Z]/.test(password)) {
+    return { valid: false, message: 'Password must contain at least one uppercase capital letter (A-Z).' };
+  }
+  if (!/[0-9]/.test(password)) {
+    return { valid: false, message: 'Password must contain at least one number (0-9).' };
+  }
+  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(password)) {
+    return { valid: false, message: 'Password must contain at least one special symbol (e.g. @, #, $, !, %, &).' };
+  }
+  return { valid: true, message: '' };
+}
+
+function setupPasswordToggleEyes() {
+  document.querySelectorAll('input[type="password"]').forEach(input => {
+    if (input.dataset.hasEyeToggle) return;
+    input.dataset.hasEyeToggle = "true";
+
+    const wrapper = document.createElement('div');
+    wrapper.style.position = 'relative';
+    wrapper.style.display = 'flex';
+    wrapper.style.alignItems = 'center';
+    wrapper.style.width = '100%';
+
+    if (input.parentNode) {
+      input.parentNode.insertBefore(wrapper, input);
+      wrapper.appendChild(input);
+    }
+    input.style.paddingRight = '38px';
+
+    const eyeBtn = document.createElement('button');
+    eyeBtn.type = 'button';
+    eyeBtn.className = 'toggle-password-btn';
+    eyeBtn.title = 'Show/Hide Password';
+    eyeBtn.innerHTML = '👁️';
+    eyeBtn.style.cssText = 'position: absolute; right: 8px; background: transparent; border: none; cursor: pointer; font-size: 1rem; opacity: 0.75; padding: 4px; z-index: 5; transition: opacity 0.2s; user-select: none;';
+
+    eyeBtn.addEventListener('mouseenter', () => eyeBtn.style.opacity = '1');
+    eyeBtn.addEventListener('mouseleave', () => eyeBtn.style.opacity = '0.75');
+
+    eyeBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const isPassword = input.type === 'password';
+      input.type = isPassword ? 'text' : 'password';
+      eyeBtn.innerHTML = isPassword ? '🙈' : '👁️';
+    });
+
+    wrapper.appendChild(eyeBtn);
+  });
+}
+
 function validateChangePasswordForm() {
   const currentPasswordVal = DOM.changeUserCurrentPassword ? DOM.changeUserCurrentPassword.value : '';
   const newPasswordVal = DOM.changeUserNewPassword ? DOM.changeUserNewPassword.value : '';
   const confirmNewPasswordVal = DOM.changeUserConfirmNewPassword ? DOM.changeUserConfirmNewPassword.value : '';
   const checkboxChecked = DOM.confirmCredentialsCheckbox ? DOM.confirmCredentialsCheckbox.checked : false;
   
+  const complexity = validatePasswordComplexity(newPasswordVal);
+  const hintEl = document.getElementById('change-password-strength-hint');
+  if (hintEl) {
+    if (newPasswordVal.length > 0 && !complexity.valid) {
+      hintEl.textContent = '⚠️ ' + complexity.message;
+      hintEl.style.color = 'var(--warning)';
+    } else if (newPasswordVal.length > 0 && complexity.valid) {
+      hintEl.textContent = '✅ Strong password criteria met!';
+      hintEl.style.color = 'var(--success)';
+    } else {
+      hintEl.textContent = 'Must be at least 8 chars long with 1 uppercase letter (A-Z), 1 number (0-9), & 1 symbol (!@#$%).';
+      hintEl.style.color = 'var(--text-muted)';
+    }
+  }
+
   let isValid = currentPasswordVal.length > 0 &&
-                newPasswordVal.length > 0 &&
+                complexity.valid &&
                 newPasswordVal === confirmNewPasswordVal &&
                 checkboxChecked;
                 
@@ -990,6 +1062,12 @@ async function handleChangePasswordSubmit(e) {
   const newPassword = DOM.changeUserNewPassword.value;
   const confirmNewPassword = DOM.changeUserConfirmNewPassword.value;
   const code = DOM.changeUserTotp.value.trim();
+
+  const complexityCheck = validatePasswordComplexity(newPassword);
+  if (!complexityCheck.valid) {
+    alert("Invalid New Password:\n\n" + complexityCheck.message);
+    return;
+  }
 
   if (newPassword !== confirmNewPassword) {
     alert("New passwords do not match.");
