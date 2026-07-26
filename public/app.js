@@ -3983,30 +3983,14 @@ async function handleLocalBackupExport() {
       }
     }));
     
-    // Build CSV Header Columns dynamically from active schema
-    const headers = ['Status', 'Date'];
-    state.schema.forEach(field => {
-      headers.push(getFieldDisplayTitle(field));
-    });
-    
-    const csvHeaderRow = headers.map(h => `"${String(h).replace(/"/g, '""')}"`).join(',');
-    
-    const csvRows = rows.map(rec => {
-      const rowValues = [];
-      rowValues.push(rec.verified === 1 ? 'Verified' : 'Unverified');
-      rowValues.push(rec.date ? formatDateDisplay(rec.date) : '');
-
-      state.schema.forEach(field => {
-        let val = field.id === 'date' ? rec.date : (rec.data ? rec.data[field.id] : '');
-        let formattedVal = formatDisplayValue(val, field);
-        if (formattedVal === null || formattedVal === undefined) formattedVal = '';
-        rowValues.push(String(formattedVal).replace(/"/g, '""'));
-      });
-
-      return rowValues.map(v => `"${v}"`).join(',');
+    const csvHeader = 'ID,Created At,Verified,Date,Data\n';
+    const csvRows = rows.map(r => {
+      const parsedData = r.data || {};
+      const dataEscaped = JSON.stringify(parsedData).replace(/"/g, '""');
+      return `${r.id},"${r.created_at || ''}",${r.verified || 0},"${r.date || ''}","${dataEscaped}"`;
     }).join('\n');
     
-    const csvContent = csvHeaderRow + '\n' + csvRows;
+    const csvContent = csvHeader + csvRows;
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     
