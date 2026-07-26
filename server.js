@@ -722,15 +722,55 @@ app.post('/api/login/totp-enable', async (req, res) => {
   }
 });
 
-// New User Registration Route
+// Admin Team Member Email Invitation Route
+app.post('/api/admin/invite', checkAuth, async (req, res) => {
+  try {
+    const session = await userDb.verifyUserSession(req);
+    const { email, role } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: 'Email address is required to invite a team member.' });
+    }
+    const invitation = await userDb.createInvitation(session.user_id, email, role || 'user');
+    res.json({ success: true, invitation });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Admin Get Team Invitations List Route
+app.get('/api/admin/invitations', checkAuth, async (req, res) => {
+  try {
+    const session = await userDb.verifyUserSession(req);
+    const invitations = await userDb.getAllInvitations(session.user_id);
+    res.json({ success: true, invitations });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// New User Registration Route (Invite-Only Enforcement)
 app.post('/api/register', async (req, res) => {
   const { username, password, publicKey, encryptedPrivateKey, salt } = req.body;
   if (!username || !password) {
-    return res.status(400).json({ error: 'Username and Password are required.' });
+    return res.status(400).json({ error: 'Email/Username and Password are required.' });
   }
   try {
-    const newUser = await userDb.createUser(username, password, publicKey, encryptedPrivateKey, salt);
-    res.json({ success: true, user: { id: newUser.id, username: newUser.username } });
+    const pendingInv = await userDb.getPendingInvitationByEmail(username);
+    const allUsers = await userDb.getAllUsers().catch(() => []);
+    
+    // Enforce invite-only registration unless this is the first initial setup
+    if (!pendingInv && allUsers.length > 0) {
+      return res.status(403).json({ error: 'Registration is invite-only. Please contact an Administrator for an email invitation.' });
+    }
+
+    const assignedRole = pendingInv ? pendingInv.role : 'user';
+    const newUser = await userDb.createUser(username, password, assignedRole, publicKey, encryptedPrivateKey, salt);
+    
+    if (pendingInv) {
+      await userDb.fulfillInvitation(username);
+    }
+
+    res.json({ success: true, user: { id: newUser.id, username: newUser.username, role: newUser.role } });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }

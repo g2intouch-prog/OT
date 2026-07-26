@@ -128,8 +128,32 @@
       <!-- Live Admin Team Management Panel -->
       <section id="admin-management-panel" class="panel-card hidden" style="margin-bottom: 24px;">
         <h2>Live Team Status Panel (Admin Operations)</h2>
-        <p class="card-subtitle">Change member authorizations. Changing status to 'revoked' will trigger an instant SELF_DESTRUCT instruction to purge volatile session variables and local caches on their device.</p>
+        <p class="card-subtitle">Manage team invitations and member authorizations. Changing status to 'revoked' will trigger an instant SELF_DESTRUCT instruction to purge volatile session variables and local caches on their device.</p>
         
+        <!-- Invite Team Member Form -->
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--panel-border); border-radius: 8px; padding: 16px; margin-bottom: 24px;">
+          <h3 style="font-size: 0.95rem; margin-bottom: 8px; color: var(--accent-color);">📧 Invite New Team Member</h3>
+          <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">Registration is invite-only. Enter an email address and select an explicit role credential to authorize sign-up.</p>
+          <form id="admin-invite-form" style="display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end;">
+            <div style="flex: 2; min-width: 200px;">
+              <label for="invite-email-input" style="font-size: 0.75rem; font-weight: 600; display: block; margin-bottom: 4px;">Team Member Email</label>
+              <input type="email" id="invite-email-input" class="form-control" placeholder="operator@team.com" required style="width: 100%; padding: 6px 10px; font-size: 0.85rem;">
+            </div>
+            <div style="flex: 1; min-width: 160px;">
+              <label for="invite-role-select" style="font-size: 0.75rem; font-weight: 600; display: block; margin-bottom: 4px;">Assigned Role Credential</label>
+              <select id="invite-role-select" class="form-select" style="width: 100%; padding: 6px 10px; font-size: 0.85rem;">
+                <option value="user">📝 Data Entry Operator (Tab 1 Only)</option>
+                <option value="viewer">📊 Viewer (Reports & Analytics Only)</option>
+                <option value="admin">🛡️ Administrator (Full System Access)</option>
+              </select>
+            </div>
+            <button type="submit" id="submit-invite-btn" class="btn btn-primary" style="padding: 6px 16px; font-size: 0.85rem; height: 34px;">
+              <span>Send Invitation</span>
+            </button>
+          </form>
+          <div id="invite-status-msg" style="font-size: 0.8rem; margin-top: 8px; display: none;"></div>
+        </div>
+
         <h3 style="font-size: 1rem; margin-bottom: 10px; color: var(--success);">Active Team Members</h3>
         <div class="table-responsive" style="margin-bottom: 20px;">
           <table class="data-table">

@@ -100,10 +100,6 @@
           <span class="nav-icon">⚙️</span>
           <span class="nav-text">Settings</span>
         </button>
-        <button class="nav-item" data-tab="break-game">
-          <span class="nav-icon">🎮</span>
-          <span class="nav-text">Quick Break</span>
-        </button>
       </nav>
       
       <div class="sidebar-footer">
@@ -818,91 +814,6 @@
           </div>
         </div>
       </section>
-      
-      <!-- TAB 8: QUICK BREAK GAME -->
-      <section id="tab-break-game" class="tab-panel">
-        <div class="panel-card" style="max-width: 800px; margin: 0 auto; padding: 20px;">
-          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--panel-border); padding-bottom: 12px; margin-bottom: 16px;">
-            <div style="text-align: left;">
-              <h2 style="margin: 0; font-size: 1.4rem;">Quick Break Room 🎮</h2>
-              <p class="card-subtitle" style="margin: 4px 0 0 0; font-size: 0.8rem;">Take a quick break to recharge! Select a game, check news/weather, or watch stock updates.</p>
-            </div>
-            <!-- Help Button -->
-            <button type="button" id="game-help-btn" style="background: none; border: none; padding: 6px; font-size: 1.25rem; cursor: pointer; color: var(--accent-color); outline: none;" title="Show Rules">❓</button>
-          </div>
-          
-          <div style="display: flex; gap: 24px; align-items: flex-start; justify-content: center; flex-wrap: wrap;">
-            <!-- Left side controls & stats -->
-            <div style="flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 16px; text-align: left;">
-              <div class="form-group" style="text-align: left;">
-                <label for="game-select" style="font-size: 0.75rem; font-weight: 600; margin-bottom: 6px;">Choose Activity</label>
-                <select id="game-select" class="form-select" style="padding: 8px 12px; font-size: 0.85rem; width: 100%;">
-                  <optgroup label="Zen Games">
-                    <option value="bubble-popper" selected>Zen Bubble Popper 🫧</option>
-                    <option value="memory-match">Memory Match 🃏</option>
-                    <option value="gem-clicker">Zen Gem Clicker 💎</option>
-                    <option value="whack-mole">Zen Whack-A-Mole 🔨</option>
-                    <option value="snake">Retro Snake 🐍</option>
-                    <option value="gomoku">Zen Gomoku ⚪</option>
-                    <option value="hilo">Zen Card Hi-Lo 🎴</option>
-                  </optgroup>
-                  <optgroup label="Quick Dashboard">
-                    <option value="weather">Weather Forecast 🌤️</option>
-                    <option value="news">News Headlines 📰</option>
-                    <option value="stocks">Stock Indexes 📈</option>
-                  </optgroup>
-                </select>
-              </div>
-              
-              <div class="form-group" style="text-align: left;">
-                <label for="game-timer-select" style="font-size: 0.75rem; font-weight: 600; margin-bottom: 6px;">Break Duration</label>
-                <select id="game-timer-select" class="form-select" style="padding: 8px 12px; font-size: 0.85rem; width: 100%;">
-                  <option value="60">1 Minute</option>
-                  <option value="180" selected>3 Minutes</option>
-                  <option value="300">5 Minutes</option>
-                </select>
-              </div>
-
-              <div id="game-timer" style="font-size: 1.15rem; font-weight: 700; color: var(--accent-color); border-top: 1px dashed var(--panel-border); padding-top: 12px; margin-top: 4px; margin-bottom: 8px;">
-                Remaining: 03:00
-              </div>
-              
-              <p id="game-controls-help" class="text-muted" style="font-size: 0.75rem; margin: 0; line-height: 1.4;">Controls: Click/Tap bubbles to pop them.</p>
-            </div>
-            
-            <!-- Right side game arena -->
-            <div style="background-color: #0d1117; border: 2px solid var(--panel-border); border-radius: 8px; overflow: hidden; position: relative; width: 450px; height: 450px; flex-shrink: 0; box-shadow: var(--shadow);">
-              <!-- Scoreboard display inside the game window -->
-              <div id="game-scoreboard" style="position: absolute; top: 12px; left: 12px; display: none; gap: 16px; background: rgba(0, 0, 0, 0.8); padding: 6px 12px; border-radius: 4px; font-family: monospace; font-size: 0.85rem; color: #ff7b00; z-index: 15; border: 1px solid var(--panel-border); font-weight: bold; pointer-events: none; backdrop-filter: blur(4px);">
-                <div>SCORE: <span id="game-score">0</span></div>
-                <div>HI-SCORE: <span id="game-highscore">0</span></div>
-              </div>
-              
-              <!-- Game Container for Canvas-based games or Memory Match Grid -->
-              <div id="game-arena" style="width: 100%; height: 100%; position: relative;">
-                <canvas id="game-canvas" width="450" height="450" style="display: block; background: #0d1117;"></canvas>
-                
-                <!-- Memory Match Card Container -->
-                <div id="memory-match-grid" style="display: none; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 16px; width: 100%; height: 100%; background: #0d1117;">
-                  <!-- Cards will be dynamically inserted here -->
-                </div>
-                
-                <!-- Dashboard Container for News, Stock, Weather -->
-                <div id="extra-info-container" style="display: none; width: 100%; height: 100%; overflow-y: auto; background: #0d1117; padding: 16px; box-sizing: border-box; text-align: left; scrollbar-width: thin;">
-                  <!-- Widgets dynamically loaded -->
-                </div>
-              </div>
-
-              <!-- Game Overlay -->
-              <div id="game-overlay" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(13, 17, 23, 0.94); display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; z-index: 10; padding: 20px;">
-                <h3 id="game-overlay-title" style="margin-bottom: 10px; font-size: 1.3rem; color: #ff7b00; text-align: center;">Zen Bubble Popper</h3>
-                <p id="game-overlay-desc" style="font-size: 0.8rem; color: var(--text-muted); max-width: 280px; margin-bottom: 20px; line-height: 1.4; text-align: center;">Relaxing popper. Pop colorful bubbles before they float away! Need low attention.</p>
-                <button type="button" id="start-game-btn" class="btn btn-primary" style="padding: 8px 24px;">Start Break</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
 
     </main>
   </div>
@@ -1407,90 +1318,12 @@
           <label for="recovery-password-input" style="font-size: 0.8rem; font-weight: 600; display: block; margin-bottom: 6px;">Previous Account Password</label>
           <input type="password" id="recovery-password-input" class="form-control" placeholder="Type your old/previous password..." style="width: 100%; padding: 8px 12px; font-size: 0.9rem;">
         </div>
-        <div id="recovery-status-msg" style="font-size: 0.825rem; font-weight: 500; min-height: 20px; display: none;"></div>
-      </div>
       <div class="modal-actions" style="padding: 14px 20px; background: #161b22; border-top: 1px solid var(--panel-border); display: flex; justify-content: flex-end; gap: 10px;">
         <button id="cancel-recovery-btn" class="btn btn-secondary" style="padding: 6px 14px; font-size: 0.85rem;">Cancel</button>
         <button id="run-recovery-btn" class="btn btn-primary" style="padding: 6px 16px; font-size: 0.85rem; background-color: var(--accent-color);">Start Recovery & Repair</button>
       </div>
     </div>
   </div>
-
-  <!-- Floating Action Button for E2EE Verification (Trial Phase Only) -->
-  <div id="crypto-verifier-btn" style="position: fixed; bottom: 16px; right: 72px; width: 44px; height: 44px; border-radius: 50%; background-color: var(--success); display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 99999; box-shadow: 0 4px 12px rgba(0,0,0,0.5); font-size: 18px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.08)'" onmouseout="this.style.transform='scale(1)'">
-    🔐
-  </div>
-
-  <!-- Floating Action Button for Live Debug Logs (Trial Phase) -->
-  <div id="debug-toggle-btn" style="position: fixed; bottom: 16px; right: 16px; width: 44px; height: 44px; border-radius: 50%; background-color: var(--accent-color); display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 99999; box-shadow: 0 4px 12px rgba(0,0,0,0.5); font-size: 18px; transition: transform 0.2s;" onclick="const p = document.getElementById('debug-overlay-panel'); const isHidden = p.style.display === 'none'; p.style.display = isHidden ? 'flex' : 'none'; if (isHidden) document.getElementById('debug-badge').style.display = 'none';" onmouseover="this.style.transform='scale(1.08)'" onmouseout="this.style.transform='scale(1)'">
-    🪲
-    <span id="debug-badge" style="position: absolute; top: -2px; right: -2px; width: 10px; height: 10px; background-color: var(--danger); border-radius: 50%; border: 2px solid #fff; display: none;"></span>
-  </div>
-
-  <!-- Live Debug Console Overlay (Collapsible) -->
-  <div id="debug-overlay-panel" style="position: fixed; bottom: 72px; right: 16px; width: 320px; max-height: 250px; background: rgba(22, 27, 34, 0.98); border: 1px solid var(--panel-border); border-radius: 8px; z-index: 99998; font-family: monospace; font-size: 11px; color: #8b949e; overflow: hidden; display: none; flex-direction: column; box-shadow: var(--shadow);">
-    <div style="padding: 8px 12px; background: #161b22; border-bottom: 1px solid var(--panel-border); display: flex; justify-content: space-between; align-items: center;">
-      <strong style="color: var(--accent-color);">🪲 Debug Console Logs</strong>
-      <span style="font-size: 12px; cursor: pointer; opacity: 0.7; font-weight: bold; padding: 2px 6px;" onclick="document.getElementById('debug-overlay-panel').style.display = 'none';">✕</span>
-    </div>
-    <div id="debug-content" style="padding: 8px 12px; overflow-y: auto; flex: 1;">
-      <div id="debug-log-list" style="display: flex; flex-direction: column; gap: 4px;"></div>
-    </div>
-  </div>
-  
-  <script>
-    (function() {
-      const list = document.getElementById('debug-log-list');
-      const content = document.getElementById('debug-content');
-      const badge = document.getElementById('debug-badge');
-      
-      function addLog(msg, color) {
-        const item = document.createElement('div');
-        item.style.color = color || '#f0f6fc';
-        item.style.borderBottom = '1px solid rgba(48,54,61,0.3)';
-        item.style.paddingBottom = '3px';
-        item.style.whiteSpace = 'pre-wrap';
-        item.style.wordBreak = 'break-all';
-        item.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
-        list.appendChild(item);
-        if (list.childNodes.length > 20) list.removeChild(list.firstChild);
-        content.scrollTop = content.scrollHeight;
-      }
-      
-      // Intercept console functions
-      const _log = console.log;
-      const _warn = console.warn;
-      const _error = console.error;
-      
-      console.log = function(...args) {
-        _log.apply(console, args);
-        addLog(args.join(' '), '#f0f6fc');
-      };
-      console.warn = function(...args) {
-        _warn.apply(console, args);
-        addLog(args.join(' '), '#d29922');
-        if (badge) badge.style.display = 'block'; // Show warning/error badge without blocking screen
-      };
-      console.error = function(...args) {
-        _error.apply(console, args);
-        addLog(args.join(' '), '#ff8080');
-        if (badge) badge.style.display = 'block';
-      };
-      
-      window.onerror = function(message, source, lineno, colno, error) {
-        addLog(`ERROR: ${message} at ${source}:${lineno}:${colno}`, '#ff8080');
-        if (badge) badge.style.display = 'block';
-        return false;
-      };
-      
-      window.addEventListener('unhandledrejection', function(event) {
-        addLog(`Promise Rejected: ${event.reason}`, '#ff8080');
-        if (badge) badge.style.display = 'block';
-      });
-    })();
-  </script>
-
-
 
   <!-- Service Worker registration script -->
   <script>
