@@ -1317,9 +1317,9 @@ function updateAuthUI() {
     DOM.sessionStatusDisplay.className = 'status-logged-in';
     DOM.sessionStatusDisplay.textContent = `${roleName} Mode`;
 
-    DOM.creatorAdminWarning.className = 'alert-box alert-warning hidden';
-    DOM.saveSchemaBtn.removeAttribute('disabled');
-    DOM.submitCredentialsBtn.removeAttribute('disabled');
+    if (DOM.creatorAdminWarning) DOM.creatorAdminWarning.className = 'alert-box alert-warning hidden';
+    if (DOM.saveSchemaBtn) DOM.saveSchemaBtn.removeAttribute('disabled');
+    if (DOM.submitCredentialsBtn) DOM.submitCredentialsBtn.removeAttribute('disabled');
     if (DOM.clearDatabaseBtn) DOM.clearDatabaseBtn.removeAttribute('disabled');
     if (DOM.clearUsersBtn) DOM.clearUsersBtn.removeAttribute('disabled');
     if (DOM.localBackupExportBtn) DOM.localBackupExportBtn.removeAttribute('disabled');
@@ -2657,9 +2657,9 @@ function updatePushSelectedBtnState() {
   if (countEl) countEl.textContent = verifiedCount;
   
   if (state.isOnline && verifiedCount > 0) {
-    DOM.pushSelectedBtn.removeAttribute('disabled');
+    if (DOM.pushSelectedBtn) DOM.pushSelectedBtn.removeAttribute('disabled');
   } else {
-    DOM.pushSelectedBtn.setAttribute('disabled', 'true');
+    if (DOM.pushSelectedBtn) DOM.pushSelectedBtn.setAttribute('disabled', 'true');
   }
 
   // Reject selected button (Move to Trash)
@@ -2895,11 +2895,11 @@ function updateDeletedCountBtnState() {
   DOM.deletePermanentlyCountText.textContent = selectedCount;
 
   if (selectedCount > 0) {
-    DOM.restoreSelectedBtn.removeAttribute('disabled');
-    DOM.deletePermanentlyBtn.removeAttribute('disabled');
+    if (DOM.restoreSelectedBtn) DOM.restoreSelectedBtn.removeAttribute('disabled');
+    if (DOM.deletePermanentlyBtn) DOM.deletePermanentlyBtn.removeAttribute('disabled');
   } else {
-    DOM.restoreSelectedBtn.setAttribute('disabled', 'true');
-    DOM.deletePermanentlyBtn.setAttribute('disabled', 'true');
+    if (DOM.restoreSelectedBtn) DOM.restoreSelectedBtn.setAttribute('disabled', 'true');
+    if (DOM.deletePermanentlyBtn) DOM.deletePermanentlyBtn.setAttribute('disabled', 'true');
   }
 }
 
