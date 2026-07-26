@@ -2067,9 +2067,6 @@ function renderDataEntryForm() {
     const fields = groupedFields[cat.id] || [];
     if (fields.length === 0) return;
 
-    // Skip foetal category fields from rendering as standard fields if multiBaby is true (handled by sub-cards)
-    if (cat.multiBaby) return;
-
     const cardSection = document.createElement('div');
     cardSection.className = 'category-section-card mt-3';
     cardSection.style.cssText = 'background: rgba(255,255,255,0.03); border: 1px solid var(--panel-border); border-radius: 10px; padding: 14px; margin-bottom: 14px;';
@@ -5048,8 +5045,6 @@ function setupEventListeners() {
 
   // Form Creator Actions
   if (DOM.addFieldBtn) DOM.addFieldBtn.addEventListener('click', addNewField);
-  const addPregnancyFieldBtn = document.getElementById('add-pregnancy-field-btn');
-  if (addPregnancyFieldBtn) addPregnancyFieldBtn.addEventListener('click', addPregnancyTypeField);
   if (DOM.resetCreatorBtn) DOM.resetCreatorBtn.addEventListener('click', resetFormCreator);
   if (DOM.saveSchemaBtn) DOM.saveSchemaBtn.addEventListener('click', saveSchema);
   if (DOM.changeCredentialsForm) DOM.changeCredentialsForm.addEventListener('submit', handleUpdateCredentials);
