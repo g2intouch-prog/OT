@@ -148,7 +148,7 @@
               <p class="card-subtitle">Fill in the current row. Clicking save will draft the entry locally.</p>
             </div>
             
-            <!-- TOP RIGHT: Multi-Foetal Delivery Selector -->
+            <!-- TOP RIGHT: Multi-Foetal & Maternal Selectors -->
             <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
               <div style="display: flex; align-items: center; gap: 6px; background: rgba(2, 132, 199, 0.08); border: 1px solid rgba(2, 132, 199, 0.3); border-radius: 6px; padding: 4px 8px;">
                 <span style="font-size: 0.8rem; color: var(--accent-color); font-weight: 600;">👶 Delivery:</span>
@@ -159,6 +159,10 @@
                   <option value="quadruplets">Quadruplets (4 Babies)</option>
                 </select>
               </div>
+
+              <button type="button" id="toggle-maternal-card-btn" class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.8rem; font-weight: 600; color: #db2777; border-color: rgba(219, 39, 119, 0.3); background: rgba(219, 39, 119, 0.06);">
+                <span>👩 Maternal Info</span>
+              </button>
 
               <button type="button" id="voice-typing-btn-mobile" class="btn btn-secondary mic-button-round mobile-only-btn" title="Voice Typing">
                 <span class="btn-icon">🎤</span>
@@ -183,6 +187,49 @@
               </div>
               <div id="infant-cards-list" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px;">
                 <!-- Dynamically populated Infant Sub-Cards -->
+              </div>
+            </div>
+
+            <!-- Dynamic Maternal Details Sub-Form Container -->
+            <div id="maternal-details-container" class="hidden mt-3" style="background: rgba(219, 39, 119, 0.04); border: 1px solid rgba(219, 39, 119, 0.25); border-radius: 10px; padding: 14px; margin-bottom: 16px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; border-bottom: 1px dashed rgba(219, 39, 119, 0.2); padding-bottom: 8px; flex-wrap: wrap; gap: 8px;">
+                <h4 style="margin: 0; font-size: 0.9rem; color: #db2777; display: flex; align-items: center; gap: 6px;">
+                  <span>👩 Maternal Clinical Details</span>
+                  <span class="badge" style="background-color: #db2777; color: white; font-size: 0.7rem; padding: 2px 8px;">Maternal Card</span>
+                </h4>
+                <span style="font-size: 0.75rem; color: var(--text-muted);">Maternal Condition, Obstetric History & FP adoption</span>
+              </div>
+              
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
+                <div>
+                  <label style="font-size: 0.75rem; font-weight: 600; margin-bottom: 2px; display: block; color: var(--text-main);">Maternal Condition / Outcome</label>
+                  <select id="maternal-outcome-input" class="form-select" style="padding: 5px 8px; font-size: 0.8rem;">
+                    <option value="Stable / Uneventful">Stable / Uneventful</option>
+                    <option value="High-Risk Case">High-Risk Case</option>
+                    <option value="ICU Transfer">ICU Transfer</option>
+                    <option value="Complicated / Blood Loss">Complicated / Blood Loss</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label style="font-size: 0.75rem; font-weight: 600; margin-bottom: 2px; display: block; color: var(--text-main);">Obstetric History (G P L A)</label>
+                  <input type="text" id="maternal-gpla-input" class="form-control" placeholder="e.g. G2 P1 L1 A0" style="padding: 5px 8px; font-size: 0.8rem;">
+                </div>
+                
+                <div>
+                  <label style="font-size: 0.75rem; font-weight: 600; margin-bottom: 2px; display: block; color: var(--text-main);">Family Planning Adopted</label>
+                  <select id="maternal-fp-input" class="form-select" style="padding: 5px 8px; font-size: 0.8rem;">
+                    <option value="None">None</option>
+                    <option value="BTL">BTL (Tubectomy)</option>
+                    <option value="PPIUCD">PPIUCD</option>
+                    <option value="Antenatal Counseled">Antenatal Counseled</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style="font-size: 0.75rem; font-weight: 600; margin-bottom: 2px; display: block; color: var(--text-main);">Maternal Notes & Complications</label>
+                  <input type="text" id="maternal-notes-input" class="form-control" placeholder="e.g. Minimal blood loss, uneventful recovery" style="padding: 5px 8px; font-size: 0.8rem;">
+                </div>
               </div>
             </div>
             

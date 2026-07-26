@@ -2320,6 +2320,21 @@ function handleSaveDraft(e) {
     formData.multi_foetal_infants = infantsList;
   }
 
+  // Collect Maternal Clinical Details if present
+  const maternalCard = document.getElementById('maternal-details-container');
+  if (maternalCard && !maternalCard.classList.contains('hidden')) {
+    const outcomeInput = document.getElementById('maternal-outcome-input');
+    const gplaInput = document.getElementById('maternal-gpla-input');
+    const fpInput = document.getElementById('maternal-fp-input');
+    const notesInput = document.getElementById('maternal-notes-input');
+    formData.maternal_details = {
+      outcome: outcomeInput ? outcomeInput.value : '',
+      gpla: gplaInput ? gplaInput.value : '',
+      fp: fpInput ? fpInput.value : '',
+      notes: notesInput ? notesInput.value : ''
+    };
+  }
+
   const draftEntry = {
     localId: Date.now(),
     date: targetDate,
@@ -4510,6 +4525,16 @@ function clearEntryFields() {
   const multiSelect = document.getElementById('data-entry-multi-foetal-select');
   if (multiSelect) multiSelect.value = 'single';
   renderInfantSubCards(1, 'Single');
+
+  const maternalCard = document.getElementById('maternal-details-container');
+  const toggleMaternalBtn = document.getElementById('toggle-maternal-card-btn');
+  if (maternalCard) maternalCard.classList.add('hidden');
+  if (toggleMaternalBtn) toggleMaternalBtn.style.backgroundColor = 'rgba(219, 39, 119, 0.06)';
+
+  const gplaInput = document.getElementById('maternal-gpla-input');
+  const notesInput = document.getElementById('maternal-notes-input');
+  if (gplaInput) gplaInput.value = '';
+  if (notesInput) notesInput.value = '';
   state.schema.forEach(field => {
     if (field.type === 'date') return;
     
@@ -4685,6 +4710,21 @@ function setupEventListeners() {
         renderInfantSubCards(4, 'Quadruplets');
       } else {
         renderInfantSubCards(1, 'Single');
+      }
+    });
+  }
+
+  const toggleMaternalCardBtn = document.getElementById('toggle-maternal-card-btn');
+  if (toggleMaternalCardBtn) {
+    toggleMaternalCardBtn.addEventListener('click', () => {
+      const card = document.getElementById('maternal-details-container');
+      if (card) {
+        card.classList.toggle('hidden');
+        if (!card.classList.contains('hidden')) {
+          toggleMaternalCardBtn.style.backgroundColor = 'rgba(219, 39, 119, 0.2)';
+        } else {
+          toggleMaternalCardBtn.style.backgroundColor = 'rgba(219, 39, 119, 0.06)';
+        }
       }
     });
   }
