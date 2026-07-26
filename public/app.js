@@ -386,27 +386,20 @@ async function loadDraftsFromStorage() {
   const storedEncrypted = localStorage.getItem('drafts_encrypted');
   const storedPlaintext = localStorage.getItem('drafts');
   
-  if (storedEncrypted) {
-    if (window.SecurityEngine && window.SecurityEngine.isUnlocked()) {
-      try {
-        const encryptedObj = JSON.parse(storedEncrypted);
-        const decryptedText = await window.SecurityEngine.decryptPayload(encryptedObj.ciphertext, encryptedObj.iv);
-        state.drafts = JSON.parse(decryptedText);
-      } catch (e) {
-        console.error('Failed to decrypt local drafts from storage:', e);
-        state.drafts = [];
+  if (storedEncrypted && window.SecurityEngine && window.SecurityEngine.isUnlocked()) {
+    try {
+      const encryptedObj = JSON.parse(storedEncrypted);
+      const decryptedText = await window.SecurityEngine.decryptPayload(encryptedObj.ciphertext, encryptedObj.iv);
+      state.drafts = JSON.parse(decryptedText);
+    } catch (e) {
+      console.error('Failed to decrypt local drafts from storage:', e);
+      if (storedPlaintext) {
+        try { state.drafts = JSON.parse(storedPlaintext); } catch(err){}
       }
-    } else {
-      // Vault is currently locked, keep drafts empty for now until unlocked
-      state.drafts = [];
     }
   } else if (storedPlaintext) {
     try {
       state.drafts = JSON.parse(storedPlaintext);
-      // Migrate plaintext drafts to encrypted if vault is unlocked
-      if (window.SecurityEngine && window.SecurityEngine.isUnlocked()) {
-        await saveDraftsToStorage();
-      }
     } catch (e) {
       console.error('Failed to parse plaintext drafts from storage:', e);
       state.drafts = [];
@@ -425,25 +418,20 @@ async function loadDeletedDraftsFromStorage() {
   const storedEncrypted = localStorage.getItem('deleted_drafts_encrypted');
   const storedPlaintext = localStorage.getItem('deleted_drafts');
   
-  if (storedEncrypted) {
-    if (window.SecurityEngine && window.SecurityEngine.isUnlocked()) {
-      try {
-        const encryptedObj = JSON.parse(storedEncrypted);
-        const decryptedText = await window.SecurityEngine.decryptPayload(encryptedObj.ciphertext, encryptedObj.iv);
-        state.deletedDrafts = JSON.parse(decryptedText);
-      } catch (e) {
-        console.error('Failed to decrypt deleted drafts from storage:', e);
-        state.deletedDrafts = [];
+  if (storedEncrypted && window.SecurityEngine && window.SecurityEngine.isUnlocked()) {
+    try {
+      const encryptedObj = JSON.parse(storedEncrypted);
+      const decryptedText = await window.SecurityEngine.decryptPayload(encryptedObj.ciphertext, encryptedObj.iv);
+      state.deletedDrafts = JSON.parse(decryptedText);
+    } catch (e) {
+      console.error('Failed to decrypt deleted drafts from storage:', e);
+      if (storedPlaintext) {
+        try { state.deletedDrafts = JSON.parse(storedPlaintext); } catch(err){}
       }
-    } else {
-      state.deletedDrafts = [];
     }
   } else if (storedPlaintext) {
     try {
       state.deletedDrafts = JSON.parse(storedPlaintext);
-      if (window.SecurityEngine && window.SecurityEngine.isUnlocked()) {
-        await saveDeletedDraftsToStorage();
-      }
     } catch (e) {
       console.error('Failed to parse plaintext deleted drafts:', e);
       state.deletedDrafts = [];
@@ -454,12 +442,12 @@ async function loadDeletedDraftsFromStorage() {
 }
 
 async function saveDeletedDraftsToStorage() {
+  localStorage.setItem('deleted_drafts', JSON.stringify(state.deletedDrafts));
   if (window.SecurityEngine && window.SecurityEngine.isUnlocked()) {
     try {
       const plaintext = JSON.stringify(state.deletedDrafts);
       const encrypted = await window.SecurityEngine.encryptPayload(plaintext);
       localStorage.setItem('deleted_drafts_encrypted', JSON.stringify(encrypted));
-      localStorage.removeItem('deleted_drafts');
     } catch (e) {
       console.error('Failed to encrypt and save deleted drafts:', e);
     }
@@ -467,12 +455,14 @@ async function saveDeletedDraftsToStorage() {
 }
 
 async function saveDraftsToStorage() {
+  // Always persist local drafts to localStorage so they are never lost on hard refresh
+  localStorage.setItem('drafts', JSON.stringify(state.drafts));
+
   if (window.SecurityEngine && window.SecurityEngine.isUnlocked()) {
     try {
       const plaintext = JSON.stringify(state.drafts);
       const encrypted = await window.SecurityEngine.encryptPayload(plaintext);
       localStorage.setItem('drafts_encrypted', JSON.stringify(encrypted));
-      localStorage.removeItem('drafts'); // Purge any plaintext backup
     } catch (e) {
       console.error('Failed to encrypt and save local drafts:', e);
     }
