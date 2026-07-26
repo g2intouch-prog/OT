@@ -4830,15 +4830,13 @@ function formatDisplayValue(val, field) {
 
 // Helper to programmatically switch tabs
 function switchToTab(tabId) {
-  // Security Enforcement: Limit access to tabs by role
-  if (state.isAuthenticated) {
-    if (state.userRole === 'user' && tabId !== 'data-entry' && tabId !== 'break-game') {
+  // Security Enforcement: Limit access to admin-only tabs
+  if (!state.isAuthenticated) {
+    if (tabId === 'form-creator' || tabId === 'settings') {
       tabId = 'data-entry';
-    } else if (state.userRole === 'viewer' && tabId !== 'db-viewer' && tabId !== 'data-analysis') {
-      tabId = 'db-viewer';
     }
-  } else {
-    if (tabId !== 'data-entry' && tabId !== 'break-game') {
+  } else if (state.userRole === 'user') {
+    if (tabId === 'form-creator' || tabId === 'settings') {
       tabId = 'data-entry';
     }
   }
@@ -4862,16 +4860,15 @@ function switchToTab(tabId) {
   if (tabId === 'form-creator') {
     renderFormCreator();
   } else if (tabId === 'db-viewer') {
+    fetchDatabaseRecords();
+    renderDeletedDraftsTable();
+  } else if (tabId === 'data-analysis') {
+    initAnalyticsUI();
+    renderAnalytics();
+    if (state.isOnline) {
       fetchDatabaseRecords();
-      renderDeletedDraftsTable();
-    } else if (tabId === 'data-analysis') {
-      initAnalyticsUI();
-      if (state.isOnline) {
-        fetchDatabaseRecords();
-      } else {
-        renderAnalytics();
-      }
-    } else if (tabId === 'settings') {
+    }
+  } else if (tabId === 'settings') {
       fetchTotpStatus();
       if (typeof loadTeamAccounts === 'function') {
         loadTeamAccounts();
@@ -7092,7 +7089,8 @@ function initAnalyticsUI() {
   // Populate the Year filter select dynamically if it has no options yet
   if (DOM.analysisYear && DOM.analysisYear.options.length === 0) {
     const years = new Set();
-    state.dbRecords.forEach(rec => {
+    const allRecords = [...(state.dbRecords || []), ...(state.drafts || [])];
+    allRecords.forEach(rec => {
       if (rec.date) {
         const yr = rec.date.split('-')[0];
         if (yr && yr.length === 4) years.add(yr);
@@ -7122,7 +7120,9 @@ function initAnalyticsUI() {
 }
 
 function renderAnalytics() {
-  if (!state.dbRecords || state.dbRecords.length === 0) {
+  const allRecords = [...(state.dbRecords || []), ...(state.drafts || [])];
+
+  if (allRecords.length === 0) {
     if (DOM.kpiTotalDeliveries) DOM.kpiTotalDeliveries.textContent = '0';
     if (DOM.kpiAvgWeight) DOM.kpiAvgWeight.textContent = '0g';
     if (DOM.kpiFpRate) DOM.kpiFpRate.textContent = '0%';
@@ -7140,19 +7140,19 @@ function renderAnalytics() {
   let filtered = [];
 
   if (timeframe === 'till-date') {
-    filtered = [...state.dbRecords];
+    filtered = [...allRecords];
   } else if (timeframe === 'annual') {
     const selectedYear = DOM.analysisYear ? DOM.analysisYear.value : '';
-    filtered = state.dbRecords.filter(rec => rec.date && rec.date.startsWith(selectedYear));
+    filtered = allRecords.filter(rec => rec.date && rec.date.startsWith(selectedYear));
   } else if (timeframe === 'monthly') {
     const selectedYear = DOM.analysisYear ? DOM.analysisYear.value : '';
     const selectedMonth = DOM.analysisMonth ? DOM.analysisMonth.value : '';
     const yearMonth = `${selectedYear}-${selectedMonth}`;
-    filtered = state.dbRecords.filter(rec => rec.date && rec.date.startsWith(yearMonth));
+    filtered = allRecords.filter(rec => rec.date && rec.date.startsWith(yearMonth));
   } else if (timeframe === 'custom') {
     const fromDate = DOM.analysisFromDate ? DOM.analysisFromDate.value : '';
     const toDate = DOM.analysisToDate ? DOM.analysisToDate.value : '';
-    filtered = state.dbRecords.filter(rec => {
+    filtered = allRecords.filter(rec => {
       if (!rec.date) return false;
       return rec.date >= fromDate && rec.date <= toDate;
     });
