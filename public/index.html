@@ -598,109 +598,109 @@
           </div>
 
           <!-- Compact Single-Row KPI Banner (6 Cards) -->
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; margin-bottom: 14px;">
-            <div class="summary-card" style="padding: 8px 12px;">
-              <span class="summary-title" style="font-size: 0.7rem;">Total Deliveries</span>
-              <strong id="kpi-total-deliveries" style="font-size: 1.1rem;">0</strong>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 6px; margin-bottom: 8px;">
+            <div class="summary-card" style="padding: 6px 8px;">
+              <span class="summary-title" style="font-size: 0.68rem;">Total Deliveries</span>
+              <strong id="kpi-total-deliveries" style="font-size: 1.05rem;">0</strong>
             </div>
             
-            <div class="summary-card" style="padding: 8px 12px;">
-              <span class="summary-title" style="font-size: 0.7rem;">Avg Birth Weight</span>
-              <strong id="kpi-avg-weight" style="font-size: 1.1rem;">0g</strong>
+            <div class="summary-card" style="padding: 6px 8px;">
+              <span class="summary-title" style="font-size: 0.68rem;">Avg Birth Weight</span>
+              <strong id="kpi-avg-weight" style="font-size: 1.05rem;">0g</strong>
             </div>
 
-            <div class="summary-card" style="padding: 8px 12px;">
-              <span class="summary-title" style="font-size: 0.7rem;">FP Adoption Rate</span>
-              <strong id="kpi-fp-rate" style="font-size: 1.1rem;">0%</strong>
-              <div class="kpi-progress-bar-container" style="background-color: rgba(0,0,0,0.1); border-radius: 3px; height: 4px; margin-top: 4px; overflow: hidden; width: 100%;">
+            <div class="summary-card" style="padding: 6px 8px;">
+              <span class="summary-title" style="font-size: 0.68rem;">FP Adoption Rate</span>
+              <strong id="kpi-fp-rate" style="font-size: 1.05rem;">0%</strong>
+              <div class="kpi-progress-bar-container" style="background-color: rgba(0,0,0,0.1); border-radius: 3px; height: 3px; margin-top: 3px; overflow: hidden; width: 100%;">
                 <div id="kpi-fp-progress" class="kpi-progress-bar green" style="background-color: var(--success); height: 100%; width: 0%; transition: width 0.4s ease;"></div>
               </div>
             </div>
 
-            <div class="summary-card" style="padding: 8px 12px;">
-              <span class="summary-title" style="font-size: 0.7rem;">LBW (< 2.2kg)</span>
-              <strong id="kpi-lbw-rate" style="font-size: 1.05rem;">0 (0%)</strong>
-              <div class="kpi-progress-bar-container" style="background-color: rgba(0,0,0,0.1); border-radius: 3px; height: 4px; margin-top: 4px; overflow: hidden; width: 100%;">
+            <div class="summary-card" style="padding: 6px 8px;">
+              <span class="summary-title" style="font-size: 0.68rem;">LBW (< 2.2kg)</span>
+              <strong id="kpi-lbw-rate" style="font-size: 1.0rem;">0 (0%)</strong>
+              <div class="kpi-progress-bar-container" style="background-color: rgba(0,0,0,0.1); border-radius: 3px; height: 3px; margin-top: 3px; overflow: hidden; width: 100%;">
                 <div id="kpi-lbw-progress" class="kpi-progress-bar red" style="background-color: var(--danger); height: 100%; width: 0%; transition: width 0.4s ease;"></div>
               </div>
             </div>
 
-            <div class="summary-card" style="padding: 8px 12px; background: rgba(2, 132, 199, 0.06); border-color: rgba(2, 132, 199, 0.3);">
-              <span class="summary-title" style="font-size: 0.7rem; color: var(--accent-color);">👶 Multi-Foetal Surgeries</span>
-              <strong id="kpi-multi-foetal" style="font-size: 1.05rem; color: var(--accent-color);">0 (0 Infants)</strong>
+            <div class="summary-card" style="padding: 6px 8px; background: rgba(2, 132, 199, 0.06); border-color: rgba(2, 132, 199, 0.3);">
+              <span class="summary-title" style="font-size: 0.68rem; color: var(--accent-color);">👶 Multi-Foetal Surgeries</span>
+              <strong id="kpi-multi-foetal" style="font-size: 1.0rem; color: var(--accent-color);">0 (0 Infants)</strong>
             </div>
 
-            <div class="summary-card high-risk-card" style="padding: 8px 12px;">
-              <span class="summary-title" style="font-size: 0.7rem; color: var(--danger);">⚠️ High-Risk Cases</span>
-              <strong id="kpi-high-risk" style="font-size: 1.1rem; color: var(--danger);">0</strong>
+            <div class="summary-card high-risk-card" style="padding: 6px 8px;">
+              <span class="summary-title" style="font-size: 0.68rem; color: var(--danger);">⚠️ High-Risk Cases</span>
+              <strong id="kpi-high-risk" style="font-size: 1.05rem; color: var(--danger);">0</strong>
               <div id="high-risk-popover" class="high-risk-popover"></div>
             </div>
           </div>
 
-          <!-- Graphical Charts Grid (3 Columns) -->
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px;">
+          <!-- Ultra-Compact Graphical Charts Grid (3 Columns x 3 Rows, 120px Canvas Height) -->
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 8px;">
             <!-- Birth Load Trend Charts -->
-            <div class="chart-card" style="padding: 10px;">
-              <h3 style="font-size: 0.8rem; margin-bottom: 6px; color: #0284c7;">📆 Weekly Birth Load</h3>
-              <div class="chart-container" style="height: 160px; position: relative;">
+            <div class="chart-card" style="padding: 6px 8px;">
+              <h3 style="font-size: 0.75rem; margin-bottom: 2px; color: #0284c7;">📆 Weekly Birth Load</h3>
+              <div class="chart-container" style="height: 120px; position: relative;">
                 <canvas id="chart-weekly-load"></canvas>
               </div>
             </div>
 
-            <div class="chart-card" style="padding: 10px;">
-              <h3 style="font-size: 0.8rem; margin-bottom: 6px; color: #10b981;">📅 Monthly Birth Load</h3>
-              <div class="chart-container" style="height: 160px; position: relative;">
+            <div class="chart-card" style="padding: 6px 8px;">
+              <h3 style="font-size: 0.75rem; margin-bottom: 2px; color: #10b981;">📅 Monthly Birth Load</h3>
+              <div class="chart-container" style="height: 120px; position: relative;">
                 <canvas id="chart-monthly-load"></canvas>
               </div>
             </div>
 
-            <div class="chart-card" style="padding: 10px;">
-              <h3 style="font-size: 0.8rem; margin-bottom: 6px; color: #a78bfa;">📊 Annual Birth Load</h3>
-              <div class="chart-container" style="height: 160px; position: relative;">
+            <div class="chart-card" style="padding: 6px 8px;">
+              <h3 style="font-size: 0.75rem; margin-bottom: 2px; color: #a78bfa;">📊 Annual Birth Load</h3>
+              <div class="chart-container" style="height: 120px; position: relative;">
                 <canvas id="chart-annual-load"></canvas>
               </div>
             </div>
 
             <!-- Clinical Metrics Charts -->
-            <div class="chart-card" style="padding: 10px;">
-              <h3 style="font-size: 0.8rem; margin-bottom: 6px;">Baby Gender Ratio</h3>
-              <div class="chart-container" style="height: 160px; position: relative;">
+            <div class="chart-card" style="padding: 6px 8px;">
+              <h3 style="font-size: 0.75rem; margin-bottom: 2px;">Baby Gender Ratio</h3>
+              <div class="chart-container" style="height: 120px; position: relative;">
                 <canvas id="chart-gender"></canvas>
               </div>
             </div>
 
-            <div class="chart-card" style="padding: 10px;">
-              <h3 style="font-size: 0.8rem; margin-bottom: 6px;">Multi-Foetal Deliveries</h3>
-              <div class="chart-container" style="height: 160px; position: relative;">
+            <div class="chart-card" style="padding: 6px 8px;">
+              <h3 style="font-size: 0.75rem; margin-bottom: 2px;">Multi-Foetal Deliveries</h3>
+              <div class="chart-container" style="height: 120px; position: relative;">
                 <canvas id="chart-multi-foetal"></canvas>
               </div>
             </div>
 
-            <div class="chart-card" style="padding: 10px;">
-              <h3 style="font-size: 0.8rem; margin-bottom: 6px;">Family Planning Adoption</h3>
-              <div class="chart-container" style="height: 160px; position: relative;">
+            <div class="chart-card" style="padding: 6px 8px;">
+              <h3 style="font-size: 0.75rem; margin-bottom: 2px;">Family Planning Adoption</h3>
+              <div class="chart-container" style="height: 120px; position: relative;">
                 <canvas id="chart-fp"></canvas>
               </div>
             </div>
 
-            <div class="chart-card" style="padding: 10px;">
-              <h3 style="font-size: 0.8rem; margin-bottom: 6px;">Delivery Shifts</h3>
-              <div class="chart-container" style="height: 160px; position: relative;">
+            <div class="chart-card" style="padding: 6px 8px;">
+              <h3 style="font-size: 0.75rem; margin-bottom: 2px;">Delivery Shifts</h3>
+              <div class="chart-container" style="height: 120px; position: relative;">
                 <canvas id="chart-shifts"></canvas>
               </div>
             </div>
 
-            <div class="chart-card" style="padding: 10px;">
-              <h3 style="font-size: 0.8rem; margin-bottom: 6px;">Weekday Birth Load</h3>
-              <div class="chart-container" style="height: 160px; position: relative;">
+            <div class="chart-card" style="padding: 6px 8px;">
+              <h3 style="font-size: 0.75rem; margin-bottom: 2px;">Weekday Birth Load</h3>
+              <div class="chart-container" style="height: 120px; position: relative;">
                 <canvas id="chart-weekday"></canvas>
               </div>
             </div>
 
-            <div class="chart-card address-insights-card" style="padding: 10px;">
-              <h3 style="font-size: 0.8rem; margin-bottom: 6px;">Top Patient Locations</h3>
-              <div class="top-addresses-wrapper" style="max-height: 160px; overflow-y: auto;">
-                <ol id="top-addresses-list" class="top-addresses-list" style="margin: 0; padding-left: 20px; font-size: 0.75rem;">
+            <div class="chart-card address-insights-card" style="padding: 6px 8px;">
+              <h3 style="font-size: 0.75rem; margin-bottom: 2px;">Top Patient Locations</h3>
+              <div class="top-addresses-wrapper" style="max-height: 120px; overflow-y: auto;">
+                <ol id="top-addresses-list" class="top-addresses-list" style="margin: 0; padding-left: 20px; font-size: 0.72rem;">
                   <li class="text-muted">No data available</li>
                 </ol>
               </div>
