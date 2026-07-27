@@ -2194,6 +2194,31 @@ function renderDataEntryForm() {
   }
 }
 
+function formatWeightToGrams(val) {
+  if (val === null || val === undefined || val === '') return '';
+  const str = String(val).trim();
+  if (!str) return '';
+  
+  const kgMatch = str.match(/^([\d.]+)\s*kg$/i);
+  if (kgMatch) {
+    const num = parseFloat(kgMatch[1]);
+    return isNaN(num) ? str : String(Math.round(num * 1000));
+  }
+  
+  const gMatch = str.match(/^([\d.]+)\s*g(rams)?$/i);
+  if (gMatch) {
+    const num = parseFloat(gMatch[1]);
+    return isNaN(num) ? str : String(Math.round(num));
+  }
+  
+  const num = parseFloat(str);
+  if (isNaN(num)) return str;
+  if (num > 0 && num <= 10 && str.includes('.')) {
+    return String(Math.round(num * 1000));
+  }
+  return String(Math.round(num));
+}
+
 function syncSubCardsToMainForm(typeName) {
   const cards = document.querySelectorAll('.infant-sub-card');
   if (cards.length === 0) return;
@@ -2466,6 +2491,11 @@ function handleSaveDraft(e) {
   });
 
   // 3. Collect Multi-Foetal Infant Sub-Card details if present
+  const multiFoetalSelect = document.getElementById('data-entry-multi-foetal-select');
+  if (multiFoetalSelect) {
+    formData.delivery_type = multiFoetalSelect.value;
+  }
+
   const infantCards = document.querySelectorAll('.infant-sub-card');
   if (infantCards.length > 0) {
     const infantsList = [];
@@ -2508,8 +2538,12 @@ function handleSaveDraft(e) {
     };
   }
 
+  const existingLocalId = (state.editingDraftIndex !== null && state.editingDraftIndex !== undefined && state.drafts[state.editingDraftIndex])
+    ? state.drafts[state.editingDraftIndex].localId
+    : Date.now();
+
   const draftEntry = {
-    localId: Date.now(),
+    localId: existingLocalId,
     date: targetDate,
     verified: false,
     data: formData
@@ -2534,14 +2568,23 @@ function handleSaveDraft(e) {
         },
         body: JSON.stringify({ date: targetDate, data: formData })
       })
-      .then(() => {
-        fetchDatabaseRecords();
-        alert('Database record updated successfully!');
+      .then(res => {
+        if (res.ok) {
+          fetchDatabaseRecords();
+          alert('Database record updated successfully!');
+        } else {
+          return res.json().then(errData => {
+            alert('Failed to update DB record: ' + (errData.error || 'Server error'));
+          });
+        }
       })
       .catch(err => {
         console.error('Error updating DB record:', err);
         alert('Failed to update DB record: ' + err.message);
       });
+    } else {
+      alert('Updating database record requires internet connection and Admin login.');
+      return false;
     }
   } else {
     state.drafts.push(draftEntry);
