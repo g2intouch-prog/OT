@@ -1565,26 +1565,27 @@ body.light-mode .top-addresses-list li {
 
 .high-risk-popover {
   position: absolute;
-  bottom: calc(100% + 6px);
+  top: calc(100% + 6px);
+  bottom: auto;
   right: 0;
   left: auto;
-  transform: translateY(6px);
-  margin-bottom: 0;
+  transform: translateY(-6px);
+  margin-top: 0;
   background-color: rgba(22, 27, 34, 0.96);
   border: 1px solid var(--panel-border);
   border-radius: 8px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
-  padding: 12px;
-  width: 300px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  padding: 10px 12px;
+  width: 290px;
   max-width: 85vw;
-  max-height: 260px;
+  max-height: 240px;
   overflow-y: auto;
-  z-index: 1050;
+  z-index: 9999;
   backdrop-filter: blur(12px);
   color: var(--text-main);
   text-align: left;
   font-family: inherit;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s;
