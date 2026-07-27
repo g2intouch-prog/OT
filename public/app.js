@@ -183,6 +183,7 @@ const DOM = {
   analysisCustomGroup: document.getElementById('analysis-custom-group'),
   monthlyLoadCard: document.getElementById('monthly-load-card'),
   kpiTotalDeliveries: document.getElementById('kpi-total-deliveries'),
+  kpiWeeklyLoad: document.getElementById('kpi-weekly-load'),
   kpiMonthlyLoad: document.getElementById('kpi-monthly-load'),
   kpiAnnualLoad: document.getElementById('kpi-annual-load'),
   kpiAvgWeight: document.getElementById('kpi-avg-weight'),
@@ -7493,6 +7494,7 @@ function renderAnalytics() {
 
   if (allRecords.length === 0) {
     if (DOM.kpiTotalDeliveries) DOM.kpiTotalDeliveries.textContent = '0';
+    if (DOM.kpiWeeklyLoad) DOM.kpiWeeklyLoad.textContent = '0 Deliveries';
     if (DOM.kpiMonthlyLoad) DOM.kpiMonthlyLoad.textContent = '0 Deliveries';
     if (DOM.kpiAnnualLoad) DOM.kpiAnnualLoad.textContent = '0 Deliveries';
     if (DOM.kpiAvgWeight) DOM.kpiAvgWeight.textContent = '0g';
@@ -7806,13 +7808,24 @@ function renderAnalytics() {
   // 3. Render KPI values
   if (DOM.kpiTotalDeliveries) DOM.kpiTotalDeliveries.textContent = totalCount;
 
-  // Calculate Monthly Load and Annual Load
+  // Calculate Weekly Load, Monthly Load and Annual Load
   const now = new Date();
   const currentYrStr = now.getFullYear().toString();
   const currentMoStr = (now.getMonth() + 1).toString().padStart(2, '0');
   const monthNamesShort = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const currentMonthName = monthNamesShort[now.getMonth()];
 
+  // Current week range (Monday to Sunday)
+  const todayForWeek = new Date();
+  const dayOfWeek = todayForWeek.getDay();
+  const diffToMon = todayForWeek.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+  const weekStart = new Date(new Date().setDate(diffToMon));
+  weekStart.setHours(0, 0, 0, 0);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 6);
+  weekEnd.setHours(23, 59, 59, 999);
+
+  let weeklyCount = 0;
   let monthlyCount = 0;
   let annualCount = 0;
 
@@ -7825,9 +7838,17 @@ function renderAnalytics() {
           monthlyCount++;
         }
       }
+
+      try {
+        const rDate = new Date(rec.date + 'T00:00:00');
+        if (rDate >= weekStart && rDate <= weekEnd) {
+          weeklyCount++;
+        }
+      } catch(e) {}
     }
   });
 
+  if (DOM.kpiWeeklyLoad) DOM.kpiWeeklyLoad.textContent = `${weeklyCount} (This Wk)`;
   if (DOM.kpiMonthlyLoad) DOM.kpiMonthlyLoad.textContent = `${monthlyCount} (${currentMonthName})`;
   if (DOM.kpiAnnualLoad) DOM.kpiAnnualLoad.textContent = `${annualCount} (${currentYrStr})`;
   

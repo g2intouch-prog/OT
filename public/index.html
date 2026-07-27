@@ -597,12 +597,17 @@
             </div>
           </div>
 
-          <!-- 4x2 Analytics KPI Banner (8 Cards Total) -->
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 14px;">
-            <!-- Row 1 -->
+          <!-- Analytics KPI Banner Grid (Weekly, Monthly, Annual Birth Loads) -->
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 14px;">
+            <!-- Row 1: Birth Volume & Timeframe Loads -->
             <div class="summary-card" style="padding: 10px 12px;">
               <span class="summary-title" style="font-size: 0.72rem;">Total Deliveries</span>
               <strong id="kpi-total-deliveries" style="font-size: 1.15rem; color: var(--accent-color);">0</strong>
+            </div>
+
+            <div class="summary-card" style="padding: 10px 12px; background: rgba(14, 165, 233, 0.05); border-color: rgba(14, 165, 233, 0.25);">
+              <span class="summary-title" style="font-size: 0.72rem; color: #0284c7;">📆 Weekly Birth Load</span>
+              <strong id="kpi-weekly-load" style="font-size: 1.05rem; color: #0284c7;">0 Deliveries</strong>
             </div>
 
             <div class="summary-card" style="padding: 10px 12px; background: rgba(5, 150, 105, 0.05); border-color: rgba(5, 150, 105, 0.25);">
@@ -615,12 +620,12 @@
               <strong id="kpi-annual-load" style="font-size: 1.05rem; color: #a78bfa;">0 Deliveries</strong>
             </div>
 
+            <!-- Row 2: Clinical Metrics & Risk -->
             <div class="summary-card" style="padding: 10px 12px;">
               <span class="summary-title" style="font-size: 0.72rem;">Avg Birth Weight</span>
               <strong id="kpi-avg-weight" style="font-size: 1.1rem;">0g</strong>
             </div>
 
-            <!-- Row 2 -->
             <div class="summary-card" style="padding: 10px 12px;">
               <span class="summary-title" style="font-size: 0.72rem;">FP Adoption Rate</span>
               <strong id="kpi-fp-rate" style="font-size: 1.1rem;">0%</strong>
