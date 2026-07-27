@@ -1,7 +1,8 @@
 {
+  "id": "data-entry-hub",
   "short_name": "DataEntry",
-  "name": "LAN Data Entry Hub",
-  "description": "LAN-based dynamic personal data entry portal with offline caching.",
+  "name": "Data Entry Hub",
+  "description": "Dynamic personal data entry portal with offline caching.",
   "icons": [
     {
       "src": "icon-192.png",

@@ -254,6 +254,13 @@ app.get('/sw.js', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'sw.js'));
 });
 
+// Serve manifest.json without caching so browser detects name updates immediately
+app.get(['/manifest.json', '/manifest.webmanifest'], (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Content-Type', 'application/manifest+json');
+  res.sendFile(path.join(__dirname, 'public', 'manifest.json'));
+});
+
 // Serve static assets from public folder
 app.use(express.static(path.join(__dirname, 'public')));
 

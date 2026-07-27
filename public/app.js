@@ -16,7 +16,7 @@ const state = {
   activeTab: 'data-entry',
   formCreatorSchema: [], // Working copy of schema inside Form Creator
   formCreatorActiveIndex: 0,
-  lanUrl: '',
+  serverUrl: '',
   highRiskCases: []
 };
 
@@ -286,7 +286,7 @@ document.addEventListener('DOMContentLoaded', () => {
     updateAuthUI();
 
     // Set default server URL
-    state.lanUrl = window.location.origin;
+    state.serverUrl = window.location.origin;
 
     // Load drafts from localStorage
     loadDraftsFromStorage();
@@ -370,7 +370,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (submitBtn) submitBtn.textContent = 'Verify 2FA';
     }
 
-    // Start periodic LAN server connectivity check (every 5 seconds)
+    // Start periodic server connectivity check (every 5 seconds)
     setInterval(checkConnectivity, 5000);
   } catch (globalInitError) {
     console.error("GLOBAL INITIALIZATION ERROR:", globalInitError);
