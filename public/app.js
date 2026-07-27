@@ -7906,7 +7906,7 @@ function renderAnalytics() {
   let twinsCount = 0;
   let tripletsCount = 0;
 
-  filteredRecords.forEach(rec => {
+  filtered.forEach(rec => {
     const dataObj = rec.data || {};
     const pregType = (dataObj.pregnancy_type || dataObj.delivery_type || dataObj.type || '').toString().toLowerCase();
     const infants = dataObj.multi_foetal_infants || [];
