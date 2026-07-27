@@ -2238,14 +2238,23 @@ function syncSubCardsToMainForm(typeName) {
     if (a) apgars.push(a);
   });
 
-  // Find corresponding main form input fields
-  const sexField = Array.isArray(state.schema) ? state.schema.find(f => f.id === 'sex' || f.id === 'gender' || f.id === 'sexob' || (f.title && (f.title.toLowerCase().includes('sex') || f.title.toLowerCase().includes('gender')))) : null;
+  const babySexField = Array.isArray(state.schema) ? state.schema.find(f => {
+    const id = (f.id || '').toLowerCase();
+    const cat = (f.category || '').toLowerCase();
+    const title = (f.title || '').toLowerCase();
+
+    if (id === 'sexob' || id === 'baby_sex' || id === 'child_sex' || id === 'infant_sex' || id === 'foetal_sex' || id === 'gender_baby') return true;
+    if (cat === 'foetal' && (id.includes('sex') || id.includes('gender') || title.includes('sex') || title.includes('gender'))) return true;
+    if ((title.includes('baby') || title.includes('child') || title.includes('infant') || title.includes('foetal')) && (title.includes('sex') || title.includes('gender'))) return true;
+    return false;
+  }) : null;
+
   const weightField = Array.isArray(state.schema) ? state.schema.find(f => f.id === 'weight' || f.id === 'weightob' || f.id.toLowerCase().includes('weight') || (f.title && f.title.toLowerCase().includes('weight'))) : null;
   const timeField = Array.isArray(state.schema) ? state.schema.find(f => f.type === 'time' || f.id === 'timeob' || f.id.toLowerCase().includes('time') || (f.title && f.title.toLowerCase().includes('time'))) : null;
   const apgarField = Array.isArray(state.schema) ? state.schema.find(f => f.id === 'apgar' || f.id.toLowerCase().includes('apgar') || (f.title && f.title.toLowerCase().includes('apgar'))) : null;
 
-  let sexEl = sexField ? document.getElementById(`input-${sexField.id}`) : null;
-  if (!sexEl) sexEl = document.getElementById('input-sexob') || document.getElementById('input-sex') || document.getElementById('input-gender') || document.querySelector('select[id*="sex"], input[id*="sex"]');
+  let sexEl = babySexField ? document.getElementById(`input-${babySexField.id}`) : null;
+  if (!sexEl) sexEl = document.getElementById('input-sexob') || document.getElementById('input-baby-sex') || document.getElementById('input-child-sex');
   if (sexEl && genders.length > 0) {
     const formattedGenderStr = cards.length > 1 ? `${typeName} (${genders.join(', ')})` : genders[0];
     if (sexEl.tagName === 'SELECT') {
@@ -2532,8 +2541,18 @@ function handleSaveDraft(e) {
     });
     formData.multi_foetal_infants = infantsList;
 
-    const sexField = Array.isArray(state.schema) ? state.schema.find(f => f.id === 'sex' || f.id === 'gender' || f.id === 'sexob' || (f.title && (f.title.toLowerCase().includes('sex') || f.title.toLowerCase().includes('gender')))) : null;
-    const sexKey = sexField ? sexField.id : (formData.hasOwnProperty('sexob') ? 'sexob' : (formData.hasOwnProperty('sex') ? 'sex' : 'gender'));
+    const babySexField = Array.isArray(state.schema) ? state.schema.find(f => {
+      const id = (f.id || '').toLowerCase();
+      const cat = (f.category || '').toLowerCase();
+      const title = (f.title || '').toLowerCase();
+
+      if (id === 'sexob' || id === 'baby_sex' || id === 'child_sex' || id === 'infant_sex' || id === 'foetal_sex' || id === 'gender_baby') return true;
+      if (cat === 'foetal' && (id.includes('sex') || id.includes('gender') || title.includes('sex') || title.includes('gender'))) return true;
+      if ((title.includes('baby') || title.includes('child') || title.includes('infant') || title.includes('foetal')) && (title.includes('sex') || title.includes('gender'))) return true;
+      return false;
+    }) : null;
+
+    const sexKey = babySexField ? babySexField.id : (formData.hasOwnProperty('sexob') ? 'sexob' : (formData.hasOwnProperty('baby_sex') ? 'baby_sex' : 'sexob'));
     if (infantGenders.length > 1) {
       formData[sexKey] = `${multiTitle} (${infantGenders.join(', ')})`;
     }
@@ -5253,7 +5272,7 @@ function setupEventListeners() {
           if (aInp && existingValues[i].apgar) aInp.value = existingValues[i].apgar;
         } else if (i === 0) {
           // If converting older single-baby record to twin, pre-fill Infant #1 with main form values
-          const mainGender = document.getElementById('input-sexob') || document.getElementById('input-sex') || document.getElementById('input-gender');
+          const mainGender = document.getElementById('input-sexob') || document.getElementById('input-baby-sex') || document.getElementById('input-child-sex');
           const mainTime = document.getElementById('input-timeob') || document.getElementById('input-time');
           const mainWeight = document.getElementById('input-weightob') || document.getElementById('input-weight');
           
