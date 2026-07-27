@@ -2230,7 +2230,10 @@ function syncSubCardsToMainForm(typeName) {
     const a = card.querySelector('.infant-apgar-input')?.value || '';
 
     if (g) genders.push(g);
-    if (t) times.push(t);
+    if (t) {
+      const formatted12hTime = convertExcelTime(t, true);
+      times.push(cards.length > 1 ? `T${idx + 1}: ${formatted12hTime}` : formatted12hTime);
+    }
     if (w) {
       const gVal = formatWeightToGrams(w);
       weights.push(cards.length > 1 ? `T${idx + 1}: ${gVal}g` : gVal);
@@ -2349,8 +2352,8 @@ function renderInfantSubCards(count, typeName) {
           </select>
         </div>
         <div>
-          <label style="font-size: 0.7rem; margin-bottom: 2px; display: block; font-weight: 600;">Time of Birth</label>
-          <input type="time" class="form-control infant-time-input" style="padding: 4px; font-size: 0.75rem;">
+          <label style="font-size: 0.7rem; margin-bottom: 2px; display: block; font-weight: 600;">Time of Birth (12-hr)</label>
+          <input type="text" class="form-control infant-time-input" placeholder="e.g. 09:15 AM" style="padding: 4px; font-size: 0.75rem;">
         </div>
         <div>
           <label style="font-size: 0.7rem; margin-bottom: 2px; display: block; font-weight: 600;">Weight (grams)</label>
@@ -2369,6 +2372,14 @@ function renderInfantSubCards(count, typeName) {
     card.querySelectorAll('input, select').forEach(inp => {
       inp.addEventListener('input', () => syncSubCardsToMainForm(typeName));
       inp.addEventListener('change', () => syncSubCardsToMainForm(typeName));
+      if (inp.classList.contains('infant-time-input')) {
+        inp.addEventListener('blur', () => {
+          if (inp.value) {
+            inp.value = convertExcelTime(inp.value, true);
+            syncSubCardsToMainForm(typeName);
+          }
+        });
+      }
     });
   }
 
@@ -2533,7 +2544,7 @@ function handleSaveDraft(e) {
       infantsList.push({
         infant: idx + 1,
         gender: gVal,
-        timeob: timeInput ? timeInput.value : '',
+        timeob: timeInput && timeInput.value ? convertExcelTime(timeInput.value, true) : '',
         weight: weightInput ? formatWeightToGrams(weightInput.value) : '',
         apgar: apgarInput ? apgarInput.value : '',
         ...customVals
@@ -2688,7 +2699,7 @@ function loadDraftIntoDataEntry(item, itemIndex, isDraft = true) {
       if (recData.multi_foetal_infants && recData.multi_foetal_infants[i]) {
         const inf = recData.multi_foetal_infants[i];
         if (gSel && inf.gender) gSel.value = inf.gender;
-        if (tInp && inf.timeob) tInp.value = inf.timeob;
+        if (tInp && inf.timeob) tInp.value = convertExcelTime(inf.timeob, true);
         if (wInp && inf.weight) wInp.value = formatWeightToGrams(inf.weight);
         if (aInp && inf.apgar) aInp.value = inf.apgar;
       } else if (i === 0) {
@@ -5122,7 +5133,7 @@ function formatDisplayValue(val, field) {
   }
   
   // Format 12h time
-  if (field.type === 'time' && field.timeFormat === '12h') {
+  if (field.type === 'time' || field.id === 'timeob' || (field.title && field.title.toLowerCase().includes('time'))) {
     const valStr = val.toString().trim().toUpperCase();
     if (valStr.includes('AM') || valStr.includes('PM')) {
       return val;
