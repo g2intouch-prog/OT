@@ -2199,21 +2199,14 @@ function formatWeightToGrams(val) {
   const str = String(val).trim();
   if (!str) return '';
   
-  const kgMatch = str.match(/^([\d.]+)\s*kg$/i);
-  if (kgMatch) {
-    const num = parseFloat(kgMatch[1]);
-    return isNaN(num) ? str : String(Math.round(num * 1000));
-  }
-  
-  const gMatch = str.match(/^([\d.]+)\s*g(rams)?$/i);
-  if (gMatch) {
-    const num = parseFloat(gMatch[1]);
-    return isNaN(num) ? str : String(Math.round(num));
-  }
-  
-  const num = parseFloat(str);
+  const match = str.match(/([\d.]+)\s*(kg|g|grams)?$/i) || str.match(/(\d+(?:\.\d+)?)/);
+  if (!match) return str;
+
+  const num = parseFloat(match[1]);
   if (isNaN(num)) return str;
-  if (num > 0 && num <= 10 && str.includes('.')) {
+
+  const unit = (match[2] || '').toLowerCase();
+  if (unit === 'kg' || (num > 0 && num <= 10 && String(match[1]).includes('.'))) {
     return String(Math.round(num * 1000));
   }
   return String(Math.round(num));
@@ -2492,9 +2485,13 @@ function handleSaveDraft(e) {
 
   // 3. Collect Multi-Foetal Infant Sub-Card details if present
   const multiFoetalSelect = document.getElementById('data-entry-multi-foetal-select');
+  const multiTitle = multiFoetalSelect ? multiFoetalSelect.options[multiFoetalSelect.selectedIndex].text : 'Single';
   if (multiFoetalSelect) {
     formData.delivery_type = multiFoetalSelect.value;
   }
+
+  // Always sync sub cards to main form before reading input values
+  syncSubCardsToMainForm(multiTitle);
 
   const infantCards = document.querySelectorAll('.infant-sub-card');
   if (infantCards.length > 0) {
@@ -2665,6 +2662,8 @@ function loadDraftIntoDataEntry(item, itemIndex, isDraft = true) {
         if (wInp && mainWeight) wInp.value = formatWeightToGrams(mainWeight);
       }
     });
+
+    syncSubCardsToMainForm(title);
   }
 
   const maternalCard = document.getElementById('maternal-details-container');
@@ -5215,6 +5214,8 @@ function setupEventListeners() {
           if (wInp && mainWeight && mainWeight.value) wInp.value = mainWeight.value;
         }
       });
+
+      syncSubCardsToMainForm(title);
     });
   }
 
