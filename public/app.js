@@ -2247,11 +2247,18 @@ function syncSubCardsToMainForm(typeName) {
   let sexEl = sexField ? document.getElementById(`input-${sexField.id}`) : null;
   if (!sexEl) sexEl = document.getElementById('input-sexob') || document.getElementById('input-sex') || document.getElementById('input-gender') || document.querySelector('select[id*="sex"], input[id*="sex"]');
   if (sexEl && genders.length > 0) {
+    const formattedGenderStr = cards.length > 1 ? `${typeName} (${genders.join(', ')})` : genders[0];
     if (sexEl.tagName === 'SELECT') {
-      const optMatch = Array.from(sexEl.options).find(o => o.value.toLowerCase().includes('twin') || o.value.toLowerCase().includes('multi'));
-      if (optMatch) sexEl.value = optMatch.value;
+      let optMatch = Array.from(sexEl.options).find(o => o.value === formattedGenderStr || o.value.toLowerCase().includes('twin') || o.value.toLowerCase().includes('multi'));
+      if (!optMatch) {
+        optMatch = document.createElement('option');
+        optMatch.value = formattedGenderStr;
+        optMatch.textContent = formattedGenderStr;
+        sexEl.appendChild(optMatch);
+      }
+      sexEl.value = optMatch.value;
     } else {
-      sexEl.value = `${typeName} (${genders.join(', ')})`;
+      sexEl.value = formattedGenderStr;
     }
     sexEl.dispatchEvent(new Event('input', { bubbles: true }));
   }
@@ -2498,6 +2505,7 @@ function handleSaveDraft(e) {
   const infantCards = document.querySelectorAll('.infant-sub-card');
   if (infantCards.length > 0) {
     const infantsList = [];
+    const infantGenders = [];
     infantCards.forEach((card, idx) => {
       const genderSelect = card.querySelector('.infant-gender-input');
       const timeInput = card.querySelector('.infant-time-input');
@@ -2510,9 +2518,12 @@ function handleSaveDraft(e) {
         if (fieldId) customVals[fieldId] = ci.value;
       });
 
+      const gVal = genderSelect ? genderSelect.value : 'Male';
+      if (gVal) infantGenders.push(gVal);
+
       infantsList.push({
         infant: idx + 1,
-        gender: genderSelect ? genderSelect.value : 'Male',
+        gender: gVal,
         timeob: timeInput ? timeInput.value : '',
         weight: weightInput ? formatWeightToGrams(weightInput.value) : '',
         apgar: apgarInput ? apgarInput.value : '',
@@ -2520,6 +2531,12 @@ function handleSaveDraft(e) {
       });
     });
     formData.multi_foetal_infants = infantsList;
+
+    const sexField = Array.isArray(state.schema) ? state.schema.find(f => f.id === 'sex' || f.id === 'gender' || f.id === 'sexob' || (f.title && (f.title.toLowerCase().includes('sex') || f.title.toLowerCase().includes('gender')))) : null;
+    const sexKey = sexField ? sexField.id : (formData.hasOwnProperty('sexob') ? 'sexob' : (formData.hasOwnProperty('sex') ? 'sex' : 'gender'));
+    if (infantGenders.length > 1) {
+      formData[sexKey] = `${multiTitle} (${infantGenders.join(', ')})`;
+    }
   }
 
   // 4. Collect Maternal Clinical Details if present
@@ -7574,8 +7591,11 @@ function renderAnalytics() {
         }
       }
       if (sexVal.includes('male') && !sexVal.includes('female')) maleCount++;
-      else if (sexVal.includes('female')) femaleCount++;
-      else if (sexVal) otherGenderCount++;
+      else if (sexVal.includes('female') && !sexVal.includes('male')) femaleCount++;
+      else if (sexVal.includes('male') && sexVal.includes('female')) {
+        maleCount++;
+        femaleCount++;
+      } else if (sexVal) otherGenderCount++;
 
       // Standard Single Birth Weight: Search data keys for weight
       let wNum = null;
@@ -7884,7 +7904,7 @@ function renderAnalytics() {
       data: {
         labels: ['Single Births', 'Twins', 'Triplets/More'],
         datasets: [{
-          data: [Math.max(0, totalDeliveries - multiFoetalSurgeriesCount), twinsCount, tripletsCount],
+          data: [Math.max(0, totalCount - multiFoetalSurgeriesCount), twinsCount, tripletsCount],
           backgroundColor: ['#059669', '#0284c7', '#e11d48'],
           borderColor: gridColor,
           borderWidth: 1
