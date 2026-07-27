@@ -183,6 +183,8 @@ const DOM = {
   analysisCustomGroup: document.getElementById('analysis-custom-group'),
   monthlyLoadCard: document.getElementById('monthly-load-card'),
   kpiTotalDeliveries: document.getElementById('kpi-total-deliveries'),
+  kpiMonthlyLoad: document.getElementById('kpi-monthly-load'),
+  kpiAnnualLoad: document.getElementById('kpi-annual-load'),
   kpiAvgWeight: document.getElementById('kpi-avg-weight'),
   kpiFpRate: document.getElementById('kpi-fp-rate'),
   kpiFpProgress: document.getElementById('kpi-fp-progress'),
@@ -7491,6 +7493,8 @@ function renderAnalytics() {
 
   if (allRecords.length === 0) {
     if (DOM.kpiTotalDeliveries) DOM.kpiTotalDeliveries.textContent = '0';
+    if (DOM.kpiMonthlyLoad) DOM.kpiMonthlyLoad.textContent = '0 Deliveries';
+    if (DOM.kpiAnnualLoad) DOM.kpiAnnualLoad.textContent = '0 Deliveries';
     if (DOM.kpiAvgWeight) DOM.kpiAvgWeight.textContent = '0g';
     if (DOM.kpiFpRate) DOM.kpiFpRate.textContent = '0%';
     if (DOM.kpiFpProgress) DOM.kpiFpProgress.style.width = '0%';
@@ -7801,6 +7805,31 @@ function renderAnalytics() {
 
   // 3. Render KPI values
   if (DOM.kpiTotalDeliveries) DOM.kpiTotalDeliveries.textContent = totalCount;
+
+  // Calculate Monthly Load and Annual Load
+  const now = new Date();
+  const currentYrStr = now.getFullYear().toString();
+  const currentMoStr = (now.getMonth() + 1).toString().padStart(2, '0');
+  const monthNamesShort = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const currentMonthName = monthNamesShort[now.getMonth()];
+
+  let monthlyCount = 0;
+  let annualCount = 0;
+
+  allRecords.forEach(rec => {
+    if (rec.date) {
+      const ym = getRecordYearMonth(rec.date);
+      if (ym.yr === currentYrStr) {
+        annualCount++;
+        if (ym.mo === currentMoStr) {
+          monthlyCount++;
+        }
+      }
+    }
+  });
+
+  if (DOM.kpiMonthlyLoad) DOM.kpiMonthlyLoad.textContent = `${monthlyCount} (${currentMonthName})`;
+  if (DOM.kpiAnnualLoad) DOM.kpiAnnualLoad.textContent = `${annualCount} (${currentYrStr})`;
   
   const avgWeight = validWeightCount > 0 ? Math.round(totalWeight / validWeightCount) : 0;
   if (DOM.kpiAvgWeight) DOM.kpiAvgWeight.textContent = `${avgWeight}g`;

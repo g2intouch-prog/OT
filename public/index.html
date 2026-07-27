@@ -597,43 +597,54 @@
             </div>
           </div>
 
-          <!-- Compact Single-Row KPI Banner (6 Cards) -->
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; margin-bottom: 14px;">
-            <div class="summary-card" style="padding: 8px 12px;">
-              <span class="summary-title" style="font-size: 0.7rem;">Total Deliveries</span>
-              <strong id="kpi-total-deliveries" style="font-size: 1.1rem;">0</strong>
+          <!-- 4x2 Analytics KPI Banner (8 Cards Total) -->
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 14px;">
+            <!-- Row 1 -->
+            <div class="summary-card" style="padding: 10px 12px;">
+              <span class="summary-title" style="font-size: 0.72rem;">Total Deliveries</span>
+              <strong id="kpi-total-deliveries" style="font-size: 1.15rem; color: var(--accent-color);">0</strong>
             </div>
-            
-            <div class="summary-card" style="padding: 8px 12px;">
-              <span class="summary-title" style="font-size: 0.7rem;">Avg Birth Weight</span>
+
+            <div class="summary-card" style="padding: 10px 12px; background: rgba(5, 150, 105, 0.05); border-color: rgba(5, 150, 105, 0.25);">
+              <span class="summary-title" style="font-size: 0.72rem; color: #10b981;">📅 Monthly Birth Load</span>
+              <strong id="kpi-monthly-load" style="font-size: 1.05rem; color: #10b981;">0 Deliveries</strong>
+            </div>
+
+            <div class="summary-card" style="padding: 10px 12px; background: rgba(124, 58, 237, 0.05); border-color: rgba(124, 58, 237, 0.25);">
+              <span class="summary-title" style="font-size: 0.72rem; color: #a78bfa;">📊 Annual Birth Load</span>
+              <strong id="kpi-annual-load" style="font-size: 1.05rem; color: #a78bfa;">0 Deliveries</strong>
+            </div>
+
+            <div class="summary-card" style="padding: 10px 12px;">
+              <span class="summary-title" style="font-size: 0.72rem;">Avg Birth Weight</span>
               <strong id="kpi-avg-weight" style="font-size: 1.1rem;">0g</strong>
             </div>
 
-            <div class="summary-card" style="padding: 8px 12px;">
-              <span class="summary-title" style="font-size: 0.7rem;">FP Adoption Rate</span>
+            <!-- Row 2 -->
+            <div class="summary-card" style="padding: 10px 12px;">
+              <span class="summary-title" style="font-size: 0.72rem;">FP Adoption Rate</span>
               <strong id="kpi-fp-rate" style="font-size: 1.1rem;">0%</strong>
               <div class="kpi-progress-bar-container" style="background-color: rgba(0,0,0,0.1); border-radius: 3px; height: 4px; margin-top: 4px; overflow: hidden; width: 100%;">
                 <div id="kpi-fp-progress" class="kpi-progress-bar green" style="background-color: var(--success); height: 100%; width: 0%; transition: width 0.4s ease;"></div>
               </div>
             </div>
 
-            <div class="summary-card" style="padding: 8px 12px;">
-              <span class="summary-title" style="font-size: 0.7rem;">LBW (< 2.2kg)</span>
+            <div class="summary-card" style="padding: 10px 12px;">
+              <span class="summary-title" style="font-size: 0.72rem;">LBW (< 2.2kg)</span>
               <strong id="kpi-lbw-rate" style="font-size: 1.05rem;">0 (0%)</strong>
               <div class="kpi-progress-bar-container" style="background-color: rgba(0,0,0,0.1); border-radius: 3px; height: 4px; margin-top: 4px; overflow: hidden; width: 100%;">
                 <div id="kpi-lbw-progress" class="kpi-progress-bar red" style="background-color: var(--danger); height: 100%; width: 0%; transition: width 0.4s ease;"></div>
               </div>
             </div>
 
-            <!-- New Multi-Foetal Pregnancy Summary Card -->
-            <div class="summary-card" style="padding: 8px 12px; background: rgba(2, 132, 199, 0.06); border-color: rgba(2, 132, 199, 0.3);">
-              <span class="summary-title" style="font-size: 0.7rem; color: var(--accent-color);">👶 Multi-Foetal Surgeries</span>
+            <div class="summary-card" style="padding: 10px 12px; background: rgba(2, 132, 199, 0.06); border-color: rgba(2, 132, 199, 0.3);">
+              <span class="summary-title" style="font-size: 0.72rem; color: var(--accent-color);">👶 Multi-Foetal Surgeries</span>
               <strong id="kpi-multi-foetal" style="font-size: 1.05rem; color: var(--accent-color);">0 (0 Infants)</strong>
             </div>
 
-            <div class="summary-card high-risk-card" style="padding: 8px 12px;">
-              <span class="summary-title" style="font-size: 0.7rem;">High-Risk Cases</span>
-              <strong id="kpi-high-risk" style="font-size: 1.1rem;">0</strong>
+            <div class="summary-card high-risk-card" style="padding: 10px 12px;">
+              <span class="summary-title" style="font-size: 0.72rem; color: var(--danger);">⚠️ High-Risk Cases</span>
+              <strong id="kpi-high-risk" style="font-size: 1.1rem; color: var(--danger);">0</strong>
               <div id="high-risk-popover" class="high-risk-popover"></div>
             </div>
           </div>

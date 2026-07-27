@@ -1559,21 +1559,27 @@ body.light-mode .top-addresses-list li {
   cursor: pointer;
 }
 
+.high-risk-card {
+  position: relative;
+}
+
 .high-risk-popover {
   position: absolute;
-  bottom: 100%;
-  left: 50%;
-  transform: translateX(-50%) translateY(10px);
-  margin-bottom: 8px;
+  bottom: calc(100% + 6px);
+  right: 0;
+  left: auto;
+  transform: translateY(6px);
+  margin-bottom: 0;
   background-color: rgba(22, 27, 34, 0.96);
   border: 1px solid var(--panel-border);
   border-radius: 8px;
-  box-shadow: var(--shadow);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
   padding: 12px;
-  width: 320px;
-  max-height: 250px;
+  width: 300px;
+  max-width: 85vw;
+  max-height: 260px;
   overflow-y: auto;
-  z-index: 1000;
+  z-index: 1050;
   backdrop-filter: blur(12px);
   color: var(--text-main);
   text-align: left;
@@ -1588,7 +1594,7 @@ body.light-mode .top-addresses-list li {
 
 .high-risk-card:hover .high-risk-popover {
   opacity: 1;
-  transform: translateX(-50%) translateY(0);
+  transform: translateY(0);
   visibility: visible;
   pointer-events: auto;
 }
