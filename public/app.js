@@ -52,10 +52,12 @@ const DOM = {
   selectAllDeletedBtn: document.getElementById('select-all-deleted-btn'),
   deselectAllDeletedBtn: document.getElementById('deselect-all-deleted-btn'),
   restoreSelectedBtn: document.getElementById('restore-selected-btn'),
-  deletePermanentlyBtn: document.getElementById('delete-permanently-btn'),
+  purgeSelectedBtn: document.getElementById('purge-selected-btn') || document.getElementById('delete-permanently-btn'),
+  deletePermanentlyBtn: document.getElementById('purge-selected-btn') || document.getElementById('delete-permanently-btn'),
   headerSelectAllDeleted: document.getElementById('header-select-all-deleted'),
   restoreCountText: document.getElementById('restore-count-text'),
-  deletePermanentlyCountText: document.getElementById('delete-permanently-count-text'),
+  purgeCountText: document.getElementById('purge-count-text') || document.getElementById('delete-permanently-count-text'),
+  deletePermanentlyCountText: document.getElementById('purge-count-text') || document.getElementById('delete-permanently-count-text'),
   
   // Tab 2: Form Creator
   addFieldBtn: document.getElementById('add-field-btn'),
@@ -3527,15 +3529,19 @@ function updateDeletedCountBtnState() {
   const localCount = state.deletedDrafts.filter(d => d.selectedForAction).length;
   const dbCount = (state.deletedDbRecords || []).filter(d => d.selectedForAction).length;
   const selectedCount = localCount + dbCount;
-  DOM.restoreCountText.textContent = selectedCount;
-  DOM.deletePermanentlyCountText.textContent = selectedCount;
+
+  if (DOM.restoreCountText) DOM.restoreCountText.textContent = selectedCount;
+  if (DOM.purgeCountText) DOM.purgeCountText.textContent = selectedCount;
+  if (DOM.deletePermanentlyCountText) DOM.deletePermanentlyCountText.textContent = selectedCount;
+
+  const purgeBtn = DOM.purgeSelectedBtn || DOM.deletePermanentlyBtn;
 
   if (selectedCount > 0) {
     if (DOM.restoreSelectedBtn) DOM.restoreSelectedBtn.removeAttribute('disabled');
-    if (DOM.deletePermanentlyBtn) DOM.deletePermanentlyBtn.removeAttribute('disabled');
+    if (purgeBtn) purgeBtn.removeAttribute('disabled');
   } else {
     if (DOM.restoreSelectedBtn) DOM.restoreSelectedBtn.setAttribute('disabled', 'true');
-    if (DOM.deletePermanentlyBtn) DOM.deletePermanentlyBtn.setAttribute('disabled', 'true');
+    if (purgeBtn) purgeBtn.setAttribute('disabled', 'true');
   }
 }
 
@@ -3548,7 +3554,7 @@ function selectAllDeleted(val) {
   }
   
   document.querySelectorAll('.deleted-selector').forEach(cb => cb.checked = val);
-  DOM.headerSelectAllDeleted.checked = val;
+  if (DOM.headerSelectAllDeleted) DOM.headerSelectAllDeleted.checked = val;
   updateDeletedCountBtnState();
 }
 
@@ -3558,72 +3564,101 @@ async function restoreSelectedDeleted() {
   const totalCount = toRestoreLocal.length + toRestoreDb.length;
   if (totalCount === 0) return;
 
-  if (toRestoreLocal.length > 0) {
-    state.deletedDrafts = state.deletedDrafts.filter(d => !d.selectedForAction);
-    toRestoreLocal.forEach(d => {
-      d.verified = false;
-      delete d.selectedForAction;
-      state.drafts.push(d);
-    });
-    await saveDraftsToStorage();
-    await saveDeletedDraftsToStorage();
-    renderSyncTable();
+  if (DOM.restoreSelectedBtn) {
+    DOM.restoreSelectedBtn.disabled = true;
+    DOM.restoreSelectedBtn.innerHTML = '<span>Restoring...</span>';
   }
 
-  if (toRestoreDb.length > 0) {
-    for (const item of toRestoreDb) {
-      try {
-        await fetch(`/api/entries/restore/${item.id}`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${state.authToken}`
-          }
-        });
-      } catch (e) {
-        console.error('Failed to restore database record', item.id, e);
-      }
+  try {
+    if (toRestoreLocal.length > 0) {
+      state.deletedDrafts = state.deletedDrafts.filter(d => !d.selectedForAction);
+      toRestoreLocal.forEach(d => {
+        d.verified = false;
+        delete d.selectedForAction;
+        state.drafts.push(d);
+      });
+      await saveDraftsToStorage();
+      await saveDeletedDraftsToStorage();
+      renderSyncTable();
     }
-    await fetchDatabaseRecords();
-  }
 
-  renderDeletedDraftsTable();
-  alert(`Restored ${totalCount} items back to active entries.`);
+    if (toRestoreDb.length > 0) {
+      for (const item of toRestoreDb) {
+        try {
+          await fetch(`/api/entries/restore/${item.id}`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${state.authToken}`
+            }
+          });
+        } catch (e) {
+          console.error('Failed to restore database record', item.id, e);
+        }
+      }
+      state.deletedDbRecords = (state.deletedDbRecords || []).filter(d => !d.selectedForAction);
+      await fetchDatabaseRecords();
+    }
+
+    renderDeletedDraftsTable();
+    alert(`Restored ${totalCount} items back to active entries.`);
+  } catch (err) {
+    console.error('Error during restoreSelectedDeleted:', err);
+    alert('Failed to restore items: ' + err.message);
+  } finally {
+    updateDeletedCountBtnState();
+  }
 }
 
-async function deletePermanentlySelected() {
+async function purgeSelectedDeleted() {
   const toDeleteLocal = state.deletedDrafts.filter(d => d.selectedForAction);
   const toDeleteDb = (state.deletedDbRecords || []).filter(d => d.selectedForAction);
   const totalCount = toDeleteLocal.length + toDeleteDb.length;
   if (totalCount === 0) return;
 
-  if (!confirm(`⚠️ WARNING: Are you absolutely sure you want to PERMANENTLY delete the ${totalCount} selected items? This action is irreversible!`)) {
+  if (!confirm(`⚠️ WARNING: Are you absolutely sure you want to PERMANENTLY purge the ${totalCount} selected items from the Trash Bin? This action cannot be undone!`)) {
     return;
   }
 
-  if (toDeleteLocal.length > 0) {
-    state.deletedDrafts = state.deletedDrafts.filter(d => !d.selectedForAction);
-    await saveDeletedDraftsToStorage();
+  const purgeBtn = DOM.purgeSelectedBtn || DOM.deletePermanentlyBtn;
+  if (purgeBtn) {
+    purgeBtn.disabled = true;
+    purgeBtn.innerHTML = '<span>Purging...</span>';
   }
 
-  if (toDeleteDb.length > 0) {
-    for (const item of toDeleteDb) {
-      try {
-        await fetch(`/api/entries/delete-permanent/${item.id}`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${state.authToken}`
-          }
-        });
-      } catch (e) {
-        console.error('Failed to permanently delete database record', item.id, e);
-      }
+  try {
+    if (toDeleteLocal.length > 0) {
+      state.deletedDrafts = state.deletedDrafts.filter(d => !d.selectedForAction);
+      await saveDeletedDraftsToStorage();
     }
-    await fetchDatabaseRecords();
-  }
 
-  renderDeletedDraftsTable();
-  alert(`Permanently deleted ${totalCount} items.`);
+    if (toDeleteDb.length > 0) {
+      for (const item of toDeleteDb) {
+        try {
+          await fetch(`/api/entries/delete-permanent/${item.id}`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${state.authToken}`
+            }
+          });
+        } catch (e) {
+          console.error('Failed to permanently purge database record', item.id, e);
+        }
+      }
+      state.deletedDbRecords = (state.deletedDbRecords || []).filter(d => !d.selectedForAction);
+      await fetchDatabaseRecords();
+    }
+
+    renderDeletedDraftsTable();
+    alert(`Permanently purged ${totalCount} items.`);
+  } catch (err) {
+    console.error('Error during purgeSelectedDeleted:', err);
+    alert('Failed to purge items: ' + err.message);
+  } finally {
+    updateDeletedCountBtnState();
+  }
 }
+
+const deletePermanentlySelected = purgeSelectedDeleted;
 
 async function pushSelectedDrafts() {
   if (!state.isOnline) {
@@ -5683,8 +5718,9 @@ function setupEventListeners() {
   if (DOM.restoreSelectedBtn) {
     DOM.restoreSelectedBtn.addEventListener('click', restoreSelectedDeleted);
   }
-  if (DOM.deletePermanentlyBtn) {
-    DOM.deletePermanentlyBtn.addEventListener('click', deletePermanentlySelected);
+  const purgeBtn = DOM.purgeSelectedBtn || DOM.deletePermanentlyBtn;
+  if (purgeBtn) {
+    purgeBtn.addEventListener('click', purgeSelectedDeleted);
   }
 
   // DB Viewer filters
