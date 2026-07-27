@@ -7431,7 +7431,9 @@ let chartGenderInstance = null;
 let chartFpInstance = null;
 let chartShiftsInstance = null;
 let chartWeekdayInstance = null;
+let chartWeeklyLoadInstance = null;
 let chartMonthlyLoadInstance = null;
+let chartAnnualLoadInstance = null;
 let chartAgeInstance = null;
 
 function initAnalyticsUI() {
@@ -7930,6 +7932,126 @@ function renderAnalytics() {
       }
     }
   };
+
+  // --- CHART 0A: WEEKLY BIRTH LOAD (BAR) ---
+  if (chartWeeklyLoadInstance) chartWeeklyLoadInstance.destroy();
+  const canvasWeeklyLoad = document.getElementById('chart-weekly-load');
+  if (canvasWeeklyLoad) {
+    const todayForWeek = new Date();
+    const dayOfWeek = todayForWeek.getDay();
+    const diffToMon = todayForWeek.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+    const weekStart = new Date(new Date().setDate(diffToMon));
+    weekStart.setHours(0, 0, 0, 0);
+
+    const weekDailyCounts = [0, 0, 0, 0, 0, 0, 0];
+    filtered.forEach(rec => {
+      if (rec.date) {
+        try {
+          const rDate = new Date(rec.date + 'T00:00:00');
+          const diffDays = Math.floor((rDate - weekStart) / (1000 * 60 * 60 * 24));
+          if (diffDays >= 0 && diffDays < 7) {
+            weekDailyCounts[diffDays]++;
+          }
+        } catch (e) {}
+      }
+    });
+
+    chartWeeklyLoadInstance = new Chart(canvasWeeklyLoad.getContext('2d'), {
+      type: 'bar',
+      data: {
+        labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+        datasets: [{
+          label: 'Deliveries This Week',
+          data: weekDailyCounts,
+          backgroundColor: '#0284c7',
+          borderRadius: 4
+        }]
+      },
+      options: {
+        ...commonOptions,
+        scales: {
+          x: { grid: { display: false }, ticks: { color: fontColor } },
+          y: { grid: { color: gridColor }, ticks: { color: fontColor }, beginAtZero: true }
+        }
+      }
+    });
+  }
+
+  // --- CHART 0B: MONTHLY BIRTH LOAD (LINE) ---
+  if (chartMonthlyLoadInstance) chartMonthlyLoadInstance.destroy();
+  const canvasMonthlyLoad = document.getElementById('chart-monthly-load');
+  if (canvasMonthlyLoad) {
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const monthlyValues = Array.from({ length: 12 }, (_, idx) => {
+      const key = (idx + 1).toString().padStart(2, '0');
+      return monthlyCounts[key] || 0;
+    });
+
+    chartMonthlyLoadInstance = new Chart(canvasMonthlyLoad.getContext('2d'), {
+      type: 'line',
+      data: {
+        labels: monthNames,
+        datasets: [{
+          label: 'Deliveries per Month',
+          data: monthlyValues,
+          borderColor: '#10b981',
+          backgroundColor: 'rgba(16, 185, 129, 0.15)',
+          fill: true,
+          tension: 0.3,
+          borderWidth: 2,
+          pointRadius: 4
+        }]
+      },
+      options: {
+        ...commonOptions,
+        scales: {
+          x: { grid: { display: false }, ticks: { color: fontColor } },
+          y: { grid: { color: gridColor }, ticks: { color: fontColor }, beginAtZero: true }
+        }
+      }
+    });
+  }
+
+  // --- CHART 0C: ANNUAL BIRTH LOAD (BAR) ---
+  if (chartAnnualLoadInstance) chartAnnualLoadInstance.destroy();
+  const canvasAnnualLoad = document.getElementById('chart-annual-load');
+  if (canvasAnnualLoad) {
+    const yearCounts = {};
+    filtered.forEach(rec => {
+      if (rec.date) {
+        const ym = getRecordYearMonth(rec.date);
+        if (ym.yr) {
+          yearCounts[ym.yr] = (yearCounts[ym.yr] || 0) + 1;
+        }
+      }
+    });
+
+    const sortedYears = Object.keys(yearCounts).sort();
+    if (sortedYears.length === 0) {
+      sortedYears.push(new Date().getFullYear().toString());
+      yearCounts[sortedYears[0]] = 0;
+    }
+
+    chartAnnualLoadInstance = new Chart(canvasAnnualLoad.getContext('2d'), {
+      type: 'bar',
+      data: {
+        labels: sortedYears,
+        datasets: [{
+          label: 'Deliveries per Year',
+          data: sortedYears.map(y => yearCounts[y]),
+          backgroundColor: '#a78bfa',
+          borderRadius: 4
+        }]
+      },
+      options: {
+        ...commonOptions,
+        scales: {
+          x: { grid: { display: false }, ticks: { color: fontColor } },
+          y: { grid: { color: gridColor }, ticks: { color: fontColor }, beginAtZero: true }
+        }
+      }
+    });
+  }
 
   // --- CHART 1: GENDER DISTRIBUTION (DOUGHNUT) ---
   if (chartGenderInstance) chartGenderInstance.destroy();

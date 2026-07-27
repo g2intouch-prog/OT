@@ -597,65 +597,71 @@
             </div>
           </div>
 
-          <!-- Analytics KPI Banner Grid (Weekly, Monthly, Annual Birth Loads) -->
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 14px;">
-            <!-- Row 1: Birth Volume & Timeframe Loads -->
-            <div class="summary-card" style="padding: 10px 12px;">
-              <span class="summary-title" style="font-size: 0.72rem;">Total Deliveries</span>
-              <strong id="kpi-total-deliveries" style="font-size: 1.15rem; color: var(--accent-color);">0</strong>
+          <!-- Compact Single-Row KPI Banner (6 Cards) -->
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; margin-bottom: 14px;">
+            <div class="summary-card" style="padding: 8px 12px;">
+              <span class="summary-title" style="font-size: 0.7rem;">Total Deliveries</span>
+              <strong id="kpi-total-deliveries" style="font-size: 1.1rem;">0</strong>
             </div>
-
-            <div class="summary-card" style="padding: 10px 12px; background: rgba(14, 165, 233, 0.05); border-color: rgba(14, 165, 233, 0.25);">
-              <span class="summary-title" style="font-size: 0.72rem; color: #0284c7;">📆 Weekly Birth Load</span>
-              <strong id="kpi-weekly-load" style="font-size: 1.05rem; color: #0284c7;">0 Deliveries</strong>
-            </div>
-
-            <div class="summary-card" style="padding: 10px 12px; background: rgba(5, 150, 105, 0.05); border-color: rgba(5, 150, 105, 0.25);">
-              <span class="summary-title" style="font-size: 0.72rem; color: #10b981;">📅 Monthly Birth Load</span>
-              <strong id="kpi-monthly-load" style="font-size: 1.05rem; color: #10b981;">0 Deliveries</strong>
-            </div>
-
-            <div class="summary-card" style="padding: 10px 12px; background: rgba(124, 58, 237, 0.05); border-color: rgba(124, 58, 237, 0.25);">
-              <span class="summary-title" style="font-size: 0.72rem; color: #a78bfa;">📊 Annual Birth Load</span>
-              <strong id="kpi-annual-load" style="font-size: 1.05rem; color: #a78bfa;">0 Deliveries</strong>
-            </div>
-
-            <!-- Row 2: Clinical Metrics & Risk -->
-            <div class="summary-card" style="padding: 10px 12px;">
-              <span class="summary-title" style="font-size: 0.72rem;">Avg Birth Weight</span>
+            
+            <div class="summary-card" style="padding: 8px 12px;">
+              <span class="summary-title" style="font-size: 0.7rem;">Avg Birth Weight</span>
               <strong id="kpi-avg-weight" style="font-size: 1.1rem;">0g</strong>
             </div>
 
-            <div class="summary-card" style="padding: 10px 12px;">
-              <span class="summary-title" style="font-size: 0.72rem;">FP Adoption Rate</span>
+            <div class="summary-card" style="padding: 8px 12px;">
+              <span class="summary-title" style="font-size: 0.7rem;">FP Adoption Rate</span>
               <strong id="kpi-fp-rate" style="font-size: 1.1rem;">0%</strong>
               <div class="kpi-progress-bar-container" style="background-color: rgba(0,0,0,0.1); border-radius: 3px; height: 4px; margin-top: 4px; overflow: hidden; width: 100%;">
                 <div id="kpi-fp-progress" class="kpi-progress-bar green" style="background-color: var(--success); height: 100%; width: 0%; transition: width 0.4s ease;"></div>
               </div>
             </div>
 
-            <div class="summary-card" style="padding: 10px 12px;">
-              <span class="summary-title" style="font-size: 0.72rem;">LBW (< 2.2kg)</span>
+            <div class="summary-card" style="padding: 8px 12px;">
+              <span class="summary-title" style="font-size: 0.7rem;">LBW (< 2.2kg)</span>
               <strong id="kpi-lbw-rate" style="font-size: 1.05rem;">0 (0%)</strong>
               <div class="kpi-progress-bar-container" style="background-color: rgba(0,0,0,0.1); border-radius: 3px; height: 4px; margin-top: 4px; overflow: hidden; width: 100%;">
                 <div id="kpi-lbw-progress" class="kpi-progress-bar red" style="background-color: var(--danger); height: 100%; width: 0%; transition: width 0.4s ease;"></div>
               </div>
             </div>
 
-            <div class="summary-card" style="padding: 10px 12px; background: rgba(2, 132, 199, 0.06); border-color: rgba(2, 132, 199, 0.3);">
-              <span class="summary-title" style="font-size: 0.72rem; color: var(--accent-color);">👶 Multi-Foetal Surgeries</span>
+            <div class="summary-card" style="padding: 8px 12px; background: rgba(2, 132, 199, 0.06); border-color: rgba(2, 132, 199, 0.3);">
+              <span class="summary-title" style="font-size: 0.7rem; color: var(--accent-color);">👶 Multi-Foetal Surgeries</span>
               <strong id="kpi-multi-foetal" style="font-size: 1.05rem; color: var(--accent-color);">0 (0 Infants)</strong>
             </div>
 
-            <div class="summary-card high-risk-card" style="padding: 10px 12px;">
-              <span class="summary-title" style="font-size: 0.72rem; color: var(--danger);">⚠️ High-Risk Cases</span>
+            <div class="summary-card high-risk-card" style="padding: 8px 12px;">
+              <span class="summary-title" style="font-size: 0.7rem; color: var(--danger);">⚠️ High-Risk Cases</span>
               <strong id="kpi-high-risk" style="font-size: 1.1rem; color: var(--danger);">0</strong>
               <div id="high-risk-popover" class="high-risk-popover"></div>
             </div>
           </div>
 
-          <!-- Compact 3-Column Charts Grid (Low Height Canvas to eliminate vertical scroll) -->
+          <!-- Graphical Charts Grid (3 Columns) -->
           <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px;">
+            <!-- Birth Load Trend Charts -->
+            <div class="chart-card" style="padding: 10px;">
+              <h3 style="font-size: 0.8rem; margin-bottom: 6px; color: #0284c7;">📆 Weekly Birth Load</h3>
+              <div class="chart-container" style="height: 160px; position: relative;">
+                <canvas id="chart-weekly-load"></canvas>
+              </div>
+            </div>
+
+            <div class="chart-card" style="padding: 10px;">
+              <h3 style="font-size: 0.8rem; margin-bottom: 6px; color: #10b981;">📅 Monthly Birth Load</h3>
+              <div class="chart-container" style="height: 160px; position: relative;">
+                <canvas id="chart-monthly-load"></canvas>
+              </div>
+            </div>
+
+            <div class="chart-card" style="padding: 10px;">
+              <h3 style="font-size: 0.8rem; margin-bottom: 6px; color: #a78bfa;">📊 Annual Birth Load</h3>
+              <div class="chart-container" style="height: 160px; position: relative;">
+                <canvas id="chart-annual-load"></canvas>
+              </div>
+            </div>
+
+            <!-- Clinical Metrics Charts -->
             <div class="chart-card" style="padding: 10px;">
               <h3 style="font-size: 0.8rem; margin-bottom: 6px;">Baby Gender Ratio</h3>
               <div class="chart-container" style="height: 160px; position: relative;">
