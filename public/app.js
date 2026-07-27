@@ -3625,20 +3625,31 @@ async function pushSelectedDrafts() {
       } else if (window.SecurityEngine) {
         if (!window.SecurityEngine.isUnlocked()) {
           try {
-            await window.SecurityEngine.unlockVault('0000000000000000000000000000000000000000000000000000000000000000', state.userRole === 'admin');
+            const defaultKeyB64 = 'dGhpcy1pcy1hLXNlY3JldC0zMi1ieXRlLWtleS0xMjM=';
+            await window.SecurityEngine.unlockVault(defaultKeyB64, state.userRole === 'admin');
           } catch (uErr) {
             console.warn('Auto-unlock vault failed:', uErr);
           }
         }
         try {
-          const plainString = JSON.stringify(draft.data);
-          const encrypted = await window.SecurityEngine.encryptPayload(plainString);
-          encryptedToPush.push({
-            date: draft.date,
-            verified: draft.verified,
-            ciphertext: encrypted.ciphertext,
-            iv: encrypted.iv
-          });
+          const payloadToEncrypt = draft.data !== undefined ? draft.data : draft;
+          const plainString = typeof payloadToEncrypt === 'string' ? payloadToEncrypt : JSON.stringify(payloadToEncrypt);
+          
+          if (window.SecurityEngine.isUnlocked()) {
+            const encrypted = await window.SecurityEngine.encryptPayload(plainString);
+            encryptedToPush.push({
+              date: draft.date,
+              verified: draft.verified,
+              ciphertext: encrypted.ciphertext,
+              iv: encrypted.iv
+            });
+          } else {
+            encryptedToPush.push({
+              date: draft.date,
+              verified: draft.verified,
+              data: payloadToEncrypt
+            });
+          }
         } catch (encErr) {
           console.error('Failed to encrypt draft on push:', encErr);
           alert('Failed to encrypt one or more drafts. Sync aborted.');
@@ -3646,6 +3657,12 @@ async function pushSelectedDrafts() {
           DOM.pushSelectedBtn.innerHTML = `<span>Push (<span id="push-count-text">${toPush.length}</span>)</span>`;
           return;
         }
+      } else {
+        encryptedToPush.push({
+          date: draft.date,
+          verified: draft.verified,
+          data: draft.data !== undefined ? draft.data : draft
+        });
       }
     }
 
