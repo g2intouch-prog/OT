@@ -7458,26 +7458,7 @@ function initAnalyticsUI() {
     if (DOM.analysisCustomGroup) DOM.analysisCustomGroup.classList.remove('hidden');
   }
   
-  // Populate the Year filter select dynamically if it has no options yet
-  if (DOM.analysisYear && DOM.analysisYear.options.length === 0) {
-    const years = new Set();
-    const allRecords = [...(state.dbRecords || []), ...(state.drafts || [])];
-    allRecords.forEach(rec => {
-      if (rec.date) {
-        const yr = rec.date.split('-')[0];
-        if (yr && yr.length === 4) years.add(yr);
-      }
-    });
-    
-    // Fallback to current year if no data is present yet
-    if (years.size === 0) {
-      years.add(new Date().getFullYear().toString());
-    }
-    
-    DOM.analysisYear.innerHTML = Array.from(years).sort().reverse().map(yr => {
-      return `<option value="${yr}">${yr}</option>`;
-    }).join('');
-  }
+  populateAnalyticsYearDropdown();
 
   // Pre-fill date inputs for Custom Range if empty
   if (DOM.analysisFromDate && !DOM.analysisFromDate.value) {
@@ -7488,6 +7469,39 @@ function initAnalyticsUI() {
   }
   if (DOM.analysisToDate && !DOM.analysisToDate.value) {
     DOM.analysisToDate.value = new Date().toISOString().split('T')[0];
+  }
+}
+
+function populateAnalyticsYearDropdown() {
+  if (!DOM.analysisYear) return;
+  const currentSelected = DOM.analysisYear.value;
+  const years = new Set();
+  const allRecords = [...(state.dbRecords || []), ...(state.drafts || [])];
+
+  allRecords.forEach(rec => {
+    if (rec.date) {
+      const str = rec.date.toString().trim();
+      let match = str.match(/^(\d{4})/);
+      if (match) years.add(match[1]);
+      else {
+        match = str.match(/\d{1,2}[\/\-]\d{1,2}[\/\-](\d{4})/);
+        if (match) years.add(match[1]);
+      }
+    }
+  });
+
+  const currentYr = new Date().getFullYear();
+  for (let y = currentYr; y >= currentYr - 5; y--) {
+    years.add(y.toString());
+  }
+
+  const sortedYears = Array.from(years).sort().reverse();
+  DOM.analysisYear.innerHTML = sortedYears.map(yr => `<option value="${yr}">${yr}</option>`).join('');
+
+  if (currentSelected && sortedYears.includes(currentSelected)) {
+    DOM.analysisYear.value = currentSelected;
+  } else {
+    DOM.analysisYear.value = currentYr.toString();
   }
 }
 
@@ -7910,11 +7924,11 @@ function renderAnalytics() {
   
   if (DOM.topAddressesList) {
     if (sortedAddresses.length === 0) {
-      DOM.topAddressesList.innerHTML = '<li class="text-muted" style="background: none; border: none; padding: 0; font-size: 0.72rem;">No data available</li>';
+      DOM.topAddressesList.innerHTML = '<li class="text-muted" style="background: none; border: none; padding: 0; font-size: 0.65rem;">No data available</li>';
     } else {
       DOM.topAddressesList.innerHTML = sortedAddresses.map(([addr, count]) => {
-        const pluralText = count === 1 ? 'delivery' : 'deliveries';
-        return `<li style="font-size: 0.72rem; padding: 2px 0; margin: 0; line-height: 1.2; border-bottom: 1px dashed rgba(255,255,255,0.06);"><strong>${addr}</strong>: ${count} ${pluralText}</li>`;
+        const pluralText = count === 1 ? 'del.' : 'dels.';
+        return `<li style="font-size: 0.65rem; padding: 1px 0; margin: 0; line-height: 1.1; border-bottom: 1px dashed rgba(255,255,255,0.06); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><strong>${addr}</strong>: ${count} ${pluralText}</li>`;
       }).join('');
     }
   }
@@ -8172,7 +8186,7 @@ function renderAnalytics() {
     chartWeekdayInstance = new Chart(canvasWeekday.getContext('2d'), {
       type: 'bar',
       data: {
-        labels: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
+        labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
         datasets: [{
           label: 'Deliveries',
           data: [
