@@ -1290,24 +1290,41 @@ body.light-mode .print-title-header {
     size: landscape;
     margin: 8mm;
   }
-  body * {
-    visibility: hidden;
-  }
-  #print-modal, #print-modal *, #print-area, #print-area * {
-    visibility: visible;
-  }
-  #print-modal {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: auto;
+
+  html, body {
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
     background: #fff !important;
+  }
+
+  /* Hide all top-level body children by default to prevent hidden elements from occupying layout height */
+  body > * {
+    display: none !important;
+  }
+
+  /* Display only the print modal as a static flow element */
+  body > #print-modal {
     display: block !important;
+    position: static !important;
+    float: none !important;
+    width: 100% !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
     opacity: 1 !important;
     pointer-events: auto !important;
     box-shadow: none !important;
+    overflow: visible !important;
   }
+
+  #print-modal * {
+    visibility: visible !important;
+  }
+
   .modal-card {
     border: none !important;
     box-shadow: none !important;
@@ -1316,24 +1333,33 @@ body.light-mode .print-title-header {
     width: 100% !important;
     transform: none !important;
     overflow: visible !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
+
   .modal-body {
     overflow: visible !important;
     max-height: none !important;
     padding: 0 !important;
+    margin: 0 !important;
   }
+
   .modal-header, .modal-actions, .modal-close-x, #cancel-print-btn, #verify-print-btn {
     display: none !important;
   }
-  #print-area {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
+
+  #print-area, .print-preview-container {
+    position: static !important;
+    width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
     color: #000 !important;
     background: #fff !important;
     overflow: visible !important;
   }
+
   .print-title-header {
     background: none !important;
     -webkit-text-fill-color: #000 !important;
@@ -1343,22 +1369,29 @@ body.light-mode .print-title-header {
     font-weight: 700;
     margin-bottom: 12px;
   }
+
   .table-responsive {
     border: none !important;
     overflow: visible !important;
     max-height: none !important;
     background: #fff !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
+
   .tab-panel .table-responsive {
     max-height: none !important;
     overflow: visible !important;
   }
+
   .data-table {
     width: 100% !important;
     border-collapse: collapse !important;
     table-layout: fixed !important;
     font-size: 0.7rem !important;
+    margin: 0 !important;
   }
+
   .data-table th, .data-table td {
     border: 1px solid #000 !important;
     color: #000 !important;
@@ -1368,6 +1401,19 @@ body.light-mode .print-title-header {
     word-break: break-word !important;
     white-space: normal !important;
     overflow: visible !important;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+
+  tbody {
+    display: table-row-group;
+  }
+
+  tr {
+    page-break-inside: avoid;
+    break-inside: avoid;
   }
 }
 
