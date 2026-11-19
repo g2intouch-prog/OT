@@ -2004,6 +2004,261 @@ async function fetchDeletedDbRecords() {
 }
 
 // -------------------------------------------------------------
+// BABY GENDER CLASSIFICATION & PARSING HELPERS
+// -------------------------------------------------------------
+
+// Helper to identify the schema field for baby gender
+function findBabySexField(schema) {
+  if (!Array.isArray(schema) || schema.length === 0) return null;
+  
+  // 1. Explicit baby sex field IDs
+  const explicit = schema.find(f => {
+    const id = (f.id || '').toLowerCase();
+    return id === 'sexob' || id === 'sex_ob' || id === 'baby_sex' || id === 'child_sex' || id === 'infant_sex' || id === 'foetal_sex' || id === 'fetal_sex' || id === 'gender_baby';
+  });
+  if (explicit) return explicit;
+
+  // 2. Title has baby/infant/child/foetal/ob AND sex/gender
+  const titled = schema.find(f => {
+    const title = (f.title || '').toLowerCase();
+    const isBaby = title.includes('baby') || title.includes('child') || title.includes('infant') || title.includes('foetal') || title.includes('fetal') || title.includes('ob');
+    const isSex = title.includes('sex') || title.includes('gender');
+    return isBaby && isSex;
+  });
+  if (titled) return titled;
+
+  // 3. Category foetal AND (id or title contains sex or gender), excluding mother's sex
+  const foetalCat = schema.find(f => {
+    const id = (f.id || '').toLowerCase();
+    const cat = (f.category || '').toLowerCase();
+    const title = (f.title || '').toLowerCase();
+    const isMother = id === 'sex' && (title === 'sex' || title.includes('mother') || title.includes('maternal'));
+    return cat === 'foetal' && !isMother && (id.includes('sex') || id.includes('gender') || title.includes('sex') || title.includes('gender'));
+  });
+  if (foetalCat) return foetalCat;
+
+  // 4. Any field with sex/gender in title/id that is not maternal/mother
+  const anyNonMaternal = schema.find(f => {
+    const id = (f.id || '').toLowerCase();
+    const cat = (f.category || '').toLowerCase();
+    const title = (f.title || '').toLowerCase();
+    const isMaternal = cat === 'maternal' || title.includes('mother') || title.includes('maternal') || title.includes('w/o');
+    return !isMaternal && (id.includes('sex') || id.includes('gender') || title.includes('sex') || title.includes('gender'));
+  });
+  if (anyNonMaternal) return anyNonMaternal;
+
+  return null;
+}
+
+// Classify a single gender token to 'male', 'female', 'other', or null
+function classifySingleGender(raw) {
+  if (!raw && raw !== 0) return null;
+  const t = raw.toString().trim().toLowerCase();
+  if (!t || ['null', 'undefined', 'na', 'n/a', '-', '--', 'nil', 'unknown', 'none'].includes(t)) {
+    return null;
+  }
+
+  // 1. Explicit Female Patterns (check before male because 'female' contains 'male')
+  // "female", "fch", "girl", standalone "f", "female ♀", "♀", "f.ch", "f/ch"
+  if (
+    t.includes('female') ||
+    t.includes('fch') ||
+    t.includes('f.ch') ||
+    t.includes('f/ch') ||
+    t.includes('girl') ||
+    t.includes('♀') ||
+    t === 'f' ||
+    /^f[\.\/\s_-]/i.test(t) ||
+    /[\.\/\s_-]f$/i.test(t) ||
+    t === 'g'
+  ) {
+    return 'female';
+  }
+
+  // 2. Explicit Male Patterns
+  // "male", "mch", "boy", standalone "m", "male ♂", "♂", "m.ch", "m/ch"
+  if (
+    t.includes('male') ||
+    t.includes('mch') ||
+    t.includes('m.ch') ||
+    t.includes('m/ch') ||
+    t.includes('boy') ||
+    t.includes('♂') ||
+    t === 'm' ||
+    /^m[\.\/\s_-]/i.test(t) ||
+    /[\.\/\s_-]m$/i.test(t) ||
+    t === 'b'
+  ) {
+    return 'male';
+  }
+
+  // 3. Ambiguous / Other Patterns
+  if (
+    t.includes('other') ||
+    t.includes('ambiguous') ||
+    t.includes('intersex') ||
+    t.includes('hermaphrodite') ||
+    t.includes('indeterminate') ||
+    t.includes('unspecified')
+  ) {
+    return 'other';
+  }
+
+  // Clinical status without gender specified
+  if (t === 'iud' || t.includes('stillbirth') || t.includes('abortion') || t === 'fsb' || t === 'msb' || t === 'sb') {
+    return 'other';
+  }
+
+  return 'other';
+}
+
+// Extract one or more gender tokens from any raw string value
+function extractGendersFromValue(rawVal) {
+  if (!rawVal && rawVal !== 0) return [];
+  const str = rawVal.toString().trim();
+  if (!str) return [];
+
+  const lower = str.toLowerCase();
+  if (['null', 'undefined', 'na', 'n/a', '-', '--', 'nil', 'unknown', 'none'].includes(lower)) {
+    return [];
+  }
+
+  // 1. Check parenthesized expressions: e.g. "Twins (Male, Female)" or "Twin (MCH, FCH)"
+  const parenMatch = lower.match(/\(([^)]+)\)/);
+  if (parenMatch) {
+    const inner = parenMatch[1];
+    const parts = inner.split(/[,/&+]|\band\b/);
+    const results = [];
+    parts.forEach(p => {
+      const g = classifySingleGender(p.trim());
+      if (g) results.push(g);
+    });
+    if (results.length > 0) return results;
+  }
+
+  // 2. Check multiple tokens separated by commas, ampersands, pluses, or slashes (excluding clinical prefixes like iud/fch)
+  const isClinicalCompound = lower.startsWith('iud/') || lower.startsWith('sb/') || lower.startsWith('fsb/') || lower.startsWith('ls/');
+  if (!isClinicalCompound && (lower.includes(',') || lower.includes('&') || lower.includes('+') || /\band\b/.test(lower) || lower.includes('/'))) {
+    const parts = lower.split(/[,&+]|\band\b|\//);
+    const results = [];
+    parts.forEach(p => {
+      const g = classifySingleGender(p.trim());
+      if (g) results.push(g);
+    });
+    if (results.length > 0) return results;
+  }
+
+  // 3. Check count prefixes: e.g. "2 Male", "2 FCH"
+  const multiMale = lower.match(/(\d+)\s*(?:male|mch|boy)/);
+  const multiFemale = lower.match(/(\d+)\s*(?:female|fch|girl)/);
+  if (multiMale || multiFemale) {
+    const results = [];
+    if (multiMale) {
+      const cnt = parseInt(multiMale[1]) || 1;
+      for (let i = 0; i < cnt; i++) results.push('male');
+    }
+    if (multiFemale) {
+      const cnt = parseInt(multiFemale[1]) || 1;
+      for (let i = 0; i < cnt; i++) results.push('female');
+    }
+    if (results.length > 0) return results;
+  }
+
+  // 4. If the word itself is just "twins" or "triplets" without gender breakdown
+  if (lower.trim() === 'twins' || lower.trim() === 'twin') {
+    return ['other', 'other'];
+  }
+  if (lower.trim() === 'triplets' || lower.trim() === 'triplet') {
+    return ['other', 'other', 'other'];
+  }
+  if (lower.trim() === 'quadruplets' || lower.trim() === 'quadruplet') {
+    return ['other', 'other', 'other', 'other'];
+  }
+
+  // 5. Direct single token classification
+  const directMatch = classifySingleGender(lower);
+  if (directMatch) {
+    return [directMatch];
+  }
+
+  return ['other'];
+}
+
+// Retrieve baby gender value from record data object
+function getBabyGenderValue(d, schema) {
+  if (!d || typeof d !== 'object') return '';
+
+  // 1. If schema has a designated baby sex field, check that field id first
+  const babySexField = findBabySexField(schema);
+  if (babySexField && d[babySexField.id] !== undefined && d[babySexField.id] !== null && d[babySexField.id] !== '') {
+    return d[babySexField.id];
+  }
+
+  // 2. Direct high-priority baby gender keys in d
+  const highPriorityKeys = [
+    'sexob', 'sex_ob', 'baby_sex', 'babysex', 'baby_gender', 'babygender',
+    'child_sex', 'childsex', 'child_gender', 'childgender',
+    'infant_sex', 'infantsex', 'infant_gender', 'infantgender',
+    'foetal_sex', 'foetalsex', 'foetal_gender', 'foetalgender',
+    'fetal_sex', 'fetalsex', 'fetal_gender', 'fetalgender',
+    'gender_baby', 'sex_baby', 'sex_of_baby', 'sex_of_child', 'gender_of_baby'
+  ];
+  for (const hpk of highPriorityKeys) {
+    for (const k of Object.keys(d)) {
+      if (k.toLowerCase() === hpk && d[k] !== undefined && d[k] !== null && d[k] !== '') {
+        return d[k];
+      }
+    }
+  }
+
+  // 3. Keys containing both foetal/baby/child/infant/ob AND sex/gender
+  for (const k of Object.keys(d)) {
+    const kLower = k.toLowerCase();
+    const isBaby = kLower.includes('baby') || kLower.includes('child') || kLower.includes('infant') || kLower.includes('foetal') || kLower.includes('fetal') || kLower.includes('ob');
+    const isSex = kLower.includes('sex') || kLower.includes('gender');
+    if (isBaby && isSex && d[k] !== undefined && d[k] !== null && d[k] !== '') {
+      return d[k];
+    }
+  }
+
+  // 4. Schema fields with category 'foetal' or title matching baby/child
+  if (Array.isArray(schema)) {
+    for (const f of schema) {
+      const titleLower = (f.title || '').toLowerCase();
+      const catLower = (f.category || '').toLowerCase();
+      const isMaternal = catLower === 'maternal' || titleLower.includes('mother') || titleLower.includes('maternal') || titleLower.includes('w/o') || f.id === 'sex';
+      if (!isMaternal && (titleLower.includes('sex') || titleLower.includes('gender') || catLower === 'foetal')) {
+        if (d[f.id] !== undefined && d[f.id] !== null && d[f.id] !== '') {
+          return d[f.id];
+        }
+      }
+    }
+  }
+
+  // 5. Fallback: keys containing 'sex' or 'gender' EXCLUDING maternal fields and bare 'sex'
+  for (const k of Object.keys(d)) {
+    const kLower = k.toLowerCase();
+    const isMaternal = kLower.includes('mother') || kLower.includes('maternal') || kLower === 'sex';
+    if ((kLower.includes('sex') || kLower.includes('gender')) && !isMaternal) {
+      if (d[k] !== undefined && d[k] !== null && d[k] !== '') {
+        return d[k];
+      }
+    }
+  }
+
+  // 6. Last resort: only if 'sex' is the sole gender key in the record AND schema does not treat it as maternal
+  if (d['sex'] !== undefined && d['sex'] !== null && d['sex'] !== '') {
+    const sexSchemaField = Array.isArray(schema) ? schema.find(f => f.id === 'sex') : null;
+    const isMotherSex = sexSchemaField && (sexSchemaField.category === 'maternal' || (sexSchemaField.options && sexSchemaField.options.length === 1 && sexSchemaField.options[0].toLowerCase().includes('female')));
+    if (!isMotherSex) {
+      return d['sex'];
+    }
+  }
+
+  return '';
+}
+
+// -------------------------------------------------------------
 // TAB 1: DATA ENTRY RENDERER & ACTIONS
 // -------------------------------------------------------------
 
@@ -2035,9 +2290,9 @@ function renderDataEntryForm() {
     if (!catId) {
       if (titleLower.includes('date') || titleLower.includes('serial') || titleLower.includes('time') || titleLower.includes('procedure') || titleLower.includes('surgeon')) {
         catId = 'general';
-      } else if (titleLower.includes('name') || titleLower.includes('husband') || titleLower.includes('father') || titleLower.includes('age') || titleLower.includes('parity') || titleLower.includes('gpla') || titleLower.includes('maternal') || titleLower.includes('address')) {
+      } else if (field.id === 'sex' || titleLower === 'sex' || titleLower.includes('name') || titleLower.includes('husband') || titleLower.includes('father') || titleLower.includes('age') || titleLower.includes('parity') || titleLower.includes('gpla') || titleLower.includes('maternal') || titleLower.includes('address')) {
         catId = 'maternal';
-      } else if (titleLower.includes('sex') || titleLower.includes('gender') || titleLower.includes('weight') || titleLower.includes('apgar') || titleLower.includes('baby') || titleLower.includes('infant') || titleLower.includes('child')) {
+      } else if (field.id === 'sexob' || titleLower.includes('sex') || titleLower.includes('gender') || titleLower.includes('weight') || titleLower.includes('apgar') || titleLower.includes('baby') || titleLower.includes('infant') || titleLower.includes('child')) {
         catId = 'foetal';
       } else {
         catId = 'general';
@@ -2244,16 +2499,7 @@ function syncSubCardsToMainForm(typeName) {
     if (a) apgars.push(a);
   });
 
-  const babySexField = Array.isArray(state.schema) ? state.schema.find(f => {
-    const id = (f.id || '').toLowerCase();
-    const cat = (f.category || '').toLowerCase();
-    const title = (f.title || '').toLowerCase();
-
-    if (id === 'sexob' || id === 'baby_sex' || id === 'child_sex' || id === 'infant_sex' || id === 'foetal_sex' || id === 'gender_baby') return true;
-    if (cat === 'foetal' && (id.includes('sex') || id.includes('gender') || title.includes('sex') || title.includes('gender'))) return true;
-    if ((title.includes('baby') || title.includes('child') || title.includes('infant') || title.includes('foetal')) && (title.includes('sex') || title.includes('gender'))) return true;
-    return false;
-  }) : null;
+  const babySexField = findBabySexField(state.schema);
 
   const weightField = Array.isArray(state.schema) ? state.schema.find(f => f.id === 'weight' || f.id === 'weightob' || f.id.toLowerCase().includes('weight') || (f.title && f.title.toLowerCase().includes('weight'))) : null;
   const timeField = Array.isArray(state.schema) ? state.schema.find(f => f.type === 'time' || f.id === 'timeob' || f.id.toLowerCase().includes('time') || (f.title && f.title.toLowerCase().includes('time'))) : null;
@@ -2555,16 +2801,7 @@ function handleSaveDraft(e) {
     });
     formData.multi_foetal_infants = infantsList;
 
-    const babySexField = Array.isArray(state.schema) ? state.schema.find(f => {
-      const id = (f.id || '').toLowerCase();
-      const cat = (f.category || '').toLowerCase();
-      const title = (f.title || '').toLowerCase();
-
-      if (id === 'sexob' || id === 'baby_sex' || id === 'child_sex' || id === 'infant_sex' || id === 'foetal_sex' || id === 'gender_baby') return true;
-      if (cat === 'foetal' && (id.includes('sex') || id.includes('gender') || title.includes('sex') || title.includes('gender'))) return true;
-      if ((title.includes('baby') || title.includes('child') || title.includes('infant') || title.includes('foetal')) && (title.includes('sex') || title.includes('gender'))) return true;
-      return false;
-    }) : null;
+    const babySexField = findBabySexField(state.schema);
 
     const sexKey = babySexField ? babySexField.id : (formData.hasOwnProperty('sexob') ? 'sexob' : (formData.hasOwnProperty('baby_sex') ? 'baby_sex' : 'sexob'));
     if (infantGenders.length > 1) {
@@ -2701,15 +2938,21 @@ function loadDraftIntoDataEntry(item, itemIndex, isDraft = true) {
 
       if (recData.multi_foetal_infants && recData.multi_foetal_infants[i]) {
         const inf = recData.multi_foetal_infants[i];
-        if (gSel && inf.gender) gSel.value = inf.gender;
+        if (gSel && inf.gender) {
+          const normG = classifySingleGender(inf.gender);
+          gSel.value = normG === 'female' ? 'Female' : (normG === 'male' ? 'Male' : inf.gender);
+        }
         if (tInp && inf.timeob) tInp.value = convertExcelTime(inf.timeob, true);
         if (wInp && inf.weight) wInp.value = formatWeightToGrams(inf.weight);
         if (aInp && inf.apgar) aInp.value = inf.apgar;
       } else if (i === 0) {
-        const mainGender = recData.sexob || recData.sex || recData.gender || '';
+        const mainGender = recData.sexob || recData.baby_sex || recData.child_sex || recData.infant_sex || recData.gender_baby || recData.gender || '';
         const mainTime = recData.timeob || recData.time || '';
         const mainWeight = recData.weightob || recData.weight || '';
-        if (gSel && mainGender) gSel.value = mainGender;
+        if (gSel && mainGender) {
+          const normG = classifySingleGender(mainGender);
+          gSel.value = normG === 'female' ? 'Female' : (normG === 'male' ? 'Male' : mainGender);
+        }
         if (tInp && mainTime) tInp.value = mainTime;
         if (wInp && mainWeight) wInp.value = formatWeightToGrams(mainWeight);
       }
@@ -5294,7 +5537,10 @@ function setupEventListeners() {
           const tInp = c.querySelector('.infant-time-input');
           const wInp = c.querySelector('.infant-weight-input');
           
-          if (gSel && mainGender && mainGender.value) gSel.value = mainGender.value;
+          if (gSel && mainGender && mainGender.value) {
+            const normG = classifySingleGender(mainGender.value);
+            gSel.value = normG === 'female' ? 'Female' : (normG === 'male' ? 'Male' : mainGender.value);
+          }
           if (tInp && mainTime && mainTime.value) tInp.value = mainTime.value;
           if (wInp && mainWeight && mainWeight.value) wInp.value = mainWeight.value;
         }
@@ -7519,6 +7765,7 @@ function renderAnalytics() {
     if (DOM.kpiLbwRate) DOM.kpiLbwRate.textContent = '0 (0%)';
     if (DOM.kpiLbwProgress) DOM.kpiLbwProgress.style.width = '0%';
     if (DOM.kpiHighRisk) DOM.kpiHighRisk.textContent = '0';
+    if (DOM.kpiGenderRatio) DOM.kpiGenderRatio.textContent = 'N/A';
     if (DOM.kpiHighRiskPopover) DOM.kpiHighRiskPopover.innerHTML = '<div style="padding: 8px; text-align: center; color: var(--text-muted);">No high-risk records found.</div>';
     if (DOM.topAddressesList) DOM.topAddressesList.innerHTML = '<li class="text-muted">No data available</li>';
     return;
@@ -7619,10 +7866,16 @@ function renderAnalytics() {
     if (infants && Array.isArray(infants) && infants.length > 1) {
       infants.forEach(infant => {
         // Infant Gender
-        const g = (infant.gender || '').toString().trim().toLowerCase();
-        if (g.includes('male') && !g.includes('female')) maleCount++;
-        else if (g.includes('female')) femaleCount++;
-        else if (g) otherGenderCount++;
+        const infantGenders = extractGendersFromValue(infant.gender);
+        if (infantGenders.length > 0) {
+          infantGenders.forEach(g => {
+            if (g === 'male') maleCount++;
+            else if (g === 'female') femaleCount++;
+            else otherGenderCount++;
+          });
+        } else {
+          otherGenderCount++;
+        }
 
         // Infant Weight (support kg float like 2.5 or grams like 2500)
         let wVal = parseFloat(infant.weight);
@@ -7634,20 +7887,14 @@ function renderAnalytics() {
         }
       });
     } else {
-      // Standard Single Baby Gender: Search data keys for sex or gender
-      let sexVal = '';
-      for (const k of Object.keys(d)) {
-        const kLower = k.toLowerCase();
-        if (kLower.includes('sex') || kLower.includes('gender')) {
-          if (d[k]) { sexVal = d[k].toString().trim().toLowerCase(); break; }
-        }
-      }
-      if (sexVal.includes('male') && !sexVal.includes('female')) maleCount++;
-      else if (sexVal.includes('female') && !sexVal.includes('male')) femaleCount++;
-      else if (sexVal.includes('male') && sexVal.includes('female')) {
-        maleCount++;
-        femaleCount++;
-      } else if (sexVal) otherGenderCount++;
+      // Standard Single Baby Gender (or twin/triplet formatted in sexob string)
+      const babySexRaw = getBabyGenderValue(d, state.schema);
+      const parsedGenders = extractGendersFromValue(babySexRaw);
+      parsedGenders.forEach(g => {
+        if (g === 'male') maleCount++;
+        else if (g === 'female') femaleCount++;
+        else otherGenderCount++;
+      });
 
       // Standard Single Birth Weight: Search data keys for weight
       let wNum = null;
@@ -7882,9 +8129,11 @@ function renderAnalytics() {
   let genderRatioText = 'N/A';
   if (femaleCount > 0) {
     const ratio = Math.round((maleCount / femaleCount) * 1000);
-    genderRatioText = `${ratio} M / 1000 F`;
+    genderRatioText = `${maleCount}♂ : ${femaleCount}♀ (${ratio}M/1k F)`;
   } else if (maleCount > 0) {
-    genderRatioText = `${maleCount} M / 0 F`;
+    genderRatioText = `${maleCount}♂ : 0♀`;
+  } else if (femaleCount > 0) {
+    genderRatioText = `0♂ : ${femaleCount}♀`;
   }
   if (DOM.kpiGenderRatio) DOM.kpiGenderRatio.textContent = genderRatioText;
 
@@ -8071,6 +8320,7 @@ function renderAnalytics() {
   if (chartGenderInstance) chartGenderInstance.destroy();
   const canvasGender = document.getElementById('chart-gender');
   if (canvasGender) {
+    const totalGenders = maleCount + femaleCount + otherGenderCount;
     chartGenderInstance = new Chart(canvasGender.getContext('2d'), {
       type: 'doughnut',
       data: {
@@ -8082,7 +8332,21 @@ function renderAnalytics() {
           borderWidth: 1
         }]
       },
-      options: commonOptions
+      options: {
+        ...commonOptions,
+        plugins: {
+          ...commonOptions.plugins,
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                const val = context.raw || 0;
+                const pct = totalGenders > 0 ? ((val / totalGenders) * 100).toFixed(1) : '0.0';
+                return ` ${context.label}: ${val} (${pct}%)`;
+              }
+            }
+          }
+        }
+      }
     });
   }
 

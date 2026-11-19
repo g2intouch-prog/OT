@@ -663,7 +663,10 @@
 
             <!-- Clinical Metrics Charts -->
             <div class="chart-card" style="padding: 6px 8px;">
-              <h3 style="font-size: 0.75rem; margin-bottom: 2px;">Baby Gender Ratio</h3>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
+                <h3 style="font-size: 0.75rem; margin: 0;">Baby Gender Ratio</h3>
+                <span id="kpi-gender-ratio" style="font-size: 0.68rem; color: var(--accent-color); font-weight: 600;">N/A</span>
+              </div>
               <div class="chart-container" style="height: 120px; position: relative;">
                 <canvas id="chart-gender"></canvas>
               </div>
@@ -1545,6 +1548,6 @@
 
   <!-- Frontend application script -->
   <script src="/js/securityEngine.js"></script>
-  <script src="/app.js"></script>
+  <script src="/app.js?v=2.1"></script>
 </body>
 </html>
